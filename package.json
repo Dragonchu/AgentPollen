@@ -1,0 +1,17 @@
+{
+  "name": "ai-battle-royale",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Battle Royale - 100 AI agents, one world, players vote to influence the outcome",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
+    "dev:server": "pnpm --filter server dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter shared build && pnpm --filter server build && pnpm --filter web build",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules packages/*/.next node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
+  }
+}
