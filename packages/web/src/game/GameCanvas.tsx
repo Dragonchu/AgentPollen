@@ -57,6 +57,14 @@ export function GameCanvas({
       const scene = new GameScene();
       sceneRef.current = scene;
 
+      // Set up callback before the scene is created
+      scene.setOnReady(() => {
+        if (destroyed) return;
+        scene.setOnAgentClick((id) => onAgentClickRef.current?.(id));
+        readyRef.current = true;
+        syncToScene();
+      });
+
       const game = new Phaser.Game({
         type: Phaser.CANVAS,
         width: CANVAS_SIZE,
@@ -74,14 +82,6 @@ export function GameCanvas({
         banner: false,
       });
       gameRef.current = game;
-
-      // Once the scene finishes create(), wire the callback and push initial data.
-      scene.events.on("create", () => {
-        if (destroyed) return;
-        scene.setOnAgentClick((id) => onAgentClickRef.current?.(id));
-        readyRef.current = true;
-        syncToScene();
-      });
     });
 
     return () => {

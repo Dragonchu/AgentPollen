@@ -32,9 +32,14 @@ export class GameScene extends Phaser.Scene {
   private selectedAgentId: number | null = null;
   private shrinkBorder: number = GRID_SIZE;
   private onAgentClick?: (agentId: number) => void;
+  private onReady?: () => void;
 
   constructor() {
     super({ key: "GameScene" });
+  }
+
+  setOnReady(callback: () => void): void {
+    this.onReady = callback;
   }
 
   create(): void {
@@ -50,6 +55,9 @@ export class GameScene extends Phaser.Scene {
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.handleClick(pointer.x, pointer.y);
     });
+
+    // Notify the React component that the scene is ready
+    this.onReady?.();
   }
 
   setOnAgentClick(callback: (agentId: number) => void): void {
