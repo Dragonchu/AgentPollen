@@ -43,13 +43,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install ESLint and formatter
-        run: |
-          npm install eslint@8.57.0
-          npm install @microsoft/eslint-formatter-sarif@3.1.0
-          npm install @typescript-eslint/parser@7.18.0
-          npm install @typescript-eslint/eslint-plugin@7.18.0
-
       - name: Run ESLint
         env:
           SARIF_ESLINT_IGNORE_SUPPRESSED: "true"
