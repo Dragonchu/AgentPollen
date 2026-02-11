@@ -7,14 +7,20 @@ import { SyncManager } from "./network/SyncManager.js";
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
 const TICK_INTERVAL = parseInt(process.env.TICK_INTERVAL ?? "1000", 10);
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 
 async function main() {
   console.log("=== AI Battle Royale Server ===");
   console.log(`Agents: ${AGENT_COUNT} | Tick: ${TICK_INTERVAL}ms | Port: ${PORT}`);
+  console.log(`CORS Origin: ${CORS_ORIGIN}`);
 
   // 1. Create Socket.IO server
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(PORT, {
-    cors: { origin: "*" },
+    cors: {
+      origin: CORS_ORIGIN,
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
   });
 
   // 2. Create decision engine (plugin)
