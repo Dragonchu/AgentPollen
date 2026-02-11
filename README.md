@@ -126,6 +126,26 @@ The `VoteManager` supports extension via:
 - `PORT` - WebSocket port (default: 3001)
 - `AGENT_COUNT` - Number of agents (default: 10)
 - `TICK_INTERVAL` - Ms between ticks (default: 1000)
+- `CORS_ORIGIN` - Allowed origin for CORS (default: "*")
+  - Development: use "*" to allow all origins
+  - Production: set to your frontend URL (e.g., "https://your-app.railway.app")
 
 **Web** (`packages/web/.env.local`):
 - `NEXT_PUBLIC_SERVER_URL` - Server URL (default: http://localhost:3001)
+
+## Deployment
+
+### Railway Deployment
+
+When deploying the server and web frontend on separate Railway services:
+
+1. **Server Configuration:**
+   - Set environment variable: `CORS_ORIGIN=https://your-web-app.railway.app`
+   - Alternatively, use `CORS_ORIGIN=*` to allow all origins (less secure)
+   - The server will automatically use the Railway-provided PORT
+
+2. **Web Configuration:**
+   - Set environment variable: `NEXT_PUBLIC_SERVER_URL=https://your-server.railway.app`
+   - Rebuild the web app after setting this variable
+
+This ensures proper CORS configuration for cross-origin Socket.IO connections.
