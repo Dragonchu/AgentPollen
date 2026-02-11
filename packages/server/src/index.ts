@@ -9,6 +9,15 @@ const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
 const TICK_INTERVAL = parseInt(process.env.TICK_INTERVAL ?? "1000", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 
+// Parse CORS origin: "*" becomes true (reflect request origin, required for
+// credentials: true), comma-separated values become an array, otherwise pass
+// the string as-is.
+function parseCorsOrigin(raw: string): boolean | string | string[] {
+  if (raw === "*") return true;
+  if (raw.includes(",")) return raw.split(",").map((s) => s.trim());
+  return raw;
+}
+
 async function main() {
   console.log("=== AI Battle Royale Server ===");
   console.log(`Agents: ${AGENT_COUNT} | Tick: ${TICK_INTERVAL}ms | Port: ${PORT}`);
@@ -17,7 +26,7 @@ async function main() {
   // 1. Create Socket.IO server
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(PORT, {
     cors: {
-      origin: CORS_ORIGIN,
+      origin: parseCorsOrigin(CORS_ORIGIN),
       methods: ["GET", "POST"],
       credentials: true,
     },
