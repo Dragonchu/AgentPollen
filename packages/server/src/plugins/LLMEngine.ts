@@ -188,7 +188,20 @@ Choose ONE action:
 
 Respond in this format:
 ACTION: [action]
-REASON: [brief reason]`;
+REASON: [brief reason]
+
+Examples:
+ACTION: attack Kael
+REASON: Kael is wounded and an easy target for my aggressive nature
+
+ACTION: ally Lyra
+REASON: Need allies to survive, Lyra is nearby and neutral
+
+ACTION: flee
+REASON: Low HP and outnumbered, must retreat to safety
+
+ACTION: loot sword
+REASON: Better weapon will increase my combat effectiveness`;
   }
 
   private buildReflectionPrompt(ctx: ReflectionContext): string {
@@ -203,7 +216,12 @@ REASON: [brief reason]`;
 Recent experiences:
 ${memoryText}
 
-Given these experiences, what is ONE key insight or strategy you've learned? Keep it brief (1-2 sentences).`;
+Given these experiences, what is ONE key insight or strategy you've learned? Keep it brief (1-2 sentences).
+
+Examples:
+- "I've been in many fights recently. I need to be more strategic and pick battles I can win."
+- "Alliances have kept me alive. I should maintain my relationships and avoid betraying allies."
+- "My HP is low after multiple combats. Avoiding fights and finding items is my priority now."`;
   }
 
   private parseDecision(response: string, ctx: DecisionContext): Decision {
