@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "composite": true
+    "composite": true,
+    "moduleResolution": "node"
   },
-  "declaration": true,
   "include": ["src"]
 }
