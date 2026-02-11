@@ -199,8 +199,8 @@ The server and client communicate via Socket.IO events. All event types are defi
    - Leaderboard updates
 
 **Expected behavior:**
-- Server should log "Game server running on port 3001" (or configured PORT)
-- Web should show "ready - started server on 0.0.0.0:3000"
+- Server should log `"Game server running on port 3001"` (or configured PORT)
+- Web should show `"ready - started server on 0.0.0.0:3000"`
 - Browser should connect to server via WebSocket and display game state
 
 ## Common Issues and Workarounds
