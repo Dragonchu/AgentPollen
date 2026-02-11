@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentFullState, MemoryType } from "@battle-royale/shared";
+import type { AgentFullState } from "@battle-royale/shared";
 
 interface AgentDetailProps {
   agent: AgentFullState;

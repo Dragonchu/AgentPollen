@@ -11,7 +11,6 @@ import type {
   AgentFullState,
   GameEvent,
   VoteState,
-  Vote,
 } from "@battle-royale/shared";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

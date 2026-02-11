@@ -1,6 +1,6 @@
 "use client";
 
-import type { GameEvent, GameEventType } from "@battle-royale/shared";
+import type { GameEvent } from "@battle-royale/shared";
 
 interface EventFeedProps {
   events: GameEvent[];
