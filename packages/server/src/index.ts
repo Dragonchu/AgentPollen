@@ -1,5 +1,10 @@
 import { Server } from "socket.io";
-import { GamePhase, type ServerToClientEvents, type ClientToServerEvents, DecisionEngine } from "@battle-royale/shared";
+import {
+  GamePhase,
+  type ServerToClientEvents,
+  type ClientToServerEvents,
+  DecisionEngine,
+} from "@battle-royale/shared";
 import { World } from "./engine/World.js";
 import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
 import { LLMEngine } from "./plugins/LLMEngine.js";

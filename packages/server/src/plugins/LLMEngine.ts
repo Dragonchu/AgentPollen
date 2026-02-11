@@ -49,7 +49,7 @@ export class LLMEngine implements DecisionEngine {
 
   constructor(config: LLMEngineConfig) {
     this.config = {
-      model: "deepseek-chat",
+      model: "deepseek-chat", // Valid models: deepseek-chat, deepseek-reasoner
       baseURL: "https://api.deepseek.com",
       maxConcurrency: 10,
       temperature: 0.7,
@@ -77,7 +77,10 @@ export class LLMEngine implements DecisionEngine {
       return decision;
     } catch (error) {
       this.releaseLock();
-      console.warn(`LLM decision failed for ${ctx.agent.name}, using fallback:`, error instanceof Error ? error.message : error);
+      console.warn(
+        `LLM decision failed for ${ctx.agent.name}, using fallback:`,
+        error instanceof Error ? error.message : error
+      );
       return this.fallbackEngine.decide(ctx);
     }
   }
@@ -93,7 +96,10 @@ export class LLMEngine implements DecisionEngine {
       return response.trim() || null;
     } catch (error) {
       this.releaseLock();
-      console.warn(`LLM reflection failed for ${ctx.agent.name}, using fallback:`, error instanceof Error ? error.message : error);
+      console.warn(
+        `LLM reflection failed for ${ctx.agent.name}, using fallback:`,
+        error instanceof Error ? error.message : error
+      );
       return this.fallbackEngine.reflect(ctx);
     }
   }
@@ -133,7 +139,9 @@ export class LLMEngine implements DecisionEngine {
       .join("\n");
 
     const nearbyAgentText = nearbyAgents
-      .map((a) => `${a.agent.name} (HP: ${a.agent.hp}/${a.agent.maxHp}, dist: ${a.distance})`)
+      .map((a) => 
+        `${a.agent.name} (HP: ${a.agent.hp}/${a.agent.maxHp}, dist: ${a.distance})`
+      )
       .join(", ");
 
     const nearbyItemText = nearbyItems.map((i) => i.type).join(", ");
@@ -217,7 +225,9 @@ Given these experiences, what is ONE key insight or strategy you've learned? Kee
     // Parse attack action
     if (actionLower.startsWith("attack")) {
       const targetName = this.extractTargetName(actionLine);
-      const target = ctx.nearbyAgents.find((a) => a.agent.name.toLowerCase() === targetName.toLowerCase());
+      const target = ctx.nearbyAgents.find(
+        (a) => a.agent.name.toLowerCase() === targetName.toLowerCase()
+      );
       if (target) {
         return { type: DecisionType.Attack, targetId: target.agent.id, reason };
       }
