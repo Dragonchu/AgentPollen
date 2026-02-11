@@ -5,25 +5,11 @@ export const CELL_SIZE = 24;
 export const GRID_SIZE = 20;
 export const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
 
-/**
- * Main game scene that renders the battle royale map.
- *
- * Layers (bottom → top):
- *   1. Grid (static, drawn once)
- *   2. Zone overlay (danger zone + safe zone border)
- *   3. Items
- *   4. Alliance lines
- *   5. Agents (body + selection ring + HP bars)
- *
- * Extension points:
- *   - Replace Graphics-drawn agents with Sprites for animations
- *   - Add particle effects for combat / death / zone damage
- *   - Add a tilemap layer beneath the grid for terrain variety
- */
 export class GameScene extends Phaser.Scene {
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private zoneGraphics!: Phaser.GameObjects.Graphics;
   private itemGraphics!: Phaser.GameObjects.Graphics;
+  private connectionGraphics!: Phaser.GameObjects.Graphics;
   private allianceGraphics!: Phaser.GameObjects.Graphics;
   private agentGraphics!: Phaser.GameObjects.Graphics;
 
@@ -43,10 +29,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Graphics layers, ordered bottom-to-top
     this.gridGraphics = this.add.graphics();
     this.zoneGraphics = this.add.graphics();
     this.itemGraphics = this.add.graphics();
+    this.connectionGraphics = this.add.graphics();
     this.allianceGraphics = this.add.graphics();
     this.agentGraphics = this.add.graphics();
 
@@ -56,7 +42,6 @@ export class GameScene extends Phaser.Scene {
       this.handleClick(pointer.x, pointer.y);
     });
 
-    // Notify the React component that the scene is ready
     this.onReady?.();
   }
 
@@ -64,10 +49,6 @@ export class GameScene extends Phaser.Scene {
     this.onAgentClick = callback;
   }
 
-  /**
-   * Push new data from the React layer into the scene and redraw.
-   * Called whenever the parent component receives updated props.
-   */
   updateData(
     agents: Map<number, AgentFullState>,
     items: ItemState[],
@@ -87,7 +68,8 @@ export class GameScene extends Phaser.Scene {
     const g = this.gridGraphics;
     g.clear();
 
-    g.lineStyle(0.5, 0x1a1a2a);
+    // Subtle grid lines
+    g.lineStyle(0.5, 0x111122, 0.5);
     for (let i = 0; i <= GRID_SIZE; i++) {
       g.lineBetween(i * CELL_SIZE, 0, i * CELL_SIZE, CANVAS_SIZE);
       g.lineBetween(0, i * CELL_SIZE, CANVAS_SIZE, i * CELL_SIZE);
@@ -97,6 +79,7 @@ export class GameScene extends Phaser.Scene {
   private redraw(): void {
     this.drawZone();
     this.drawItems();
+    this.drawConnections();
     this.drawAlliances();
     this.drawAgents();
   }
@@ -113,16 +96,16 @@ export class GameScene extends Phaser.Scene {
     const zoneW = this.shrinkBorder * CELL_SIZE;
     const zoneH = this.shrinkBorder * CELL_SIZE;
 
-    // Full-canvas danger tint
-    g.fillStyle(0xff2828, 0.08);
+    // Full-canvas danger tint — more subtle purple
+    g.fillStyle(0x8844ff, 0.05);
     g.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Re-draw safe zone background to "erase" the tint
-    g.fillStyle(0x0c0c14);
+    // Re-draw safe zone background
+    g.fillStyle(0x0a0a14);
     g.fillRect(zoneX, zoneY, zoneW, zoneH);
 
-    // Redraw grid lines that fall inside the safe zone
-    g.lineStyle(0.5, 0x1a1a2a);
+    // Redraw grid lines inside safe zone
+    g.lineStyle(0.5, 0x111122, 0.5);
     for (let i = 0; i <= GRID_SIZE; i++) {
       const p = i * CELL_SIZE;
       if (p >= zoneX && p <= zoneX + zoneW) {
@@ -133,9 +116,13 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Safe zone border
-    g.lineStyle(2, 0xff3c3c, 0.5);
+    // Safe zone border — purple glow
+    g.lineStyle(2, 0x8844ff, 0.6);
     g.strokeRect(zoneX, zoneY, zoneW, zoneH);
+
+    // Outer glow for the zone border
+    g.lineStyle(4, 0x8844ff, 0.15);
+    g.strokeRect(zoneX - 2, zoneY - 2, zoneW + 4, zoneH + 4);
   }
 
   private drawItems(): void {
@@ -143,13 +130,51 @@ export class GameScene extends Phaser.Scene {
     g.clear();
 
     for (const item of this.items) {
-      g.fillStyle(0xffaa22, 0.6);
+      const cx = item.x * CELL_SIZE + CELL_SIZE / 2;
+      const cy = item.y * CELL_SIZE + CELL_SIZE / 2;
+
+      // Item glow
+      g.fillStyle(0xffaa22, 0.1);
+      g.fillCircle(cx, cy, 8);
+
+      // Item body
+      g.fillStyle(0xffaa22, 0.7);
       g.fillRect(
         item.x * CELL_SIZE + CELL_SIZE * 0.3,
         item.y * CELL_SIZE + CELL_SIZE * 0.3,
         CELL_SIZE * 0.4,
         CELL_SIZE * 0.4,
       );
+    }
+  }
+
+  /** Draw faint connection lines between nearby agents */
+  private drawConnections(): void {
+    const g = this.connectionGraphics;
+    g.clear();
+
+    const alive = Array.from(this.agents.values()).filter(a => a.alive);
+
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const a = alive[i];
+        const b = alive[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Connect agents within range 5
+        if (dist <= 5) {
+          const alpha = Math.max(0.03, 0.12 - dist * 0.02);
+          g.lineStyle(1, 0x8844ff, alpha);
+          g.lineBetween(
+            (a.x + 0.5) * CELL_SIZE,
+            (a.y + 0.5) * CELL_SIZE,
+            (b.x + 0.5) * CELL_SIZE,
+            (b.y + 0.5) * CELL_SIZE,
+          );
+        }
+      }
     }
   }
 
@@ -161,7 +186,7 @@ export class GameScene extends Phaser.Scene {
     const selected = this.agents.get(this.selectedAgentId);
     if (!selected?.alliances) return;
 
-    g.lineStyle(1.5, 0x44aaff, 0.4);
+    g.lineStyle(1.5, 0x44aaff, 0.5);
     for (const allyId of selected.alliances) {
       const ally = this.agents.get(allyId);
       if (!ally?.alive) continue;
@@ -175,6 +200,25 @@ export class GameScene extends Phaser.Scene {
         4,
         4,
       );
+    }
+
+    // Draw enemy lines in red
+    if (selected.enemies) {
+      g.lineStyle(1.5, 0xff4444, 0.3);
+      for (const enemyId of selected.enemies) {
+        const enemy = this.agents.get(enemyId);
+        if (!enemy?.alive) continue;
+
+        this.drawDashedLine(
+          g,
+          (selected.x + 0.5) * CELL_SIZE,
+          (selected.y + 0.5) * CELL_SIZE,
+          (enemy.x + 0.5) * CELL_SIZE,
+          (enemy.y + 0.5) * CELL_SIZE,
+          3,
+          5,
+        );
+      }
     }
   }
 
@@ -221,42 +265,69 @@ export class GameScene extends Phaser.Scene {
 
       const cx = agent.x * CELL_SIZE + CELL_SIZE / 2;
       const cy = agent.y * CELL_SIZE + CELL_SIZE / 2;
-      const radius = CELL_SIZE * 0.35;
+      const radius = CELL_SIZE * 0.42; // Larger nodes
       const hue = (agent.id * 137) % 360;
       const color = Phaser.Display.Color.HSLToColor(hue / 360, 0.7, 0.6).color;
       const isSelected = this.selectedAgentId === agent.id;
 
-      // Glow – concentric translucent circles
-      const glowLayers = isSelected ? 6 : 2;
+      // Outer glow — more prominent
+      const glowLayers = isSelected ? 8 : 3;
       for (let i = glowLayers; i > 0; i--) {
-        g.fillStyle(color, 0.05);
-        g.fillCircle(cx, cy, radius + i * 2);
+        g.fillStyle(color, isSelected ? 0.08 : 0.04);
+        g.fillCircle(cx, cy, radius + i * (isSelected ? 3 : 2));
       }
 
       // Body
       g.fillStyle(color);
       g.fillCircle(cx, cy, radius);
 
+      // Inner highlight
+      g.fillStyle(0xffffff, 0.15);
+      g.fillCircle(cx - radius * 0.2, cy - radius * 0.2, radius * 0.35);
+
       // Selection ring
       if (isSelected) {
-        g.lineStyle(2, 0xffaa22);
-        g.strokeCircle(cx, cy, radius);
+        g.lineStyle(2.5, 0xffaa22, 0.9);
+        g.strokeCircle(cx, cy, radius + 2);
+
+        // Animated pulse ring (static representation)
+        g.lineStyle(1.5, 0xffaa22, 0.3);
+        g.strokeCircle(cx, cy, radius + 6);
       }
 
       // HP bar background
-      const barW = CELL_SIZE * 0.8;
+      const barW = CELL_SIZE * 0.9;
       const barH = 3;
       const barX = cx - barW / 2;
-      const barY = cy - radius - 6;
+      const barY = cy - radius - 7;
 
-      g.fillStyle(0x1a1a2a);
+      g.fillStyle(0x0a0a14, 0.8);
+      g.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+
+      g.fillStyle(0x1a1a2e);
       g.fillRect(barX, barY, barW, barH);
 
       // HP bar fill
       const hpPct = agent.hp / (agent.maxHp || 100);
-      const hpColor = hpPct > 0.6 ? 0x44ff66 : hpPct > 0.3 ? 0xffaa22 : 0xff2222;
+      const hpColor = hpPct > 0.6 ? 0x22cc88 : hpPct > 0.3 ? 0xff8800 : 0xff4444;
       g.fillStyle(hpColor);
       g.fillRect(barX, barY, barW * hpPct, barH);
+
+      // Name label for selected agent
+      if (isSelected) {
+        // Draw a small name tag below the agent
+        const nameTag = agent.name.substring(0, 6);
+        // Use a text object approach - draw a background rect
+        const tagW = nameTag.length * 6 + 8;
+        const tagH = 14;
+        const tagX = cx - tagW / 2;
+        const tagY = cy + radius + 4;
+
+        g.fillStyle(0x0a0a14, 0.9);
+        g.fillRoundedRect(tagX, tagY, tagW, tagH, 3);
+        g.lineStyle(1, color, 0.4);
+        g.strokeRoundedRect(tagX, tagY, tagW, tagH, 3);
+      }
     }
   }
 

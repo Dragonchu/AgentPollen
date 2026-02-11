@@ -20,9 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         margin: 0,
         padding: 0,
         fontFamily: "'Space Grotesk', sans-serif",
-        background: "#08080e",
-        color: "#e0e0e0",
+        background: "#0a0a14",
+        color: "#e8e8f0",
         minHeight: "100vh",
+        overflow: "hidden",
       }}>
         {children}
       </body>

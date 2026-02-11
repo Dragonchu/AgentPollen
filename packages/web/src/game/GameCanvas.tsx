@@ -70,7 +70,7 @@ export function GameCanvas({
         width: CANVAS_SIZE,
         height: CANVAS_SIZE,
         parent: containerRef.current,
-        backgroundColor: "#0c0c14",
+        backgroundColor: "#0a0a14",
         scene,
         scale: {
           mode: Phaser.Scale.FIT,
