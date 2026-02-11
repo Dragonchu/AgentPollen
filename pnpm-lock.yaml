@@ -20,6 +20,9 @@ importers:
       '@battle-royale/shared':
         specifier: workspace:*
         version: link:../shared
+      openai:
+        specifier: ^6.21.0
+        version: 6.21.0(ws@8.18.3)
       socket.io:
         specifier: ^4.8.0
         version: 4.8.3
@@ -620,6 +623,18 @@ packages:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
 
+  openai@6.21.0:
+    resolution: {integrity: sha512-26dQFi76dB8IiN/WKGQOV+yKKTTlRCxQjoi2WLt0kMcH8pvxVyvfdBDkld5GTl7W1qvBpwVOtFcsqktj3fBRpA==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   phaser@3.90.0:
     resolution: {integrity: sha512-/cziz/5ZIn02uDkC9RzN8VF9x3Gs3XdFFf9nkiMEQT3p7hQlWuyjy4QWosU802qqno2YSLn2BfqwOKLv/sSVfQ==}
 
@@ -1172,6 +1187,10 @@ snapshots:
       - babel-plugin-macros
 
   object-assign@4.1.1: {}
+
+  openai@6.21.0(ws@8.18.3):
+    optionalDependencies:
+      ws: 8.18.3
 
   phaser@3.90.0:
     dependencies:
