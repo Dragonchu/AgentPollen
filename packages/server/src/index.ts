@@ -1,13 +1,18 @@
 import { Server } from "socket.io";
-import { GamePhase, type ServerToClientEvents, type ClientToServerEvents } from "@battle-royale/shared";
+import { GamePhase, type ServerToClientEvents, type ClientToServerEvents, DecisionEngine } from "@battle-royale/shared";
 import { World } from "./engine/World.js";
 import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
+import { LLMEngine } from "./plugins/LLMEngine.js";
 import { SyncManager } from "./network/SyncManager.js";
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
 const TICK_INTERVAL = parseInt(process.env.TICK_INTERVAL ?? "1000", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
+const AI_ENGINE = process.env.AI_ENGINE ?? "rule-based";
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? "";
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
+const DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? "10", 10);
 
 // Parse CORS origin: "*" becomes true (reflect request origin, required for
 // credentials: true), comma-separated values become an array, otherwise pass
@@ -16,6 +21,24 @@ function parseCorsOrigin(raw: string): boolean | string | string[] {
   if (raw === "*") return true;
   if (raw.includes(",")) return raw.split(",").map((s) => s.trim());
   return raw;
+}
+
+function createDecisionEngine(): DecisionEngine {
+  if (AI_ENGINE === "llm") {
+    if (!DEEPSEEK_API_KEY) {
+      console.error("ERROR: AI_ENGINE=llm requires DEEPSEEK_API_KEY to be set");
+      console.error("Falling back to rule-based engine");
+      return new RuleBasedEngine();
+    }
+    console.log(`Using LLM engine with model: ${DEEPSEEK_MODEL}`);
+    return new LLMEngine({
+      apiKey: DEEPSEEK_API_KEY,
+      model: DEEPSEEK_MODEL,
+      maxConcurrency: DEEPSEEK_MAX_CONCURRENCY,
+    });
+  }
+  console.log("Using rule-based engine");
+  return new RuleBasedEngine();
 }
 
 async function main() {
@@ -33,8 +56,7 @@ async function main() {
   });
 
   // 2. Create decision engine (plugin)
-  // To switch to LLM: replace with new LLMEngine({ apiKey: "..." })
-  const engine = new RuleBasedEngine();
+  const engine = createDecisionEngine();
 
   // 3. Create and initialize world
   const world = new World(

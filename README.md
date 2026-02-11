@@ -33,8 +33,8 @@ packages/
 │       │   ├── MemoryStream.ts   ← Agent memory with retrieval scoring
 │       │   └── VoteManager.ts    ← Windowed vote aggregation
 │       ├── plugins/              ← Decision engine plugins
-│       │   ├── RuleBasedEngine.ts    ← MVP: simple heuristics
-│       │   └── LLMEngine.stub.ts     ← Production: Claude/GPT integration
+│       │   ├── RuleBasedEngine.ts    ← Simple heuristics (default)
+│       │   └── LLMEngine.ts          ← DeepSeek LLM integration
 │       ├── network/
 │       │   └── SyncManager.ts    ← Socket.IO broadcasting
 │       └── persistence/
@@ -58,13 +58,64 @@ packages/
 
 ## Extension Roadmap
 
-### 1. Decision Engine → LLM
-Replace `RuleBasedEngine` with an LLM-backed engine:
-```typescript
-// See plugins/LLMEngine.stub.ts for the template
-const engine = new LLMEngine({ apiKey: "sk-..." });
-const world = new World(config, engine);
+### 1. Decision Engine → LLM (✅ IMPLEMENTED)
+
+The game now supports **two AI decision engines**:
+
+#### Rule-Based Engine (Default)
+Simple heuristic AI that works without any API keys. Good for development and testing.
+
+```bash
+# .env
+AI_ENGINE=rule-based
 ```
+
+#### LLM Engine with DeepSeek
+Intelligent AI powered by DeepSeek's language models. Provides more dynamic and human-like agent behavior.
+
+```bash
+# .env
+AI_ENGINE=llm
+DEEPSEEK_API_KEY=sk-your-api-key-here
+DEEPSEEK_MODEL=deepseek-chat           # Optional, default: deepseek-chat
+DEEPSEEK_MAX_CONCURRENCY=10            # Optional, default: 10
+```
+
+**Features:**
+- ✅ DeepSeek integration via OpenAI-compatible API
+- ✅ Automatic fallback to rule-based engine on errors
+- ✅ Rate limiting with configurable concurrency
+- ✅ Context-aware prompting with agent personality and memories
+- ✅ Extensible architecture for other LLM providers
+
+**Getting a DeepSeek API Key:**
+1. Visit [https://platform.deepseek.com/](https://platform.deepseek.com/)
+2. Sign up for an account
+3. Navigate to API Keys section
+4. Create a new API key
+5. Add it to your `.env` file
+
+**Extending to Other LLMs:**
+The architecture is designed to be extensible. To add support for other LLM providers:
+
+```typescript
+// packages/server/src/plugins/YourEngine.ts
+import { DecisionEngine, DecisionContext, Decision } from "@battle-royale/shared";
+
+export class YourEngine implements DecisionEngine {
+  readonly name = "your-engine";
+  
+  async decide(ctx: DecisionContext): Promise<Decision> {
+    // Your implementation here
+  }
+  
+  async reflect(ctx: ReflectionContext): Promise<string | null> {
+    // Your implementation here
+  }
+}
+```
+
+Then update `createDecisionEngine()` in `packages/server/src/index.ts` to support your new engine.
 
 ### 2. Full Sync → Delta Sync
 In `SyncManager.broadcastTick()`, switch to delta mode:
@@ -129,6 +180,10 @@ The `VoteManager` supports extension via:
 - `CORS_ORIGIN` - Allowed origin for CORS (default: "*")
   - Development: use "*" to allow all origins
   - Production: set to your frontend URL (e.g., "https://your-app.railway.app")
+- `AI_ENGINE` - Decision engine to use: "rule-based" or "llm" (default: "rule-based")
+- `DEEPSEEK_API_KEY` - DeepSeek API key (required if AI_ENGINE=llm)
+- `DEEPSEEK_MODEL` - Model to use (default: "deepseek-chat")
+- `DEEPSEEK_MAX_CONCURRENCY` - Max concurrent LLM calls (default: 10)
 
 **Web** (`packages/web/.env.local`):
 - `NEXT_PUBLIC_SERVER_URL` - Server URL (default: http://localhost:3001)
