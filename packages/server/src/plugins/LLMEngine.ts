@@ -56,6 +56,14 @@ export class LLMEngine implements DecisionEngine {
       ...config,
     };
 
+    // Validate and clamp maxConcurrency to prevent deadlocks
+    if (isNaN(this.config.maxConcurrency) || this.config.maxConcurrency < 1) {
+      console.warn(
+        `Invalid maxConcurrency (${this.config.maxConcurrency}), clamping to 1`
+      );
+      this.config.maxConcurrency = 1;
+    }
+
     this.client = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.baseURL,
@@ -108,7 +116,7 @@ export class LLMEngine implements DecisionEngine {
 
   private async acquireLock(): Promise<void> {
     if (this.activeCalls >= this.config.maxConcurrency) {
-      await new Promise<void>((resolve) => this.callQueue.push(resolve));
+      await new Promise<void>((resolve) => this.callQueue.push(() => resolve()));
     }
     this.activeCalls++;
   }

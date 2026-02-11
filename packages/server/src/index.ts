@@ -17,7 +17,15 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 const AI_ENGINE = process.env.AI_ENGINE ?? "rule-based";
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? "";
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
-const DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? "10", 10);
+
+// Parse and validate DEEPSEEK_MAX_CONCURRENCY
+let DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? "10", 10);
+if (isNaN(DEEPSEEK_MAX_CONCURRENCY) || DEEPSEEK_MAX_CONCURRENCY < 1) {
+  console.warn(
+    `Invalid DEEPSEEK_MAX_CONCURRENCY (${process.env.DEEPSEEK_MAX_CONCURRENCY}), using default: 10`
+  );
+  DEEPSEEK_MAX_CONCURRENCY = 10;
+}
 
 // Parse CORS origin: "*" becomes true (reflect request origin, required for
 // credentials: true), comma-separated values become an array, otherwise pass

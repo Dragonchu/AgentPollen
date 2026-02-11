@@ -100,7 +100,12 @@ The architecture is designed to be extensible. To add support for other LLM prov
 
 ```typescript
 // packages/server/src/plugins/YourEngine.ts
-import { DecisionEngine, DecisionContext, Decision } from "@battle-royale/shared";
+import {
+  DecisionEngine,
+  DecisionContext,
+  ReflectionContext,
+  Decision,
+} from "@battle-royale/shared";
 
 export class YourEngine implements DecisionEngine {
   readonly name = "your-engine";
