@@ -11,6 +11,11 @@ import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
 import { LLMEngine } from "./plugins/LLMEngine.js";
 import { SyncManager } from "./network/SyncManager.js";
 import { AStarPathfinder } from "./pathfinding/AStarPathfinder.js";
+import {
+  ThinkingHistoryStorage,
+  InMemoryThinkingHistoryStorage,
+  NullThinkingHistoryStorage,
+} from "./persistence/ThinkingHistoryStorage.js";
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
@@ -19,6 +24,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 const AI_ENGINE = process.env.AI_ENGINE ?? "rule-based";
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? "";
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
+const THINKING_STORAGE = process.env.THINKING_STORAGE ?? "memory"; // "memory" | "null"
 
 // Parse and validate DEEPSEEK_MAX_CONCURRENCY
 let DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? "10", 10);
@@ -56,6 +62,15 @@ function createDecisionEngine(): DecisionEngine {
   return new RuleBasedEngine();
 }
 
+function createThinkingStorage(): ThinkingHistoryStorage {
+  if (THINKING_STORAGE === "null") {
+    console.log("Using null thinking storage (no persistence)");
+    return new NullThinkingHistoryStorage();
+  }
+  console.log("Using in-memory thinking storage");
+  return new InMemoryThinkingHistoryStorage();
+}
+
 async function main() {
   console.log("=== AI Battle Royale Server ===");
   console.log(`Agents: ${AGENT_COUNT} | Tick: ${TICK_INTERVAL}ms | Port: ${PORT}`);
@@ -76,18 +91,22 @@ async function main() {
   // 3. Create pathfinding engine (plugin)
   const pathfinder: PathfindingEngine = new AStarPathfinder();
 
-  // 4. Create and initialize world
+  // 4. Create thinking history storage (plugin)
+  const thinkingStorage = createThinkingStorage();
+
+  // 5. Create and initialize world
   const world = new World(
     { agentCount: AGENT_COUNT, tickIntervalMs: TICK_INTERVAL },
     engine,
     pathfinder,
+    thinkingStorage,
   );
-  world.init();
+  await world.init();
 
-  // 5. Create sync manager
+  // 6. Create sync manager
   const sync = new SyncManager(io, world);
 
-  // 6. Game loop
+  // 7. Game loop
   const gameLoop = setInterval(async () => {
     if (world.phase !== GamePhase.Running) {
       // Auto-restart after game over
@@ -95,8 +114,8 @@ async function main() {
         console.log(`Game over! Winner: ${world.winner?.name ?? "none"}`);
         console.log("Restarting in 10 seconds...");
         clearInterval(gameLoop);
-        setTimeout(() => {
-          world.init();
+        setTimeout(async () => {
+          await world.init();
           startLoop();
         }, 10000);
       }
