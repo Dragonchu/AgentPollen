@@ -1,0 +1,58 @@
+# Caddyfile for AI Battle Royale
+# This configuration routes both the Next.js frontend and WebSocket server
+# under the same domain to completely avoid CORS issues.
+#
+# Usage:
+#   Development: caddy run --config Caddyfile
+#   Production:  Set your domain below and run caddy
+#
+# Replace :80 with your domain for production (e.g., yourdomain.com)
+
+:80 {
+	# Enable request logging for debugging
+	log {
+		output stdout
+		format console
+	}
+
+	# Root path - redirect to /arena
+	handle / {
+		redir /arena permanent
+	}
+
+	# Next.js frontend on /arena path
+	# Matches /arena and all subpaths
+	handle /arena* {
+		reverse_proxy web:3000
+	}
+
+	# WebSocket server on /api/game path
+	# This allows the WebSocket connection to be on the same domain
+	handle /api/game/* {
+		# Strip /api/game prefix before proxying to server
+		uri strip_prefix /api/game
+		
+		# Enable WebSocket support with proper headers
+		reverse_proxy server:3001 {
+			# WebSocket-specific headers
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			
+			# Enable WebSocket upgrade
+			header_up Connection "Upgrade"
+			header_up Upgrade "websocket"
+		}
+	}
+
+	# Health check endpoint (optional)
+	handle /health {
+		respond "OK" 200
+	}
+
+	# Fallback - return 404 for unmatched paths
+	handle {
+		respond "Not Found" 404
+	}
+}

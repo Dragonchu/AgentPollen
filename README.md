@@ -216,7 +216,33 @@ The `VoteManager` supports extension via:
 
 ## Deployment
 
-### Railway Deployment
+### Recommended: Caddy Reverse Proxy (CORS-Free)
+
+**Best practice for production:** Deploy both services behind Caddy to completely eliminate CORS issues by serving everything under one domain.
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the complete guide.
+
+**Quick start with Docker Compose:**
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Start all services (Caddy + Server + Web)
+docker-compose up -d
+
+# Access the app
+open http://localhost/arena
+```
+
+Benefits:
+- ✅ Zero CORS configuration needed
+- ✅ Single domain for all services
+- ✅ Automatic HTTPS with Let's Encrypt
+- ✅ WebSocket support out of the box
+- ✅ Production-ready setup
+
+### Alternative: Railway Deployment
 
 When deploying the server and web frontend on separate Railway services:
 

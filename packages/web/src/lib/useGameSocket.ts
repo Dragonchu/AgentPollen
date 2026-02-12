@@ -21,7 +21,25 @@ import type {
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
+// Support both absolute URLs (development) and relative paths (production behind proxy)
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001";
+
+// Helper to determine if we should use relative path
+function getSocketConfig(url: string) {
+  // If URL starts with /, it's a relative path (proxied)
+  if (url.startsWith("/")) {
+    return {
+      path: url + "/socket.io",
+      // Use current window location as base
+      url: undefined,
+    };
+  }
+  // Otherwise it's an absolute URL
+  return {
+    path: "/socket.io",
+    url: url,
+  };
+}
 
 export interface GameState {
   connected: boolean;
@@ -52,7 +70,10 @@ export function useGameSocket() {
   });
 
   useEffect(() => {
-    const socket: GameSocket = io(SERVER_URL);
+    const config = getSocketConfig(SERVER_URL);
+    const socket: GameSocket = config.url 
+      ? io(config.url, { path: config.path })
+      : io({ path: config.path });
     socketRef.current = socket;
 
     socket.on("connect", () => {

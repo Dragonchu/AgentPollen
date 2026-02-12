@@ -1,0 +1,54 @@
+# Web Dockerfile
+FROM node:18-alpine AS base
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Build stage
+FROM base AS builder
+WORKDIR /app
+
+# Copy workspace configuration
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.json ./
+
+# Copy all packages (needed for workspace dependencies)
+COPY packages ./packages
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build shared package first (dependency)
+RUN pnpm --filter @battle-royale/shared build
+
+# Build web app
+RUN pnpm --filter @battle-royale/web build
+
+# Production stage
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy necessary files from builder
+COPY --from=builder /app/packages/web/next.config.mjs ./
+COPY --from=builder /app/packages/web/package.json ./
+
+# Copy standalone build and static files
+COPY --from=builder --chown=nextjs:nodejs /app/packages/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/packages/web/.next/static ./packages/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/packages/web/public ./packages/web/public
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+
+# Next.js standalone server
+CMD ["node", "packages/web/server.js"]

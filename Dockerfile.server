@@ -1,0 +1,52 @@
+# Server Dockerfile
+FROM node:18-alpine AS base
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Build stage
+FROM base AS builder
+WORKDIR /app
+
+# Copy workspace configuration
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.json ./
+
+# Copy all packages (needed for workspace dependencies)
+COPY packages ./packages
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build shared package first (dependency)
+RUN pnpm --filter @battle-royale/shared build
+
+# Build server
+RUN pnpm --filter @battle-royale/server build
+
+# Production stage
+FROM base AS runner
+WORKDIR /app
+
+# Copy package files
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+
+# Copy built packages
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/server/package.json ./packages/server/
+COPY --from=builder /app/packages/server/dist ./packages/server/dist
+
+# Install production dependencies only
+RUN pnpm install --frozen-lockfile --prod
+
+# Expose WebSocket port
+EXPOSE 3001
+
+# Set working directory to server
+WORKDIR /app/packages/server
+
+# Start the server
+CMD ["node", "dist/index.js"]
