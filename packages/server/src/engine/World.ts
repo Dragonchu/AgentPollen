@@ -400,8 +400,12 @@ export class World {
     const half = this.shrinkBorder / 2;
 
     // Calculate damage scaling based on zone size (more damage as zone gets smaller)
-    const zoneProgress = 1 - (this.shrinkBorder - this.config.minZoneSize) / (this.config.gridSize - this.config.minZoneSize);
-    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // 1x to 5x damage as zone shrinks
+    // Guard against division by zero if gridSize equals minZoneSize
+    const zoneSizeRange = this.config.gridSize - this.config.minZoneSize;
+    const zoneProgress = zoneSizeRange > 0 
+      ? 1 - (this.shrinkBorder - this.config.minZoneSize) / zoneSizeRange
+      : 1; // If no range, assume maximum damage
+    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // Multiplier: 1x (early) to 5x (late)
     const zoneDamage = this.config.zoneDamageBase * damageMultiplier;
 
     for (const agent of this.agents) {
