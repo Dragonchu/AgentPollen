@@ -105,7 +105,6 @@ export default function Home() {
             >
               <AIThinkingProcess
                 agent={selectedAgent}
-                agents={agents}
               />
             </Card>
           </div>
