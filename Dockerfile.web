@@ -35,13 +35,13 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy necessary files from builder
-COPY --from=builder /app/packages/web/next.config.mjs ./
-COPY --from=builder /app/packages/web/package.json ./
-
-# Copy standalone build and static files
+# Copy standalone output which includes the server and dependencies
 COPY --from=builder --chown=nextjs:nodejs /app/packages/web/.next/standalone ./
+
+# Copy static files (must be in the correct location for standalone)
 COPY --from=builder --chown=nextjs:nodejs /app/packages/web/.next/static ./packages/web/.next/static
+
+# Copy public directory (if it exists)
 COPY --from=builder --chown=nextjs:nodejs /app/packages/web/public ./packages/web/public
 
 USER nextjs
@@ -49,6 +49,7 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
 
-# Next.js standalone server
+# Next.js standalone server (server.js is at the root of standalone output)
 CMD ["node", "packages/web/server.js"]

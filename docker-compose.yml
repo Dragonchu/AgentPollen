@@ -46,13 +46,14 @@ services:
       context: .
       dockerfile: Dockerfile.web
       args:
-        # Build-time env vars for Next.js
+        # Build-time env var: baked into Next.js bundles during compilation
         - NEXT_PUBLIC_SERVER_URL=/api/game
     container_name: battle-royale-web
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      # This tells the client to use the same domain for WebSocket
+      # Runtime env var: used for server-side rendering
+      # Both build-time and runtime values are needed for Next.js
       - NEXT_PUBLIC_SERVER_URL=/api/game
     networks:
       - battle-royale
