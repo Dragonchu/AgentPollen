@@ -117,6 +117,8 @@ export function useGameSocket() {
     });
 
     return () => {
+      // Clear agent paths on disconnect to avoid carrying over stale path data
+      setState((s) => ({ ...s, agentPaths: {} }));
       socket.disconnect();
     };
   }, []);
