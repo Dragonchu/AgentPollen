@@ -123,7 +123,7 @@ export class GameScene extends Phaser.Scene {
     // Update interpolation for all agents
     let needsRedraw = false;
     
-    for (const [, displayState] of this.agentDisplayStates) {
+    for (const [_id, displayState] of this.agentDisplayStates) {
       if (displayState.progress < 1) {
         // Apply smooth interpolation
         displayState.progress = Math.min(1, displayState.progress + this.INTERPOLATION_SPEED);
@@ -348,7 +348,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.agentGraphics;
     g.clear();
 
-    for (const [, agent] of this.agents) {
+    for (const [_id, agent] of this.agents) {
       if (!agent.alive) continue;
 
       // Use interpolated position if available, otherwise use actual position
