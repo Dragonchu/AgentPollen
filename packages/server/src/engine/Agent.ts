@@ -158,7 +158,8 @@ export class Agent {
 
   /**
    * Move along the current waypoint path.
-   * Returns true if movement occurred, false if path is complete or empty.
+   * Returns true if movement occurred; returns false if the path is complete,
+   * empty, or blocked (in which case the path is cleared).
    */
   followPath(tileMap: TileMap): boolean {
     if (this.waypoints.length === 0 || this.currentWaypointIndex >= this.waypoints.length) {
