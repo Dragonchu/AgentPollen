@@ -43,6 +43,10 @@ export class World {
   winner: Agent | null = null;
   pendingEvents: GameEvent[] = [];
   tileMap: TileMap;
+  
+  /** Zone center coordinates (randomized each game) */
+  zoneCenterX: number = 0;
+  zoneCenterY: number = 0;
 
   private decisionEngine: DecisionEngine;
   private pathfindingEngine: PathfindingEngine;
@@ -99,6 +103,12 @@ export class World {
     this.agentPaths.clear();
     this.shrinkBorder = this.config.gridSize;
     this.phase = GamePhase.WaitingToStart;
+
+    // Randomize zone center within middle 60% of map to avoid edge zones
+    const margin = Math.floor(this.config.gridSize * 0.2);
+    this.zoneCenterX = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
+    this.zoneCenterY = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
+    console.log(`Zone center randomized to (${this.zoneCenterX}, ${this.zoneCenterY})`);
 
     // Spawn agents on passable tiles
     const agents: Agent[] = [];
@@ -376,20 +386,32 @@ export class World {
   // --- Zone ---
 
   private handleZoneShrink(): void {
-    if (this.tick % this.config.shrinkIntervalTicks !== 0) return;
-    if (this.shrinkBorder <= 6) return;
+    // Shrink the zone border at regular intervals
+    if (this.tick % this.config.shrinkIntervalTicks === 0) {
+      if (this.shrinkBorder > this.config.minZoneSize) {
+        this.shrinkBorder -= 1;
+        this.emitEvent(GameEventType.ZoneShrink, `Safe zone shrinks! Border: ${this.shrinkBorder}`, []);
+      }
+    }
 
-    this.shrinkBorder -= 1;
-    this.emitEvent(GameEventType.ZoneShrink, `Safe zone shrinks! Border: ${this.shrinkBorder}`, []);
-
-    const cx = this.config.gridSize / 2;
-    const cy = this.config.gridSize / 2;
+    // Apply continuous zone damage every tick
+    const cx = this.zoneCenterX;
+    const cy = this.zoneCenterY;
     const half = this.shrinkBorder / 2;
+
+    // Calculate damage scaling based on zone size (more damage as zone gets smaller)
+    // Guard against division by zero if gridSize equals minZoneSize
+    const zoneSizeRange = this.config.gridSize - this.config.minZoneSize;
+    const zoneProgress = zoneSizeRange > 0 
+      ? 1 - (this.shrinkBorder - this.config.minZoneSize) / zoneSizeRange
+      : 1; // If no range, assume maximum damage
+    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // Multiplier: 1x (early) to 5x (late)
+    const zoneDamage = this.config.zoneDamageBase * damageMultiplier;
 
     for (const agent of this.agents) {
       if (!agent.alive) continue;
       if (Math.abs(agent.x - cx) > half || Math.abs(agent.y - cy) > half) {
-        agent.takeDamage(10, "zone");
+        agent.takeDamage(zoneDamage, "zone");
         if (!agent.alive) {
           this.aliveCount--;
           this.emitEvent(GameEventType.Kill, `${agent.name} eliminated by the zone! (${this.aliveCount} remain)`, [agent.id]);
@@ -465,6 +487,8 @@ export class World {
       aliveCount: this.aliveCount,
       shrinkBorder: this.shrinkBorder,
       phase: this.phase,
+      zoneCenterX: this.zoneCenterX,
+      zoneCenterY: this.zoneCenterY,
     };
   }
 

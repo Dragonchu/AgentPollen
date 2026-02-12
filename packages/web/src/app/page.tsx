@@ -97,6 +97,8 @@ export default function Home() {
                   onAgentClick={inspectAgent}
                   agentPaths={agentPaths}
                   tileMap={tileMap}
+                  zoneCenterX={world?.zoneCenterX}
+                  zoneCenterY={world?.zoneCenterY}
                 />
               </div>
             </Card>

@@ -97,6 +97,10 @@ export interface WorldConfig {
   shrinkIntervalTicks: number;
   /** Agent templates to use for spawning */
   agentTemplates: AgentTemplate[];
+  /** Base damage per tick when outside safe zone */
+  zoneDamageBase: number;
+  /** Minimum safe zone size (full width/height) */
+  minZoneSize: number;
 }
 
 export interface WorldSyncState {
@@ -104,6 +108,10 @@ export interface WorldSyncState {
   aliveCount: number;
   shrinkBorder: number;
   phase: GamePhase;
+  /** Zone center X coordinate (randomized each game) */
+  zoneCenterX: number;
+  /** Zone center Y coordinate (randomized each game) */
+  zoneCenterY: number;
 }
 
 export enum GamePhase {
@@ -352,6 +360,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   agentCount: 10,
   shrinkIntervalTicks: 30,
   agentTemplates: [],
+  zoneDamageBase: 2,
+  minZoneSize: 3,
 };
 
 export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [
