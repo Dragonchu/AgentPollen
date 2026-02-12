@@ -81,8 +81,8 @@ export class World {
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.shrinkBorder = this.config.gridSize;
-    // Use crypto.randomUUID() for guaranteed uniqueness
-    this.sessionId = `session-${Date.now()}-${crypto.randomUUID()}`;
+    // crypto.randomUUID() guarantees uniqueness without timestamp
+    this.sessionId = crypto.randomUUID();
 
     // Initialize tile map
     this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
@@ -188,7 +188,7 @@ export class World {
       // Store thinking process if available
       if (decision.thinking) {
         agent.thinkingProcess = decision.thinking;
-        // Store in history (non-blocking)
+        // Store in history (non-blocking: failures are logged but don't interrupt game execution)
         this.thinkingHistoryStorage.store(this.sessionId, agent.id, decision.thinking).catch((err) => {
           console.error(`Failed to store thinking process for agent ${agent.id}:`, err);
         });

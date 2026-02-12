@@ -132,6 +132,11 @@ export class InMemoryThinkingHistoryStorage implements ThinkingHistoryStorage {
   }
 
   async getHistory(sessionId: string, agentId: number, limit: number = 10): Promise<ThinkingProcess[]> {
+    // Validate limit parameter
+    if (limit <= 0) {
+      return [];
+    }
+
     const sessionStorage = this.storage.get(sessionId);
     if (!sessionStorage) {
       return [];
