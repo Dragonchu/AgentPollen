@@ -1,0 +1,90 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    AI BATTLE ROYALE - CORS-FREE ARCHITECTURE               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT BROWSER                                    │
+│                     http://localhost/arena                                  │
+│                                                                             │
+│  [Web Interface] ←──────→ [WebSocket Client]                               │
+│   (React/Next.js)         (Socket.IO)                                       │
+└───────────────────────┬───────────────────────────────────────────────────┘
+                        │
+                        │ ALL TRAFFIC ON PORT 80/443
+                        │ SAME ORIGIN - NO CORS!
+                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CADDY REVERSE PROXY                                  │
+│                          (Port 80/443)                                      │
+│                                                                             │
+│  Route Logic:                                                               │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  /                  → Redirect to /arena                           │    │
+│  │  /arena/*           → Next.js Frontend (port 3000)                 │    │
+│  │  /api/game/*        → WebSocket Server (port 3001)                 │    │
+│  │  /health            → Health check endpoint                        │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  Features:                                                                  │
+│  • Automatic HTTPS with Let's Encrypt                                       │
+│  • WebSocket upgrade headers                                                │
+│  • Request logging                                                          │
+└───────────┬─────────────────────────────────┬───────────────────────────────┘
+            │                                 │
+            │                                 │
+            ▼                                 ▼
+┌─────────────────────────┐     ┌──────────────────────────────────────┐
+│   NEXT.JS FRONTEND      │     │   GAME SERVER                         │
+│   (Port 3000)           │     │   (Port 3001)                         │
+│                         │     │                                       │
+│  • React 19             │     │  • Socket.IO WebSocket                │
+│  • Next.js 15           │     │  • Game Simulation Engine             │
+│  • basePath: /arena     │     │  • AI Decision Engine                 │
+│  • Standalone output    │     │  • World State Management             │
+│  • Static assets        │     │  • Event Broadcasting                 │
+└─────────────────────────┘     └──────────────────────────────────────┘
+            │                                 │
+            │                                 │
+            └─────────────┬───────────────────┘
+                          │
+                          │ Both import from
+                          ▼
+                  ┌───────────────────┐
+                  │  SHARED PACKAGE   │
+                  │  (@battle-royale) │
+                  │                   │
+                  │  • TypeScript     │
+                  │  • Types          │
+                  │  • Interfaces     │
+                  │  • Constants      │
+                  └───────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                          KEY BENEFITS                                      ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║  ✓ No CORS configuration needed                                           ║
+║  ✓ All traffic on same domain                                             ║
+║  ✓ WebSocket connections work seamlessly                                  ║
+║  ✓ Single SSL certificate                                                 ║
+║  ✓ Clean URL structure                                                    ║
+║  ✓ Production-ready with automatic HTTPS                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+DOCKER DEPLOYMENT:
+┌────────────────────────────────────────────────────────────────────────────┐
+│  docker-compose.yml orchestrates:                                          │
+│                                                                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                    │
+│  │   caddy      │  │   server     │  │    web       │                    │
+│  │  container   │  │  container   │  │  container   │                    │
+│  └──────────────┘  └──────────────┘  └──────────────┘                    │
+│         │                  │                  │                            │
+│         └──────────────────┴──────────────────┘                            │
+│                      │                                                     │
+│              [battle-royale network]                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+ENVIRONMENT CONFIGURATION:
+• Development:  NEXT_PUBLIC_SERVER_URL=http://localhost:3001
+• Production:   NEXT_PUBLIC_SERVER_URL=/api/game
+• Server CORS:  CORS_ORIGIN=* (safe behind Caddy)
