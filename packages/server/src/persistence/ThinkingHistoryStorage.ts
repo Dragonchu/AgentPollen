@@ -25,7 +25,7 @@ export interface ThinkingHistoryStorage {
    * 
    * @param sessionId - Unique identifier for the game session
    * @param agentId - Agent identifier
-   * @param limit - Maximum number of entries to return (most recent first)
+   * @param limit - Maximum number of entries to return, defaults to 10 (most recent first)
    * @returns Array of thinking processes, newest first
    */
   getHistory(sessionId: string, agentId: number, limit?: number): Promise<ThinkingProcess[]>;
@@ -143,8 +143,7 @@ export class InMemoryThinkingHistoryStorage implements ThinkingHistoryStorage {
     }
 
     // Return most recent entries (newest first)
-    const actualLimit = Math.min(limit, agentHistory.length);
-    return agentHistory.slice(-actualLimit).reverse();
+    return agentHistory.slice(-limit).reverse();
   }
 
   async clearSession(sessionId: string): Promise<void> {

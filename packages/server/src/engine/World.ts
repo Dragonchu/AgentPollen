@@ -81,7 +81,8 @@ export class World {
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.shrinkBorder = this.config.gridSize;
-    this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    // Use crypto.randomUUID() for guaranteed uniqueness
+    this.sessionId = `session-${Date.now()}-${crypto.randomUUID()}`;
 
     // Initialize tile map
     this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
