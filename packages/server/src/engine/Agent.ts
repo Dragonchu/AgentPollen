@@ -8,8 +8,10 @@ import {
   ItemState,
   Waypoint,
   ThinkingProcess,
+  TileMap,
 } from "@battle-royale/shared";
 import { MemoryStream } from "./MemoryStream.js";
+import { MapGenerator } from "../pathfinding/MapGenerator.js";
 
 export interface AgentPerception {
   nearbyAgents: Array<{ agent: Agent; distance: number }>;
@@ -98,27 +100,52 @@ export class Agent {
   }
 
   /** Move toward a target position */
-  moveToward(tx: number, ty: number, gridSize: number): void {
+  moveToward(tx: number, ty: number, gridSize: number, tileMap: TileMap): void {
     const dx = Math.sign(tx - this.x);
     const dy = Math.sign(ty - this.y);
-    this.x = Math.max(0, Math.min(gridSize - 1, this.x + dx));
-    this.y = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+    const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
+    const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+    
+    // Only move if the destination is passable
+    if (MapGenerator.isPassable(tileMap, newX, newY)) {
+      this.x = newX;
+      this.y = newY;
+    }
+    // Otherwise stay in current position
   }
 
   /** Move away from a position */
-  moveAwayFrom(fx: number, fy: number, gridSize: number): void {
+  moveAwayFrom(fx: number, fy: number, gridSize: number, tileMap: TileMap): void {
     const dx = Math.sign(this.x - fx) || 1;
     const dy = Math.sign(this.y - fy) || 1;
-    this.x = Math.max(0, Math.min(gridSize - 1, this.x + dx));
-    this.y = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+    const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
+    const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+    
+    // Only move if the destination is passable
+    if (MapGenerator.isPassable(tileMap, newX, newY)) {
+      this.x = newX;
+      this.y = newY;
+    }
+    // Otherwise stay in current position
   }
 
   /** Random exploration move */
-  moveRandom(gridSize: number): void {
-    const dx = Math.floor(Math.random() * 3) - 1;
-    const dy = Math.floor(Math.random() * 3) - 1;
-    this.x = Math.max(0, Math.min(gridSize - 1, this.x + dx));
-    this.y = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+  moveRandom(gridSize: number, tileMap: TileMap): void {
+    // Try up to 8 times to find a passable random move
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const dx = Math.floor(Math.random() * 3) - 1;
+      const dy = Math.floor(Math.random() * 3) - 1;
+      const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
+      const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+      
+      // If the destination is passable, move there
+      if (MapGenerator.isPassable(tileMap, newX, newY)) {
+        this.x = newX;
+        this.y = newY;
+        return;
+      }
+    }
+    // If no passable move found after 8 attempts, stay in current position
   }
 
   /**
@@ -131,9 +158,10 @@ export class Agent {
 
   /**
    * Move along the current waypoint path.
-   * Returns true if movement occurred, false if path is complete or empty.
+   * Returns true if movement occurred; returns false if the path is complete,
+   * empty, or blocked (in which case the path is cleared).
    */
-  followPath(): boolean {
+  followPath(tileMap: TileMap): boolean {
     if (this.waypoints.length === 0 || this.currentWaypointIndex >= this.waypoints.length) {
       return false;
     }
@@ -143,7 +171,7 @@ export class Agent {
     // Check if we've reached the current waypoint
     if (this.x === target.x && this.y === target.y) {
       this.currentWaypointIndex++;
-      return this.followPath(); // Try to move to next waypoint
+      return this.followPath(tileMap); // Try to move to next waypoint
     }
 
     // Move toward current waypoint (strictly 4-directional, one axis at a time)
@@ -151,13 +179,25 @@ export class Agent {
     const dx = Math.sign(target.x - this.x);
     const dy = Math.sign(target.y - this.y);
     
+    let newX = this.x;
+    let newY = this.y;
+    
     if (dx !== 0) {
-      this.x += dx;
+      newX += dx;
     } else if (dy !== 0) {
-      this.y += dy;
+      newY += dy;
     }
     
-    return true;
+    // Validate the move is passable before applying
+    if (MapGenerator.isPassable(tileMap, newX, newY)) {
+      this.x = newX;
+      this.y = newY;
+      return true;
+    }
+    
+    // If the path is blocked, clear it and stay in place
+    this.clearPath();
+    return false;
   }
 
   /**

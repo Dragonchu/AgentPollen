@@ -115,16 +115,21 @@ export class World {
     for (let i = 0; i < this.config.agentCount; i++) {
       let x: number, y: number;
       let attempts = 0;
+      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
+      
       do {
         x = Math.floor(Math.random() * this.config.gridSize);
         y = Math.floor(Math.random() * this.config.gridSize);
         attempts++;
-      } while (!MapGenerator.isPassable(this.tileMap, x, y) && attempts < 100);
-      
-      // Validate spawn position after attempts
-      if (!MapGenerator.isPassable(this.tileMap, x, y)) {
-        console.warn(`Failed to find passable tile for agent ${i} after 100 attempts, spawning anyway`);
-      }
+        
+        // If we've tried many times, throw an error - the map may be too crowded
+        if (attempts >= maxAttempts) {
+          throw new Error(
+            `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts. ` +
+            `Map may have too few passable tiles (gridSize: ${this.config.gridSize}, agentCount: ${this.config.agentCount})`
+          );
+        }
+      } while (!MapGenerator.isPassable(this.tileMap, x, y));
       
       agents.push(this.agentFactory.createAgent(x, y));
     }
@@ -224,7 +229,7 @@ export class World {
         this.executeFlee(agent);
         break;
       default:
-        agent.moveRandom(this.config.gridSize);
+        agent.moveRandom(this.config.gridSize, this.tileMap);
         agent.actionState = AgentActionState.Exploring;
         agent.currentAction = decision.reason ?? "Exploring";
         // Clear path since agent is not using pathfinding
@@ -344,9 +349,9 @@ export class World {
       for (const a of perception.nearbyAgents) { avgX += a.agent.x; avgY += a.agent.y; }
       avgX /= perception.nearbyAgents.length;
       avgY /= perception.nearbyAgents.length;
-      agent.moveAwayFrom(avgX, avgY, this.config.gridSize);
+      agent.moveAwayFrom(avgX, avgY, this.config.gridSize, this.tileMap);
     } else {
-      agent.moveRandom(this.config.gridSize);
+      agent.moveRandom(this.config.gridSize, this.tileMap);
     }
     agent.actionState = AgentActionState.Fleeing;
     agent.currentAction = "Fleeing!";
@@ -373,12 +378,17 @@ export class World {
     if (path && path.waypoints.length > 0) {
       // Set the path and move along it
       agent.setPath(path.waypoints);
-      agent.followPath();
-      // Store path for client sync
-      this.agentPaths.set(agent.id, path.waypoints);
+      const followed = agent.followPath(this.tileMap);
+      if (followed) {
+        // Store path for client sync only if the agent is actually following it
+        this.agentPaths.set(agent.id, path.waypoints);
+      } else {
+        // If following the path failed (e.g., blocked waypoint), clear any stored path
+        this.agentPaths.delete(agent.id);
+      }
     } else {
       // Fallback to simple movement if pathfinding fails
-      agent.moveToward(targetX, targetY, this.config.gridSize);
+      agent.moveToward(targetX, targetY, this.config.gridSize, this.tileMap);
       this.agentPaths.delete(agent.id);
     }
   }
@@ -424,12 +434,32 @@ export class World {
 
   private spawnItems(count: number): void {
     const weapons = ["knife", "sword", "bow", "spear", "axe", "mace"];
-    for (let i = 0; i < count; i++) {
+    itemLoop: for (let i = 0; i < count; i++) {
       const idx = Math.floor(Math.random() * weapons.length);
+      
+      // Find a passable tile for item spawning
+      let x: number, y: number;
+      let attempts = 0;
+      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
+      
+      do {
+        x = Math.floor(Math.random() * this.config.gridSize);
+        y = Math.floor(Math.random() * this.config.gridSize);
+        attempts++;
+        
+        // If we can't find a spot after many attempts, skip this item
+        if (attempts >= maxAttempts) {
+          console.warn(
+            `Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`
+          );
+          continue itemLoop; // Skip to next item
+        }
+      } while (!MapGenerator.isPassable(this.tileMap, x, y));
+      
       this.items.push({
         id: this.nextItemId++,
-        x: Math.floor(Math.random() * this.config.gridSize),
-        y: Math.floor(Math.random() * this.config.gridSize),
+        x,
+        y,
         type: weapons[idx],
         bonus: 2 + idx * 2,
       });
