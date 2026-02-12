@@ -11,6 +11,8 @@ import type {
   AgentFullState,
   GameEvent,
   VoteState,
+  PathSyncPayload,
+  Waypoint,
   TileMap,
 } from "@battle-royale/shared";
 
@@ -25,6 +27,7 @@ export interface GameState {
   events: GameEvent[];
   votes: VoteState | null;
   selectedAgent: AgentFullState | null;
+  agentPaths: Record<number, Waypoint[]>;
   tileMap: TileMap | null;
 }
 
@@ -37,6 +40,7 @@ export function useGameSocket() {
     events: [],
     votes: null,
     selectedAgent: null,
+    agentPaths: {},
     tileMap: null,
   });
 
@@ -111,7 +115,14 @@ export function useGameSocket() {
       });
     });
 
+    // Path updates (for smooth movement visualization)
+    socket.on("sync:paths", (data: PathSyncPayload) => {
+      setState((s) => ({ ...s, agentPaths: data.paths }));
+    });
+
     return () => {
+      // Clear agent paths on disconnect to avoid carrying over stale path data
+      setState((s) => ({ ...s, agentPaths: {} }));
       socket.disconnect();
     };
   }, []);

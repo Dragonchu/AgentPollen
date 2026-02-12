@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
+import type { AgentFullState, ItemState, Waypoint, TileMap } from "@battle-royale/shared";
 import type { GameScene } from "./scenes/GameScene";
 
 const CELL_SIZE = 24;
@@ -14,6 +14,7 @@ interface GameCanvasProps {
   selectedAgentId?: number | null;
   shrinkBorder?: number;
   onAgentClick?: (agentId: number) => void;
+  agentPaths?: Record<number, Waypoint[]>;
   tileMap?: TileMap | null;
 }
 
@@ -23,6 +24,7 @@ export function GameCanvas({
   selectedAgentId,
   shrinkBorder = GRID_SIZE,
   onAgentClick,
+  agentPaths = {},
   tileMap = null,
 }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,17 +33,17 @@ export function GameCanvas({
   const readyRef = useRef(false);
 
   // Keep latest values in refs so the Phaser scene can always access them
-  const propsRef = useRef({ agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, tileMap });
+  const propsRef = useRef({ agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, agentPaths, tileMap });
   const onAgentClickRef = useRef(onAgentClick);
-  propsRef.current = { agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, tileMap };
+  propsRef.current = { agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, agentPaths, tileMap };
   onAgentClickRef.current = onAgentClick;
 
   /** Push current props into the Phaser scene (no-op if scene isn't ready). */
   const syncToScene = useCallback(() => {
     const scene = sceneRef.current;
     if (!scene || !readyRef.current) return;
-    const { agents, items, selectedAgentId, shrinkBorder, tileMap } = propsRef.current;
-    scene.updateData(agents, items, selectedAgentId, shrinkBorder, tileMap);
+    const { agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap } = propsRef.current;
+    scene.updateData(agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap);
   }, []);
 
   // --------------- Phaser lifecycle ---------------
@@ -99,7 +101,7 @@ export function GameCanvas({
 
   useEffect(() => {
     syncToScene();
-  }, [agents, items, selectedAgentId, shrinkBorder, tileMap, syncToScene]);
+  }, [agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap, syncToScene]);
 
   // --------------- render ---------------
 

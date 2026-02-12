@@ -1,10 +1,25 @@
 import * as Phaser from "phaser";
-import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
+import type { AgentFullState, ItemState, Waypoint, TileMap } from "@battle-royale/shared";
 import { TileType } from "@battle-royale/shared";
 
 export const CELL_SIZE = 24;
 export const GRID_SIZE = 20;
 export const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
+
+// Interpolation state for smooth movement
+interface AgentDisplayState {
+  // Current rendered position (interpolated)
+  displayX: number;
+  displayY: number;
+  // Target position from server
+  targetX: number;
+  targetY: number;
+  // Previous position (for interpolation start)
+  prevX: number;
+  prevY: number;
+  // Interpolation progress (0 to 1)
+  progress: number;
+}
 
 export class GameScene extends Phaser.Scene {
   private gridGraphics!: Phaser.GameObjects.Graphics;
@@ -16,12 +31,17 @@ export class GameScene extends Phaser.Scene {
   private obstacleGraphics!: Phaser.GameObjects.Graphics;
 
   private agents: Map<number, AgentFullState> = new Map();
+  private agentDisplayStates: Map<number, AgentDisplayState> = new Map();
+  private agentPaths: Record<number, Waypoint[]> = {};
   private items: ItemState[] = [];
   private selectedAgentId: number | null = null;
   private shrinkBorder: number = GRID_SIZE;
   private tileMap: TileMap | null = null;
   private onAgentClick?: (agentId: number) => void;
   private onReady?: () => void;
+
+  // Interpolation speed in ms (time to complete interpolation)
+  private readonly INTERPOLATION_DURATION_MS = 800;
 
   constructor() {
     super({ key: "GameScene" });
@@ -58,12 +78,49 @@ export class GameScene extends Phaser.Scene {
     items: ItemState[],
     selectedAgentId: number | null,
     shrinkBorder: number,
+    agentPaths: Record<number, Waypoint[]> = {},
     tileMap: TileMap | null,
   ): void {
+    // Update target positions for agents
+    for (const [id, agent] of agents) {
+      const displayState = this.agentDisplayStates.get(id);
+      
+      if (!displayState) {
+        // Initialize display state for new agents
+        this.agentDisplayStates.set(id, {
+          displayX: agent.x,
+          displayY: agent.y,
+          targetX: agent.x,
+          targetY: agent.y,
+          prevX: agent.x,
+          prevY: agent.y,
+          progress: 1,
+        });
+      } else {
+        // Check if target position changed
+        if (displayState.targetX !== agent.x || displayState.targetY !== agent.y) {
+          // Start new interpolation
+          displayState.prevX = displayState.displayX;
+          displayState.prevY = displayState.displayY;
+          displayState.targetX = agent.x;
+          displayState.targetY = agent.y;
+          displayState.progress = 0;
+        }
+      }
+    }
+
+    // Clean up display states for removed agents
+    for (const id of this.agentDisplayStates.keys()) {
+      if (!agents.has(id)) {
+        this.agentDisplayStates.delete(id);
+      }
+    }
+
     this.agents = agents;
     this.items = items;
     this.selectedAgentId = selectedAgentId;
     this.shrinkBorder = shrinkBorder;
+    this.agentPaths = agentPaths;
     
     // Draw obstacles once when tileMap is first received
     const wasNull = !this.tileMap;
@@ -73,6 +130,41 @@ export class GameScene extends Phaser.Scene {
     }
     
     this.redraw();
+  }
+
+  update(_time: number, delta: number): void {
+    // Update interpolation for all agents
+    let needsRedraw = false;
+    
+    for (const [_id, displayState] of this.agentDisplayStates) {
+      if (displayState.progress < 1) {
+        // Apply time-based interpolation (delta is in milliseconds)
+        const progressStep = delta / this.INTERPOLATION_DURATION_MS;
+        displayState.progress = Math.min(1, displayState.progress + progressStep);
+        
+        // Ease-out interpolation for smoother movement
+        const t = this.easeOutCubic(displayState.progress);
+        displayState.displayX = displayState.prevX + (displayState.targetX - displayState.prevX) * t;
+        displayState.displayY = displayState.prevY + (displayState.targetY - displayState.prevY) * t;
+        
+        needsRedraw = true;
+      } else {
+        // Ensure we're at the target position
+        displayState.displayX = displayState.targetX;
+        displayState.displayY = displayState.targetY;
+      }
+    }
+
+    if (needsRedraw) {
+      // Only redraw dynamic elements that need per-frame updates
+      this.drawConnections();
+      this.drawAlliances();
+      this.drawAgents();
+    }
+  }
+
+  private easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3);
   }
 
   // --------------- drawing helpers ---------------
@@ -208,8 +300,17 @@ export class GameScene extends Phaser.Scene {
       for (let j = i + 1; j < alive.length; j++) {
         const a = alive[i];
         const b = alive[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
+        
+        // Use interpolated positions for smooth line rendering
+        const aDisplay = this.agentDisplayStates.get(a.id);
+        const bDisplay = this.agentDisplayStates.get(b.id);
+        const ax = aDisplay ? aDisplay.displayX : a.x;
+        const ay = aDisplay ? aDisplay.displayY : a.y;
+        const bx = bDisplay ? bDisplay.displayX : b.x;
+        const by = bDisplay ? bDisplay.displayY : b.y;
+        
+        const dx = ax - bx;
+        const dy = ay - by;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         // Connect agents within range 5
@@ -217,10 +318,10 @@ export class GameScene extends Phaser.Scene {
           const alpha = Math.max(0.03, 0.12 - dist * 0.02);
           g.lineStyle(1, 0x8844ff, alpha);
           g.lineBetween(
-            (a.x + 0.5) * CELL_SIZE,
-            (a.y + 0.5) * CELL_SIZE,
-            (b.x + 0.5) * CELL_SIZE,
-            (b.y + 0.5) * CELL_SIZE,
+            (ax + 0.5) * CELL_SIZE,
+            (ay + 0.5) * CELL_SIZE,
+            (bx + 0.5) * CELL_SIZE,
+            (by + 0.5) * CELL_SIZE,
           );
         }
       }
@@ -235,17 +336,27 @@ export class GameScene extends Phaser.Scene {
     const selected = this.agents.get(this.selectedAgentId);
     if (!selected?.alliances) return;
 
+    // Use interpolated position for selected agent
+    const selectedDisplay = this.agentDisplayStates.get(selected.id);
+    const selectedX = selectedDisplay ? selectedDisplay.displayX : selected.x;
+    const selectedY = selectedDisplay ? selectedDisplay.displayY : selected.y;
+
     g.lineStyle(1.5, 0x44aaff, 0.5);
     for (const allyId of selected.alliances) {
       const ally = this.agents.get(allyId);
       if (!ally?.alive) continue;
 
+      // Use interpolated position for ally
+      const allyDisplay = this.agentDisplayStates.get(allyId);
+      const allyX = allyDisplay ? allyDisplay.displayX : ally.x;
+      const allyY = allyDisplay ? allyDisplay.displayY : ally.y;
+
       this.drawDashedLine(
         g,
-        (selected.x + 0.5) * CELL_SIZE,
-        (selected.y + 0.5) * CELL_SIZE,
-        (ally.x + 0.5) * CELL_SIZE,
-        (ally.y + 0.5) * CELL_SIZE,
+        (selectedX + 0.5) * CELL_SIZE,
+        (selectedY + 0.5) * CELL_SIZE,
+        (allyX + 0.5) * CELL_SIZE,
+        (allyY + 0.5) * CELL_SIZE,
         4,
         4,
       );
@@ -258,12 +369,17 @@ export class GameScene extends Phaser.Scene {
         const enemy = this.agents.get(enemyId);
         if (!enemy?.alive) continue;
 
+        // Use interpolated position for enemy
+        const enemyDisplay = this.agentDisplayStates.get(enemyId);
+        const enemyX = enemyDisplay ? enemyDisplay.displayX : enemy.x;
+        const enemyY = enemyDisplay ? enemyDisplay.displayY : enemy.y;
+
         this.drawDashedLine(
           g,
-          (selected.x + 0.5) * CELL_SIZE,
-          (selected.y + 0.5) * CELL_SIZE,
-          (enemy.x + 0.5) * CELL_SIZE,
-          (enemy.y + 0.5) * CELL_SIZE,
+          (selectedX + 0.5) * CELL_SIZE,
+          (selectedY + 0.5) * CELL_SIZE,
+          (enemyX + 0.5) * CELL_SIZE,
+          (enemyY + 0.5) * CELL_SIZE,
           3,
           5,
         );
@@ -309,11 +425,16 @@ export class GameScene extends Phaser.Scene {
     const g = this.agentGraphics;
     g.clear();
 
-    for (const [, agent] of this.agents) {
+    for (const [_id, agent] of this.agents) {
       if (!agent.alive) continue;
 
-      const cx = agent.x * CELL_SIZE + CELL_SIZE / 2;
-      const cy = agent.y * CELL_SIZE + CELL_SIZE / 2;
+      // Use interpolated position if available, otherwise use actual position
+      const displayState = this.agentDisplayStates.get(agent.id);
+      const renderX = displayState ? displayState.displayX : agent.x;
+      const renderY = displayState ? displayState.displayY : agent.y;
+
+      const cx = renderX * CELL_SIZE + CELL_SIZE / 2;
+      const cy = renderY * CELL_SIZE + CELL_SIZE / 2;
       const radius = CELL_SIZE * 0.42; // Larger nodes
       const hue = (agent.id * 137) % 360;
       const color = Phaser.Display.Color.HSLToColor(hue / 360, 0.7, 0.6).color;
@@ -389,7 +510,13 @@ export class GameScene extends Phaser.Scene {
     let closest: { id: number; dist: number } | null = null;
     for (const [, agent] of this.agents) {
       if (!agent.alive) continue;
-      const dist = Math.abs(agent.x - gx) + Math.abs(agent.y - gy);
+      
+      // Use interpolated position for click detection to match rendering
+      const displayState = this.agentDisplayStates.get(agent.id);
+      const renderX = displayState ? displayState.displayX : agent.x;
+      const renderY = displayState ? displayState.displayY : agent.y;
+      
+      const dist = Math.abs(renderX - gx) + Math.abs(renderY - gy);
       if (dist <= 1 && (!closest || dist < closest.dist)) {
         closest = { id: agent.id, dist };
       }
