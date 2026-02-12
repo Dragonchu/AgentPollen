@@ -66,11 +66,10 @@ export class GameScene extends Phaser.Scene {
     this.shrinkBorder = shrinkBorder;
     
     // Draw obstacles once when tileMap is first received
-    if (tileMap && !this.tileMap) {
-      this.tileMap = tileMap;
+    const wasNull = !this.tileMap;
+    this.tileMap = tileMap;
+    if (tileMap && wasNull) {
       this.drawObstacles();
-    } else {
-      this.tileMap = tileMap;
     }
     
     this.redraw();
