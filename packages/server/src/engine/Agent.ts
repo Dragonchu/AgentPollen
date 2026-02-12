@@ -144,11 +144,16 @@ export class Agent {
       return this.followPath(); // Try to move to next waypoint
     }
 
-    // Move toward current waypoint (one step)
+    // Move toward current waypoint (strictly 4-directional, one axis at a time)
+    // Prioritize horizontal movement if both differ
     const dx = Math.sign(target.x - this.x);
     const dy = Math.sign(target.y - this.y);
-    this.x += dx;
-    this.y += dy;
+    
+    if (dx !== 0) {
+      this.x += dx;
+    } else if (dy !== 0) {
+      this.y += dy;
+    }
     
     return true;
   }

@@ -99,6 +99,11 @@ export class World {
         attempts++;
       } while (!MapGenerator.isPassable(this.tileMap, x, y) && attempts < 100);
       
+      // Validate spawn position after attempts
+      if (!MapGenerator.isPassable(this.tileMap, x, y)) {
+        console.warn(`Failed to find passable tile for agent ${i} after 100 attempts, spawning anyway`);
+      }
+      
       agents.push(this.agentFactory.createAgent(x, y));
     }
     this.agents = agents;
@@ -318,12 +323,16 @@ export class World {
   /**
    * Move agent toward a target using pathfinding.
    * Falls back to simple movement if pathfinding fails.
+   * 
+   * Note: If an agent is on a blocked tile (e.g., spawned before obstacles
+   * were added, or map changed dynamically), pathfinding may fail. The
+   * fallback ensures agents can still attempt movement.
    */
   private moveAgentToward(agent: Agent, targetX: number, targetY: number): void {
     const start = { x: agent.x, y: agent.y };
     const goal = { x: targetX, y: targetY };
     
-    // Try to find a path
+    // Try to find a path (will fail if start is blocked or unreachable)
     const path = this.pathfindingEngine.findPath(this.tileMap, start, goal);
     
     if (path && path.waypoints.length > 0) {

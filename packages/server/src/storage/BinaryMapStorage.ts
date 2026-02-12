@@ -121,9 +121,9 @@ export class BinaryMapStorage implements MapStorageProvider {
    * Read a 32-bit unsigned integer from buffer (little endian).
    */
   private readUInt32(buffer: Uint8Array, offset: number): number {
-    return buffer[offset] | 
+    return (buffer[offset] | 
            (buffer[offset + 1] << 8) | 
            (buffer[offset + 2] << 16) | 
-           (buffer[offset + 3] << 24);
+           (buffer[offset + 3] << 24)) >>> 0;
   }
 }
