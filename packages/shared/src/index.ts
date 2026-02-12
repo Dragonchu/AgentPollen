@@ -99,7 +99,7 @@ export interface WorldConfig {
   agentTemplates: AgentTemplate[];
   /** Base damage per tick when outside safe zone */
   zoneDamageBase: number;
-  /** Minimum safe zone size (radius from center) */
+  /** Minimum safe zone size (full width/height) */
   minZoneSize: number;
 }
 
