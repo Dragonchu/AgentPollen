@@ -3,6 +3,7 @@ import {
   ServerToClientEvents,
   ClientToServerEvents,
   Vote,
+  Waypoint,
 } from "@battle-royale/shared";
 import { World } from "../engine/World.js";
 
@@ -112,6 +113,13 @@ export class SyncManager {
 
     // Vote state
     this.io.emit("vote:state", this.world.getVoteManager().getState());
+
+    // Agent paths (waypoints) - always emit, even when empty so clients can clear
+    const pathsObj: Record<number, Waypoint[]> = {};
+    for (const [agentId, waypoints] of this.world.agentPaths) {
+      pathsObj[agentId] = waypoints;
+    }
+    this.io.emit("sync:paths", { paths: pathsObj });
 
     // Update followed agents
     this.broadcastFollowedAgents();

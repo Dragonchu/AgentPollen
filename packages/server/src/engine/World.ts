@@ -14,10 +14,14 @@ import {
   FullSyncPayload,
   AgentSyncState,
   DEFAULT_WORLD_CONFIG,
+  TileMap,
+  PathfindingEngine,
+  Waypoint,
 } from "@battle-royale/shared";
 import { Agent } from "./Agent.js";
 import { AgentFactory } from "./AgentFactory.js";
 import { VoteManager } from "./VoteManager.js";
+import { MapGenerator } from "../pathfinding/MapGenerator.js";
 
 /**
  * The game world. Manages the simulation loop.
@@ -38,8 +42,10 @@ export class World {
   phase: GamePhase = GamePhase.WaitingToStart;
   winner: Agent | null = null;
   pendingEvents: GameEvent[] = [];
+  tileMap: TileMap;
 
   private decisionEngine: DecisionEngine;
+  private pathfindingEngine: PathfindingEngine;
   private agentFactory: AgentFactory;
   private voteManager: VoteManager;
   private nextItemId = 0;
@@ -47,13 +53,26 @@ export class World {
 
   /** Previous tick state for delta computation */
   private prevAgentStates: Map<number, string> = new Map();
+  
+  /** Agent paths to broadcast to clients */
+  agentPaths: Map<number, Waypoint[]> = new Map();
 
-  constructor(config: Partial<WorldConfig>, engine: DecisionEngine, factory?: AgentFactory) {
+  constructor(
+    config: Partial<WorldConfig>, 
+    engine: DecisionEngine, 
+    pathfinder: PathfindingEngine,
+    factory?: AgentFactory
+  ) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
     this.decisionEngine = engine;
+    this.pathfindingEngine = pathfinder;
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.shrinkBorder = this.config.gridSize;
+
+    // Initialize tile map
+    this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
+    MapGenerator.addRandomObstacles(this.tileMap, 0.15); // 15% obstacle density
 
     // Wire vote resolution → agent inner voice
     this.voteManager.setOnResolve((results) => {
@@ -69,7 +88,37 @@ export class World {
 
   /** Initialize the world with agents and items */
   init(): void {
-    this.agents = this.agentFactory.spawnAgents(this.config.agentCount, this.config.gridSize);
+    // Reset per-run world state for restarts
+    this.tick = 0;
+    this.aliveCount = 0;
+    this.winner = null;
+    this.items = [];
+    this.pendingEvents = [];
+    this.nextItemId = 0;
+    this.prevAgentStates.clear();
+    this.agentPaths.clear();
+    this.shrinkBorder = this.config.gridSize;
+    this.phase = GamePhase.WaitingToStart;
+
+    // Spawn agents on passable tiles
+    const agents: Agent[] = [];
+    for (let i = 0; i < this.config.agentCount; i++) {
+      let x: number, y: number;
+      let attempts = 0;
+      do {
+        x = Math.floor(Math.random() * this.config.gridSize);
+        y = Math.floor(Math.random() * this.config.gridSize);
+        attempts++;
+      } while (!MapGenerator.isPassable(this.tileMap, x, y) && attempts < 100);
+      
+      // Validate spawn position after attempts
+      if (!MapGenerator.isPassable(this.tileMap, x, y)) {
+        console.warn(`Failed to find passable tile for agent ${i} after 100 attempts, spawning anyway`);
+      }
+      
+      agents.push(this.agentFactory.createAgent(x, y));
+    }
+    this.agents = agents;
     this.aliveCount = this.agents.length;
     this.spawnItems(Math.floor(this.config.agentCount / 2));
     this.phase = GamePhase.Running;
@@ -168,6 +217,8 @@ export class World {
         agent.moveRandom(this.config.gridSize);
         agent.actionState = AgentActionState.Exploring;
         agent.currentAction = decision.reason ?? "Exploring";
+        // Clear path since agent is not using pathfinding
+        this.agentPaths.delete(agent.id);
         break;
     }
   }
@@ -195,9 +246,12 @@ export class World {
         agent.memory.add(`I eliminated ${target.name}. Kill count: ${agent.killCount}`, 9, MemoryType.Observation);
         // Remove dead agent from all alliances
         for (const a of this.agents) a.alliances.delete(target.id);
+        // Clear any remaining path data for the eliminated agent
+        this.agentPaths.delete(target.id);
       }
     } else {
-      agent.moveToward(target.x, target.y, this.config.gridSize);
+      // Use pathfinding to move toward target
+      this.moveAgentToward(agent, target.x, target.y);
       agent.actionState = AgentActionState.Fighting;
       agent.currentAction = `Pursuing ${target.name}`;
     }
@@ -220,7 +274,7 @@ export class World {
       agent.actionState = AgentActionState.Allying;
       agent.currentAction = accepted ? `Allied with ${target.name}` : `Alliance rejected by ${target.name}`;
     } else {
-      agent.moveToward(target.x, target.y, this.config.gridSize);
+      this.moveAgentToward(agent, target.x, target.y);
       agent.actionState = AgentActionState.Allying;
       agent.currentAction = `Approaching ${target.name}`;
     }
@@ -248,6 +302,8 @@ export class World {
       agent.killCount++;
       this.aliveCount--;
       this.emitEvent(GameEventType.Kill, `${agent.name} eliminated ${target.name} through betrayal! (${this.aliveCount} remain)`, [agent.id, target.id]);
+      // Clear any remaining path data for the eliminated agent
+      this.agentPaths.delete(target.id);
     }
   }
 
@@ -265,7 +321,7 @@ export class World {
       agent.currentAction = `Found ${item.type}!`;
       this.emitEvent(GameEventType.Loot, `${agent.name} found a ${item.type}!`, [agent.id]);
     } else {
-      agent.moveToward(item.x, item.y, this.config.gridSize);
+      this.moveAgentToward(agent, item.x, item.y);
       agent.actionState = AgentActionState.Looting;
       agent.currentAction = "Moving to item";
     }
@@ -285,6 +341,36 @@ export class World {
     agent.actionState = AgentActionState.Fleeing;
     agent.currentAction = "Fleeing!";
     agent.memory.add("I fled from danger", 5, MemoryType.Observation);
+    // Clear path since agent is not using pathfinding
+    this.agentPaths.delete(agent.id);
+  }
+
+  /**
+   * Move agent toward a target using pathfinding.
+   * Falls back to simple movement if pathfinding fails.
+   * 
+   * Note: If an agent is on a blocked tile (e.g., spawned before obstacles
+   * were added, or map changed dynamically), pathfinding may fail. The
+   * fallback ensures agents can still attempt movement.
+   */
+  private moveAgentToward(agent: Agent, targetX: number, targetY: number): void {
+    const start = { x: agent.x, y: agent.y };
+    const goal = { x: targetX, y: targetY };
+    
+    // Try to find a path (will fail if start is blocked or unreachable)
+    const path = this.pathfindingEngine.findPath(this.tileMap, start, goal);
+    
+    if (path && path.waypoints.length > 0) {
+      // Set the path and move along it
+      agent.setPath(path.waypoints);
+      agent.followPath();
+      // Store path for client sync
+      this.agentPaths.set(agent.id, path.waypoints);
+    } else {
+      // Fallback to simple movement if pathfinding fails
+      agent.moveToward(targetX, targetY, this.config.gridSize);
+      this.agentPaths.delete(agent.id);
+    }
   }
 
   // --- Zone ---
