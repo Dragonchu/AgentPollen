@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { AgentFullState, ItemState } from "@battle-royale/shared";
+import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
 
 export const CELL_SIZE = 24;
 export const GRID_SIZE = 20;
@@ -12,11 +12,13 @@ export class GameScene extends Phaser.Scene {
   private connectionGraphics!: Phaser.GameObjects.Graphics;
   private allianceGraphics!: Phaser.GameObjects.Graphics;
   private agentGraphics!: Phaser.GameObjects.Graphics;
+  private obstacleGraphics!: Phaser.GameObjects.Graphics;
 
   private agents: Map<number, AgentFullState> = new Map();
   private items: ItemState[] = [];
   private selectedAgentId: number | null = null;
   private shrinkBorder: number = GRID_SIZE;
+  private tileMap: TileMap | null = null;
   private onAgentClick?: (agentId: number) => void;
   private onReady?: () => void;
 
@@ -30,6 +32,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.gridGraphics = this.add.graphics();
+    this.obstacleGraphics = this.add.graphics();
     this.zoneGraphics = this.add.graphics();
     this.itemGraphics = this.add.graphics();
     this.connectionGraphics = this.add.graphics();
@@ -54,11 +57,13 @@ export class GameScene extends Phaser.Scene {
     items: ItemState[],
     selectedAgentId: number | null,
     shrinkBorder: number,
+    tileMap: TileMap | null,
   ): void {
     this.agents = agents;
     this.items = items;
     this.selectedAgentId = selectedAgentId;
     this.shrinkBorder = shrinkBorder;
+    this.tileMap = tileMap;
     this.redraw();
   }
 
@@ -76,7 +81,44 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private drawObstacles(): void {
+    const g = this.obstacleGraphics;
+    g.clear();
+    
+    if (!this.tileMap) return;
+    
+    // Draw blocked tiles as obstacles
+    for (let y = 0; y < this.tileMap.height; y++) {
+      for (let x = 0; x < this.tileMap.width; x++) {
+        const tile = this.tileMap.tiles[y][x];
+        if (tile.type === 1) { // TileType.Blocked
+          const px = x * CELL_SIZE;
+          const py = y * CELL_SIZE;
+          
+          // Draw obstacle with a rocky/dark appearance
+          // Outer glow
+          g.fillStyle(0x44334d, 0.3);
+          g.fillRect(px - 1, py - 1, CELL_SIZE + 2, CELL_SIZE + 2);
+          
+          // Main obstacle body
+          g.fillStyle(0x2a1f35);
+          g.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          
+          // Inner highlight for depth
+          g.fillStyle(0x3d2a4d, 0.6);
+          g.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+          
+          // Edge highlight (top-left)
+          g.fillStyle(0x55446d, 0.4);
+          g.fillRect(px + 1, py + 1, CELL_SIZE - 6, 2);
+          g.fillRect(px + 1, py + 1, 2, CELL_SIZE - 6);
+        }
+      }
+    }
+  }
+
   private redraw(): void {
+    this.drawObstacles();
     this.drawZone();
     this.drawItems();
     this.drawConnections();

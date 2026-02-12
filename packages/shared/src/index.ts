@@ -207,6 +207,7 @@ export interface FullSyncPayload {
   items: ItemState[];
   votes: VoteState;
   events: GameEvent[];
+  tileMap: TileMap;
 }
 
 export interface AgentSyncPayload {

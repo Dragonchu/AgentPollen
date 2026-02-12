@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import type { AgentFullState, ItemState } from "@battle-royale/shared";
+import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
 import type { GameScene } from "./scenes/GameScene";
 
 const CELL_SIZE = 24;
@@ -14,6 +14,7 @@ interface GameCanvasProps {
   selectedAgentId?: number | null;
   shrinkBorder?: number;
   onAgentClick?: (agentId: number) => void;
+  tileMap?: TileMap | null;
 }
 
 export function GameCanvas({
@@ -22,6 +23,7 @@ export function GameCanvas({
   selectedAgentId,
   shrinkBorder = GRID_SIZE,
   onAgentClick,
+  tileMap = null,
 }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -29,17 +31,17 @@ export function GameCanvas({
   const readyRef = useRef(false);
 
   // Keep latest values in refs so the Phaser scene can always access them
-  const propsRef = useRef({ agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder });
+  const propsRef = useRef({ agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, tileMap });
   const onAgentClickRef = useRef(onAgentClick);
-  propsRef.current = { agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder };
+  propsRef.current = { agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, tileMap };
   onAgentClickRef.current = onAgentClick;
 
   /** Push current props into the Phaser scene (no-op if scene isn't ready). */
   const syncToScene = useCallback(() => {
     const scene = sceneRef.current;
     if (!scene || !readyRef.current) return;
-    const { agents, items, selectedAgentId, shrinkBorder } = propsRef.current;
-    scene.updateData(agents, items, selectedAgentId, shrinkBorder);
+    const { agents, items, selectedAgentId, shrinkBorder, tileMap } = propsRef.current;
+    scene.updateData(agents, items, selectedAgentId, shrinkBorder, tileMap);
   }, []);
 
   // --------------- Phaser lifecycle ---------------
@@ -97,7 +99,7 @@ export function GameCanvas({
 
   useEffect(() => {
     syncToScene();
-  }, [agents, items, selectedAgentId, shrinkBorder, syncToScene]);
+  }, [agents, items, selectedAgentId, shrinkBorder, tileMap, syncToScene]);
 
   // --------------- render ---------------
 
