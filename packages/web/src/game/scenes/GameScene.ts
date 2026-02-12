@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
+import { TileType } from "@battle-royale/shared";
 
 export const CELL_SIZE = 24;
 export const GRID_SIZE = 20;
@@ -63,7 +64,15 @@ export class GameScene extends Phaser.Scene {
     this.items = items;
     this.selectedAgentId = selectedAgentId;
     this.shrinkBorder = shrinkBorder;
-    this.tileMap = tileMap;
+    
+    // Draw obstacles once when tileMap is first received
+    if (tileMap && !this.tileMap) {
+      this.tileMap = tileMap;
+      this.drawObstacles();
+    } else {
+      this.tileMap = tileMap;
+    }
+    
     this.redraw();
   }
 
@@ -91,7 +100,7 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < this.tileMap.height; y++) {
       for (let x = 0; x < this.tileMap.width; x++) {
         const tile = this.tileMap.tiles[y][x];
-        if (tile.type === 1) { // TileType.Blocked
+        if (tile.type === TileType.Blocked) {
           const px = x * CELL_SIZE;
           const py = y * CELL_SIZE;
           
@@ -118,7 +127,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private redraw(): void {
-    this.drawObstacles();
     this.drawZone();
     this.drawItems();
     this.drawConnections();
