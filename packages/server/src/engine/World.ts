@@ -368,9 +368,14 @@ export class World {
     if (path && path.waypoints.length > 0) {
       // Set the path and move along it
       agent.setPath(path.waypoints);
-      agent.followPath(this.tileMap);
-      // Store path for client sync
-      this.agentPaths.set(agent.id, path.waypoints);
+      const followed = agent.followPath(this.tileMap);
+      if (followed) {
+        // Store path for client sync only if the agent is actually following it
+        this.agentPaths.set(agent.id, path.waypoints);
+      } else {
+        // If following the path failed (e.g., blocked waypoint), clear any stored path
+        this.agentPaths.delete(agent.id);
+      }
     } else {
       // Fallback to simple movement if pathfinding fails
       agent.moveToward(targetX, targetY, this.config.gridSize, this.tileMap);
