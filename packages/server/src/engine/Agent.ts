@@ -6,6 +6,7 @@ import {
   MemoryType,
   Decision,
   ItemState,
+  ThinkingProcess,
 } from "@battle-royale/shared";
 import { MemoryStream } from "./MemoryStream.js";
 
@@ -42,6 +43,7 @@ export class Agent {
   actionState: AgentActionState = AgentActionState.Idle;
   currentAction: string = "Surveying surroundings";
   currentDecision: Decision | null = null;
+  thinkingProcess: ThinkingProcess | null = null;
 
   readonly memory: MemoryStream = new MemoryStream();
   readonly alliances: Set<number> = new Set();
@@ -154,6 +156,7 @@ export class Agent {
       enemies: [...this.enemies],
       currentAction: this.currentAction,
       memories: this.memory.getRecent(15),
+      thinkingProcess: this.thinkingProcess ?? undefined,
     };
   }
 }

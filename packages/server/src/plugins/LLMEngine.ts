@@ -5,6 +5,7 @@ import {
   ReflectionContext,
   Decision,
   DecisionType,
+  ThinkingProcess,
 } from "@battle-royale/shared";
 import { RuleBasedEngine } from "./RuleBasedEngine.js";
 
@@ -80,6 +81,15 @@ export class LLMEngine implements DecisionEngine {
       const prompt = this.buildDecisionPrompt(ctx);
       const response = await this.callLLM(prompt, 150);
       const decision = this.parseDecision(response, ctx);
+
+      // Capture thinking process from parsed decision
+      // Use the parsed decision's reason to ensure consistency
+      const thinking: ThinkingProcess = {
+        action: this.formatDecisionAction(decision, ctx),
+        reasoning: decision.reason || "LLM decision",
+        timestamp: Date.now(),
+      };
+      decision.thinking = thinking;
 
       this.releaseLock();
       return decision;
@@ -307,5 +317,34 @@ Examples:
 
     const words = actionLine.split(" ");
     return words.slice(1).join(" ").trim();
+  }
+
+  private formatDecisionAction(decision: Decision, ctx: DecisionContext): string {
+    switch (decision.type) {
+      case DecisionType.Attack: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `attack ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Ally: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `ally ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Betray: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `betray ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Loot: {
+        const item = ctx.nearbyItems.find(i => i.id === decision.targetId);
+        return `loot ${item?.type ?? "item"}`;
+      }
+      case DecisionType.Flee:
+        return "flee";
+      case DecisionType.Explore:
+        return "explore";
+      case DecisionType.Rest:
+        return "rest";
+      default:
+        return "unknown action";
+    }
   }
 }
