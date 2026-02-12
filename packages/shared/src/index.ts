@@ -53,6 +53,22 @@ export interface AgentFullState extends AgentSyncState {
   enemies: number[];
   currentAction: string;
   memories: MemoryEntry[];
+  /** AI thinking process - the reasoning behind the last decision */
+  thinkingProcess?: ThinkingProcess;
+}
+
+/** Represents the AI's thinking process for a decision */
+export interface ThinkingProcess {
+  /** The decision/action taken */
+  action: string;
+  /** The reasoning/logic behind the decision */
+  reasoning: string;
+  /** LLM prompt used (optional, for debugging) */
+  prompt?: string;
+  /** Raw LLM response (optional, for debugging) */
+  rawResponse?: string;
+  /** Timestamp when the decision was made */
+  timestamp: number;
 }
 
 // --- Memory ---
@@ -245,6 +261,8 @@ export interface Decision {
   targetId?: number; // agent or item ID
   direction?: { dx: number; dy: number };
   reason?: string; // for logging / display
+  /** Thinking process behind this decision */
+  thinking?: ThinkingProcess;
 }
 
 export enum DecisionType {

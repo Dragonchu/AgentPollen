@@ -5,6 +5,7 @@ import {
   Decision,
   DecisionType,
   MemoryType,
+  ThinkingProcess,
 } from "@battle-royale/shared";
 
 /**
@@ -26,28 +27,96 @@ export class RuleBasedEngine implements DecisionEngine {
     // Priority 1: Inner voice (player votes) override
     if (innerVoice) {
       const decision = this.parseInnerVoice(innerVoice, ctx);
-      if (decision) return decision;
+      if (decision) {
+        const thinking = this.buildThinkingProcess(decision, ctx, "Player vote");
+        return { ...decision, thinking };
+      }
     }
 
     // Priority 2: Loot nearby items
     if (nearbyItems.length > 0) {
-      return {
+      const decision: Decision = {
         type: DecisionType.Loot,
         targetId: nearbyItems[0].id,
         reason: `Picking up ${nearbyItems[0].type}`,
       };
+      const thinking = this.buildThinkingProcess(decision, ctx, "Item available");
+      return { ...decision, thinking };
     }
 
     // Priority 3: Low HP → flee
     if (agent.hp < agent.maxHp * 0.3 && nearbyAgents.length > 0) {
-      return {
+      const decision: Decision = {
         type: DecisionType.Flee,
         reason: "HP critically low, fleeing",
       };
+      const thinking = this.buildThinkingProcess(decision, ctx, "Low HP");
+      return { ...decision, thinking };
     }
 
     // Priority 4: Personality-driven behavior
-    return this.personalityDecision(ctx);
+    const decision = this.personalityDecision(ctx);
+    const thinking = this.buildThinkingProcess(decision, ctx, "Personality-based");
+    return { ...decision, thinking };
+  }
+
+  private buildThinkingProcess(decision: Decision, ctx: DecisionContext, trigger: string): ThinkingProcess {
+    const actionDesc = this.getActionDescription(decision, ctx);
+    const reasoning = this.buildReasoning(decision, ctx, trigger);
+    
+    return {
+      action: actionDesc,
+      reasoning: reasoning,
+      timestamp: Date.now(),
+    };
+  }
+
+  private getActionDescription(decision: Decision, ctx: DecisionContext): string {
+    switch (decision.type) {
+      case DecisionType.Attack: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `attack ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Ally: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `ally ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Betray: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `betray ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Loot: {
+        const item = ctx.nearbyItems.find(i => i.id === decision.targetId);
+        return `loot ${item?.type ?? "item"}`;
+      }
+      case DecisionType.Flee:
+        return "flee";
+      case DecisionType.Explore:
+        return "explore";
+      case DecisionType.Rest:
+        return "rest";
+      default:
+        return "unknown";
+    }
+  }
+
+  private buildReasoning(decision: Decision, ctx: DecisionContext, trigger: string): string {
+    const { agent, nearbyAgents } = ctx;
+    const hpPercent = Math.round((agent.hp / agent.maxHp) * 100);
+    
+    let reasoning = `[Rule-Based AI] Trigger: ${trigger}. `;
+    reasoning += `Current HP: ${agent.hp}/${agent.maxHp} (${hpPercent}%). `;
+    reasoning += `Personality: ${agent.personality}. `;
+    
+    if (nearbyAgents.length > 0) {
+      reasoning += `${nearbyAgents.length} agent(s) nearby. `;
+    }
+    
+    if (decision.reason) {
+      reasoning += `Decision: ${decision.reason}`;
+    }
+    
+    return reasoning;
   }
 
   private personalityDecision(ctx: DecisionContext): Decision {

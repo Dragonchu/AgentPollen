@@ -5,6 +5,7 @@ import {
   ReflectionContext,
   Decision,
   DecisionType,
+  ThinkingProcess,
 } from "@battle-royale/shared";
 import { RuleBasedEngine } from "./RuleBasedEngine.js";
 
@@ -80,6 +81,15 @@ export class LLMEngine implements DecisionEngine {
       const prompt = this.buildDecisionPrompt(ctx);
       const response = await this.callLLM(prompt, 150);
       const decision = this.parseDecision(response, ctx);
+
+      // Capture thinking process
+      const thinking: ThinkingProcess = {
+        action: this.extractActionFromResponse(response),
+        reasoning: this.extractReasonFromResponse(response),
+        rawResponse: response,
+        timestamp: Date.now(),
+      };
+      decision.thinking = thinking;
 
       this.releaseLock();
       return decision;
@@ -307,5 +317,25 @@ Examples:
 
     const words = actionLine.split(" ");
     return words.slice(1).join(" ").trim();
+  }
+
+  private extractActionFromResponse(response: string): string {
+    const lines = response.trim().split("\n");
+    for (const line of lines) {
+      if (line.toUpperCase().startsWith("ACTION:")) {
+        return line.substring(7).trim();
+      }
+    }
+    return "unknown action";
+  }
+
+  private extractReasonFromResponse(response: string): string {
+    const lines = response.trim().split("\n");
+    for (const line of lines) {
+      if (line.toUpperCase().startsWith("REASON:")) {
+        return line.substring(7).trim();
+      }
+    }
+    return "No reasoning provided";
   }
 }

@@ -108,6 +108,11 @@ export class World {
       const decision = await this.decisionEngine.decide(context);
       agent.currentDecision = decision;
 
+      // Store thinking process if available
+      if (decision.thinking) {
+        agent.thinkingProcess = decision.thinking;
+      }
+
       // Execute
       this.executeDecision(agent, decision);
 
