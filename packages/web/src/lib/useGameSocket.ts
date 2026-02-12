@@ -12,6 +12,8 @@ import type {
   GameEvent,
   VoteState,
   PathSyncPayload,
+  ThinkingHistoryPayload,
+  ThinkingProcess,
   Waypoint,
   TileMap,
   ItemState,
@@ -31,6 +33,7 @@ export interface GameState {
   selectedAgent: AgentFullState | null;
   agentPaths: Record<number, Waypoint[]>;
   tileMap: TileMap | null;
+  thinkingHistory: Map<number, ThinkingProcess[]>;
 }
 
 export function useGameSocket() {
@@ -45,6 +48,7 @@ export function useGameSocket() {
     selectedAgent: null,
     agentPaths: {},
     tileMap: null,
+    thinkingHistory: new Map(),
   });
 
   useEffect(() => {
@@ -119,6 +123,15 @@ export function useGameSocket() {
       });
     });
 
+    // Thinking history (on demand)
+    socket.on("thinking:history", (data: ThinkingHistoryPayload) => {
+      setState((s) => {
+        const thinkingHistory = new Map(s.thinkingHistory);
+        thinkingHistory.set(data.agentId, data.history);
+        return { ...s, thinkingHistory };
+      });
+    });
+
     // Path updates (for smooth movement visualization)
     socket.on("sync:paths", (data: PathSyncPayload) => {
       setState((s) => ({ ...s, agentPaths: data.paths }));
@@ -143,6 +156,8 @@ export function useGameSocket() {
   const inspectAgent = useCallback((agentId: number) => {
     socketRef.current?.emit("agent:inspect", agentId);
     socketRef.current?.emit("agent:follow", agentId);
+    // Request thinking history when inspecting an agent
+    socketRef.current?.emit("thinking:request", agentId, 20);
     setState((s) => {
       const agent = s.agents.get(agentId) ?? null;
       return { ...s, selectedAgent: agent };
@@ -154,5 +169,9 @@ export function useGameSocket() {
     setState((s) => ({ ...s, selectedAgent: null }));
   }, []);
 
-  return { state, submitVote, inspectAgent, clearSelection };
+  const requestThinkingHistory = useCallback((agentId: number, limit: number = 10) => {
+    socketRef.current?.emit("thinking:request", agentId, limit);
+  }, []);
+
+  return { state, submitVote, inspectAgent, clearSelection, requestThinkingHistory };
 }

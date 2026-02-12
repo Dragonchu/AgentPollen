@@ -12,7 +12,7 @@ import { GamePhase } from "@battle-royale/shared";
 
 export default function Home() {
   const { state, submitVote, inspectAgent } = useGameSocket();
-  const { connected, world, agents, items, events, votes, selectedAgent, agentPaths, tileMap } = state;
+  const { connected, world, agents, items, events, votes, selectedAgent, agentPaths, tileMap, thinkingHistory } = state;
 
   return (
     <div style={{
@@ -109,6 +109,7 @@ export default function Home() {
             >
               <AIThinkingProcess
                 agent={selectedAgent}
+                thinkingHistory={selectedAgent ? thinkingHistory.get(selectedAgent.id) ?? [] : []}
               />
             </Card>
           </div>

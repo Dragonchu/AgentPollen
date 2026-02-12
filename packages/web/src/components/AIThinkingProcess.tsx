@@ -1,29 +1,10 @@
 "use client";
 
-import type { AgentFullState } from "@battle-royale/shared";
+import type { AgentFullState, ThinkingProcess } from "@battle-royale/shared";
 
 interface AIThinkingProcessProps {
   agent: AgentFullState | null;
-}
-
-function StepNumber({ n, completed }: { n: number; completed: boolean }) {
-  return (
-    <div style={{
-      width: 24,
-      height: 24,
-      borderRadius: "50%",
-      background: completed ? "#22cc88" : "#8844ff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#fff",
-      flexShrink: 0,
-    }}>
-      {completed ? "\u2713" : n}
-    </div>
-  );
+  thinkingHistory: ThinkingProcess[];
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -35,7 +16,7 @@ function formatTimestamp(timestamp: number): string {
   return `${Math.floor(diff / 3600000)}h ago`;
 }
 
-export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
+export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessProps) {
   if (!agent) {
     return (
       <div style={{
@@ -49,8 +30,9 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
     );
   }
 
-  const thinking = agent.thinkingProcess;
-  const hasThinking = !!(thinking?.action && thinking?.reasoning);
+  // Use history if available, otherwise fall back to current thinking process
+  const historyToDisplay = thinkingHistory.length > 0 ? thinkingHistory : (agent.thinkingProcess ? [agent.thinkingProcess] : []);
+  const hasHistory = historyToDisplay.length > 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -83,7 +65,7 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
         </div>
       </div>
 
-      {!hasThinking && (
+      {!hasHistory && (
         <div style={{
           padding: "20px",
           textAlign: "center",
@@ -97,125 +79,99 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
         </div>
       )}
 
-      {hasThinking && thinking && (
-        <>
-          {/* Step 1: AI Decision Output */}
-          <div style={{ display: "flex", gap: 12 }}>
+      {hasHistory && (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          maxHeight: "calc(100vh - 400px)",
+          overflowY: "auto",
+          paddingRight: 4,
+        }}>
+          {/* Display history count */}
+          {historyToDisplay.length > 1 && (
             <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
+              fontSize: 11,
+              color: "#888899",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: 1,
             }}>
-              <StepNumber n={1} completed={true} />
-              <div style={{
-                width: 2,
-                flex: 1,
-                background: "#1a1a2e",
-                borderRadius: 1,
-              }} />
+              {historyToDisplay.length} Decisions
             </div>
-            <div style={{ flex: 1, paddingBottom: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#e8e8f0", marginBottom: 4 }}>
-                AI Decision Output
-              </div>
-              <div style={{ fontSize: 12, color: "#888899", marginBottom: 10 }}>
-                The action chosen by the AI agent
-              </div>
-              <div style={{
+          )}
+
+          {/* Render each thinking process */}
+          {historyToDisplay.map((thinking, idx) => (
+            <div
+              key={`${thinking.timestamp}-${idx}`}
+              style={{
+                padding: "12px 14px",
                 background: "#0a0a14",
                 borderRadius: 6,
-                padding: "12px 14px",
-                border: "1px solid #22cc88",
+                border: idx === 0 ? "1px solid #8844ff" : "1px solid #1a1a2e",
+                opacity: idx === 0 ? 1 : 0.85,
+              }}
+            >
+              {/* Timestamp */}
+              <div style={{
+                fontSize: 10,
+                color: "#555566",
+                marginBottom: 8,
+                fontWeight: 600,
+              }}>
+                {formatTimestamp(thinking.timestamp)}
+                {idx === 0 && <span style={{ color: "#8844ff", marginLeft: 8 }}>• LATEST</span>}
+              </div>
+
+              {/* Action */}
+              <div style={{
+                marginBottom: 8,
               }}>
                 <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 6,
+                  fontSize: 10,
+                  color: "#22cc88",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  marginBottom: 4,
                 }}>
-                  <span style={{
-                    fontSize: 11,
-                    color: "#22cc88",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: 1,
-                  }}>
-                    ACTION
-                  </span>
+                  ACTION
                 </div>
                 <div style={{
-                  fontSize: 13,
+                  fontSize: 12,
                   color: "#e8e8f0",
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 600,
                 }}>
                   {thinking.action}
                 </div>
-                {thinking.timestamp && (
-                  <div style={{
-                    fontSize: 10,
-                    color: "#555566",
-                    marginTop: 6,
-                  }}>
-                    {formatTimestamp(thinking.timestamp)}
-                  </div>
-                )}
               </div>
-            </div>
-          </div>
 
-          {/* Step 2: AI Reasoning Process */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-            }}>
-              <StepNumber n={2} completed={true} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#e8e8f0", marginBottom: 4 }}>
-                AI Reasoning Process
-              </div>
-              <div style={{ fontSize: 12, color: "#888899", marginBottom: 10 }}>
-                The logic and thought process behind the decision
-              </div>
-              <div style={{
-                background: "#0a0a14",
-                borderRadius: 6,
-                padding: "12px 14px",
-                border: "1px solid #8844ff",
-              }}>
+              {/* Reasoning */}
+              <div>
                 <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 6,
+                  fontSize: 10,
+                  color: "#8844ff",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  marginBottom: 4,
                 }}>
-                  <span style={{
-                    fontSize: 11,
-                    color: "#8844ff",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: 1,
-                  }}>
-                    REASONING
-                  </span>
+                  REASONING
                 </div>
                 <div style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   color: "#c8c8d8",
-                  lineHeight: 1.6,
+                  lineHeight: 1.5,
                   whiteSpace: "pre-wrap",
                 }}>
                   {thinking.reasoning}
                 </div>
               </div>
             </div>
-          </div>
-        </>
+          ))}
+        </div>
       )}
     </div>
   );

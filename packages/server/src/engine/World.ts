@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   WorldConfig,
   WorldSyncState,
@@ -22,6 +23,7 @@ import { Agent } from "./Agent.js";
 import { AgentFactory } from "./AgentFactory.js";
 import { VoteManager } from "./VoteManager.js";
 import { MapGenerator } from "../pathfinding/MapGenerator.js";
+import { ThinkingHistoryStorage } from "../persistence/ThinkingHistoryStorage.js";
 
 /**
  * The game world. Manages the simulation loop.
@@ -29,6 +31,7 @@ import { MapGenerator } from "../pathfinding/MapGenerator.js";
  * Extension points:
  * - `decisionEngine`: swap rule-based for LLM
  * - `agentFactory`: custom agent generation
+ * - `thinkingHistoryStorage`: persist agent thinking processes
  * - `onEvent` callbacks: hook into game events for persistence, analytics
  * - `serialize/restore`: for persistence layer
  */
@@ -48,10 +51,14 @@ export class World {
   zoneCenterX: number = 0;
   zoneCenterY: number = 0;
 
+  /** Unique session ID for this game instance (regenerated on each init) */
+  sessionId: string;
+
   private decisionEngine: DecisionEngine;
   private pathfindingEngine: PathfindingEngine;
   private agentFactory: AgentFactory;
   private voteManager: VoteManager;
+  private thinkingHistoryStorage: ThinkingHistoryStorage;
   private nextItemId = 0;
   private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
@@ -65,14 +72,18 @@ export class World {
     config: Partial<WorldConfig>, 
     engine: DecisionEngine, 
     pathfinder: PathfindingEngine,
+    thinkingStorage: ThinkingHistoryStorage,
     factory?: AgentFactory
   ) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
     this.decisionEngine = engine;
     this.pathfindingEngine = pathfinder;
+    this.thinkingHistoryStorage = thinkingStorage;
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.shrinkBorder = this.config.gridSize;
+    // Initial session ID (will be regenerated on each init())
+    this.sessionId = randomUUID();
 
     // Initialize tile map
     this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
@@ -91,7 +102,14 @@ export class World {
   }
 
   /** Initialize the world with agents and items */
-  init(): void {
+  async init(): Promise<void> {
+    // Start a new thinking history session for this run to avoid late writes
+    // from previous runs repopulating a cleared session.
+    this.sessionId = randomUUID();
+    
+    // Clear thinking history for the current (new) session
+    await this.thinkingHistoryStorage.clearSession(this.sessionId);
+
     // Reset per-run world state for restarts
     this.tick = 0;
     this.aliveCount = 0;
@@ -175,6 +193,10 @@ export class World {
       // Store thinking process if available
       if (decision.thinking) {
         agent.thinkingProcess = decision.thinking;
+        // Store in history (non-blocking: failures are logged but don't interrupt game execution)
+        this.thinkingHistoryStorage.store(this.sessionId, agent.id, decision.thinking).catch((err) => {
+          console.error(`Failed to store thinking process for agent ${agent.id}:`, err);
+        });
       }
 
       // Execute
@@ -509,6 +531,26 @@ export class World {
 
   getVoteManager(): VoteManager {
     return this.voteManager;
+  }
+
+  /**
+   * Get thinking process history for a specific agent.
+   * Returns the most recent thinking processes, newest first.
+   * 
+   * @param agentId - Agent identifier
+   * @param limit - Maximum number of entries to return (default: 10)
+   * @returns Array of thinking processes
+   */
+  async getThinkingHistory(agentId: number, limit: number = 10) {
+    return this.thinkingHistoryStorage.getHistory(this.sessionId, agentId, limit);
+  }
+
+  /**
+   * Get the session ID for this world instance.
+   * Useful for debugging and monitoring.
+   */
+  getSessionId(): string {
+    return this.sessionId;
   }
 
   getWorldState(): WorldSyncState {

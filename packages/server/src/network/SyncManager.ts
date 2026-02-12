@@ -63,6 +63,11 @@ export class SyncManager {
         }
       });
 
+      // Handle thinking history requests
+      socket.on("thinking:request", async (agentId: number, limit?: number) => {
+        await this.sendThinkingHistory(socket, agentId, limit);
+      });
+
       socket.on("disconnect", () => {
         this.following.delete(socket.id);
         console.log(`Client disconnected: ${socket.id}`);
@@ -81,6 +86,12 @@ export class SyncManager {
     if (agent) {
       socket.emit("agent:detail", agent.toFullState());
     }
+  }
+
+  /** Send thinking history to a single socket */
+  private async sendThinkingHistory(socket: IOSocket, agentId: number, limit: number = 10): Promise<void> {
+    const history = await this.world.getThinkingHistory(agentId, limit);
+    socket.emit("thinking:history", { agentId, history });
   }
 
   /**
