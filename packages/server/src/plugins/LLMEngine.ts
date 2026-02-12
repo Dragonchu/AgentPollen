@@ -82,11 +82,11 @@ export class LLMEngine implements DecisionEngine {
       const response = await this.callLLM(prompt, 150);
       const decision = this.parseDecision(response, ctx);
 
-      // Capture thinking process
+      // Capture thinking process from parsed decision
+      // Use the parsed decision's reason to ensure consistency
       const thinking: ThinkingProcess = {
-        action: this.extractActionFromResponse(response),
-        reasoning: this.extractReasonFromResponse(response),
-        rawResponse: response,
+        action: this.formatDecisionAction(decision, ctx),
+        reasoning: decision.reason || "LLM decision",
         timestamp: Date.now(),
       };
       decision.thinking = thinking;
@@ -319,23 +319,32 @@ Examples:
     return words.slice(1).join(" ").trim();
   }
 
-  private extractActionFromResponse(response: string): string {
-    const lines = response.trim().split("\n");
-    for (const line of lines) {
-      if (line.toUpperCase().startsWith("ACTION:")) {
-        return line.substring(7).trim();
+  private formatDecisionAction(decision: Decision, ctx: DecisionContext): string {
+    switch (decision.type) {
+      case DecisionType.Attack: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `attack ${target?.agent.name ?? "target"}`;
       }
-    }
-    return "unknown action";
-  }
-
-  private extractReasonFromResponse(response: string): string {
-    const lines = response.trim().split("\n");
-    for (const line of lines) {
-      if (line.toUpperCase().startsWith("REASON:")) {
-        return line.substring(7).trim();
+      case DecisionType.Ally: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `ally ${target?.agent.name ?? "target"}`;
       }
+      case DecisionType.Betray: {
+        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
+        return `betray ${target?.agent.name ?? "target"}`;
+      }
+      case DecisionType.Loot: {
+        const item = ctx.nearbyItems.find(i => i.id === decision.targetId);
+        return `loot ${item?.type ?? "item"}`;
+      }
+      case DecisionType.Flee:
+        return "flee";
+      case DecisionType.Explore:
+        return "explore";
+      case DecisionType.Rest:
+        return "rest";
+      default:
+        return "unknown action";
     }
-    return "No reasoning provided";
   }
 }

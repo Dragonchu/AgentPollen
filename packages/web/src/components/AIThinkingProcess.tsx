@@ -4,7 +4,6 @@ import type { AgentFullState } from "@battle-royale/shared";
 
 interface AIThinkingProcessProps {
   agent: AgentFullState | null;
-  agents: Map<number, AgentFullState>;
 }
 
 function StepNumber({ n, completed }: { n: number; completed: boolean }) {
@@ -51,7 +50,7 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
   }
 
   const thinking = agent.thinkingProcess;
-  const hasThinking = thinking && thinking.action && thinking.reasoning;
+  const hasThinking = !!(thinking?.action && thinking?.reasoning);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -98,7 +97,7 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
         </div>
       )}
 
-      {hasThinking && (
+      {hasThinking && thinking && (
         <>
           {/* Step 1: AI Decision Output */}
           <div style={{ display: "flex", gap: 12 }}>
@@ -214,34 +213,6 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
                   {thinking.reasoning}
                 </div>
               </div>
-
-              {thinking.rawResponse && (
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{
-                    fontSize: 11,
-                    color: "#666677",
-                    cursor: "pointer",
-                    padding: "4px 0",
-                  }}>
-                    Show raw response
-                  </summary>
-                  <div style={{
-                    marginTop: 6,
-                    padding: "10px 12px",
-                    background: "#0a0a14",
-                    borderRadius: 4,
-                    border: "1px solid #1a1a2e",
-                    fontSize: 11,
-                    color: "#888899",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    whiteSpace: "pre-wrap",
-                    maxHeight: 200,
-                    overflow: "auto",
-                  }}>
-                    {thinking.rawResponse}
-                  </div>
-                </details>
-              )}
             </div>
           </div>
         </>
