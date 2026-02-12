@@ -195,6 +195,8 @@ export interface ServerToClientEvents {
   "agent:detail": (data: AgentFullState) => void;
   /** Agent paths (waypoints for movement) */
   "sync:paths": (data: PathSyncPayload) => void;
+  /** Agent thinking history (on demand) */
+  "thinking:history": (data: ThinkingHistoryPayload) => void;
 }
 
 /** Client → Server events */
@@ -205,6 +207,8 @@ export interface ClientToServerEvents {
   "agent:inspect": (agentId: number) => void;
   /** Follow an agent (receive their details on change) */
   "agent:follow": (agentId: number | null) => void;
+  /** Request agent thinking history */
+  "thinking:request": (agentId: number, limit?: number) => void;
 }
 
 // --- Sync Payloads ---
@@ -232,6 +236,13 @@ export interface ItemSyncPayload {
 export interface PathSyncPayload {
   /** Map of agent ID to their calculated path */
   paths: Record<number, Waypoint[]>;
+}
+
+export interface ThinkingHistoryPayload {
+  /** Agent ID this history belongs to */
+  agentId: number;
+  /** Array of thinking processes, newest first */
+  history: ThinkingProcess[];
 }
 
 // --- Decision Engine Plugin Interface ---
