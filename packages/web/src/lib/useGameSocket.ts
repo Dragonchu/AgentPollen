@@ -14,6 +14,7 @@ import type {
   PathSyncPayload,
   Waypoint,
   TileMap,
+  ItemState,
 } from "@battle-royale/shared";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -24,6 +25,7 @@ export interface GameState {
   connected: boolean;
   world: WorldSyncState | null;
   agents: Map<number, AgentFullState>;
+  items: ItemState[];
   events: GameEvent[];
   votes: VoteState | null;
   selectedAgent: AgentFullState | null;
@@ -37,6 +39,7 @@ export function useGameSocket() {
     connected: false,
     world: null,
     agents: new Map(),
+    items: [],
     events: [],
     votes: null,
     selectedAgent: null,
@@ -64,6 +67,7 @@ export function useGameSocket() {
         ...s,
         world: data.world,
         agents: agentMap,
+        items: data.items,
         votes: data.votes,
         events: data.events,
         tileMap: data.tileMap,

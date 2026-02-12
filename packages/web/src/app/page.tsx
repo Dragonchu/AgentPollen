@@ -12,7 +12,7 @@ import { GamePhase } from "@battle-royale/shared";
 
 export default function Home() {
   const { state, submitVote, inspectAgent } = useGameSocket();
-  const { connected, world, agents, events, votes, selectedAgent, agentPaths, tileMap } = state;
+  const { connected, world, agents, items, events, votes, selectedAgent, agentPaths, tileMap } = state;
 
   return (
     <div style={{
@@ -91,7 +91,7 @@ export default function Home() {
               }}>
                 <GameCanvas
                   agents={agents}
-                  items={[]}
+                  items={items}
                   selectedAgentId={selectedAgent?.id}
                   shrinkBorder={world?.shrinkBorder}
                   onAgentClick={inspectAgent}
