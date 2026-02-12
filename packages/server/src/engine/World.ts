@@ -43,6 +43,10 @@ export class World {
   winner: Agent | null = null;
   pendingEvents: GameEvent[] = [];
   tileMap: TileMap;
+  
+  /** Zone center coordinates (randomized each game) */
+  zoneCenterX: number = 0;
+  zoneCenterY: number = 0;
 
   private decisionEngine: DecisionEngine;
   private pathfindingEngine: PathfindingEngine;
@@ -99,6 +103,12 @@ export class World {
     this.agentPaths.clear();
     this.shrinkBorder = this.config.gridSize;
     this.phase = GamePhase.WaitingToStart;
+
+    // Randomize zone center within middle 60% of map to avoid edge zones
+    const margin = Math.floor(this.config.gridSize * 0.2);
+    this.zoneCenterX = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
+    this.zoneCenterY = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
+    console.log(`Zone center randomized to (${this.zoneCenterX}, ${this.zoneCenterY})`);
 
     // Spawn agents on passable tiles
     const agents: Agent[] = [];
@@ -385,8 +395,8 @@ export class World {
     }
 
     // Apply continuous zone damage every tick
-    const cx = this.config.gridSize / 2;
-    const cy = this.config.gridSize / 2;
+    const cx = this.zoneCenterX;
+    const cy = this.zoneCenterY;
     const half = this.shrinkBorder / 2;
 
     // Calculate damage scaling based on zone size (more damage as zone gets smaller)
@@ -473,6 +483,8 @@ export class World {
       aliveCount: this.aliveCount,
       shrinkBorder: this.shrinkBorder,
       phase: this.phase,
+      zoneCenterX: this.zoneCenterX,
+      zoneCenterY: this.zoneCenterY,
     };
   }
 

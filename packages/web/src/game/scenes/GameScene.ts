@@ -36,6 +36,8 @@ export class GameScene extends Phaser.Scene {
   private items: ItemState[] = [];
   private selectedAgentId: number | null = null;
   private shrinkBorder: number = GRID_SIZE;
+  private zoneCenterX: number = GRID_SIZE / 2;
+  private zoneCenterY: number = GRID_SIZE / 2;
   private tileMap: TileMap | null = null;
   private onAgentClick?: (agentId: number) => void;
   private onReady?: () => void;
@@ -80,6 +82,8 @@ export class GameScene extends Phaser.Scene {
     shrinkBorder: number,
     agentPaths: Record<number, Waypoint[]> = {},
     tileMap: TileMap | null,
+    zoneCenterX: number = GRID_SIZE / 2,
+    zoneCenterY: number = GRID_SIZE / 2,
   ): void {
     // Update target positions for agents
     for (const [id, agent] of agents) {
@@ -120,6 +124,8 @@ export class GameScene extends Phaser.Scene {
     this.items = items;
     this.selectedAgentId = selectedAgentId;
     this.shrinkBorder = shrinkBorder;
+    this.zoneCenterX = zoneCenterX;
+    this.zoneCenterY = zoneCenterY;
     this.agentPaths = agentPaths;
     
     // Draw obstacles once when tileMap is first received
@@ -231,9 +237,8 @@ export class GameScene extends Phaser.Scene {
     if (this.shrinkBorder >= GRID_SIZE) return;
 
     const half = this.shrinkBorder / 2;
-    const center = GRID_SIZE / 2;
-    const zoneX = (center - half) * CELL_SIZE;
-    const zoneY = (center - half) * CELL_SIZE;
+    const zoneX = (this.zoneCenterX - half) * CELL_SIZE;
+    const zoneY = (this.zoneCenterY - half) * CELL_SIZE;
     const zoneW = this.shrinkBorder * CELL_SIZE;
     const zoneH = this.shrinkBorder * CELL_SIZE;
 

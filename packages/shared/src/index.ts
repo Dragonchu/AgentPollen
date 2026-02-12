@@ -108,6 +108,10 @@ export interface WorldSyncState {
   aliveCount: number;
   shrinkBorder: number;
   phase: GamePhase;
+  /** Zone center X coordinate (randomized each game) */
+  zoneCenterX: number;
+  /** Zone center Y coordinate (randomized each game) */
+  zoneCenterY: number;
 }
 
 export enum GamePhase {
