@@ -11,6 +11,8 @@ import type {
   AgentFullState,
   GameEvent,
   VoteState,
+  PathSyncPayload,
+  Waypoint,
 } from "@battle-royale/shared";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -24,6 +26,7 @@ export interface GameState {
   events: GameEvent[];
   votes: VoteState | null;
   selectedAgent: AgentFullState | null;
+  agentPaths: Record<number, Waypoint[]>;
 }
 
 export function useGameSocket() {
@@ -35,6 +38,7 @@ export function useGameSocket() {
     events: [],
     votes: null,
     selectedAgent: null,
+    agentPaths: {},
   });
 
   useEffect(() => {
@@ -105,6 +109,11 @@ export function useGameSocket() {
           selectedAgent: s.selectedAgent?.id === detail.id ? detail : s.selectedAgent,
         };
       });
+    });
+
+    // Path updates (for smooth movement visualization)
+    socket.on("sync:paths", (data: PathSyncPayload) => {
+      setState((s) => ({ ...s, agentPaths: data.paths }));
     });
 
     return () => {
