@@ -97,6 +97,10 @@ export interface WorldConfig {
   shrinkIntervalTicks: number;
   /** Agent templates to use for spawning */
   agentTemplates: AgentTemplate[];
+  /** Base damage per tick when outside safe zone */
+  zoneDamageBase: number;
+  /** Minimum safe zone size (radius from center) */
+  minZoneSize: number;
 }
 
 export interface WorldSyncState {
@@ -352,6 +356,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   agentCount: 10,
   shrinkIntervalTicks: 30,
   agentTemplates: [],
+  zoneDamageBase: 2,
+  minZoneSize: 3,
 };
 
 export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [

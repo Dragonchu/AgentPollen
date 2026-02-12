@@ -376,20 +376,28 @@ export class World {
   // --- Zone ---
 
   private handleZoneShrink(): void {
-    if (this.tick % this.config.shrinkIntervalTicks !== 0) return;
-    if (this.shrinkBorder <= 6) return;
+    // Shrink the zone border at regular intervals
+    if (this.tick % this.config.shrinkIntervalTicks === 0) {
+      if (this.shrinkBorder > this.config.minZoneSize) {
+        this.shrinkBorder -= 1;
+        this.emitEvent(GameEventType.ZoneShrink, `Safe zone shrinks! Border: ${this.shrinkBorder}`, []);
+      }
+    }
 
-    this.shrinkBorder -= 1;
-    this.emitEvent(GameEventType.ZoneShrink, `Safe zone shrinks! Border: ${this.shrinkBorder}`, []);
-
+    // Apply continuous zone damage every tick
     const cx = this.config.gridSize / 2;
     const cy = this.config.gridSize / 2;
     const half = this.shrinkBorder / 2;
 
+    // Calculate damage scaling based on zone size (more damage as zone gets smaller)
+    const zoneProgress = 1 - (this.shrinkBorder - this.config.minZoneSize) / (this.config.gridSize - this.config.minZoneSize);
+    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // 1x to 5x damage as zone shrinks
+    const zoneDamage = this.config.zoneDamageBase * damageMultiplier;
+
     for (const agent of this.agents) {
       if (!agent.alive) continue;
       if (Math.abs(agent.x - cx) > half || Math.abs(agent.y - cy) > half) {
-        agent.takeDamage(10, "zone");
+        agent.takeDamage(zoneDamage, "zone");
         if (!agent.alive) {
           this.aliveCount--;
           this.emitEvent(GameEventType.Kill, `${agent.name} eliminated by the zone! (${this.aliveCount} remain)`, [agent.id]);
