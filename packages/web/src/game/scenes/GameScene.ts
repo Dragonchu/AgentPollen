@@ -241,21 +241,10 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x8844ff, 0.05);
     g.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Re-draw safe zone background
-    g.fillStyle(0x0a0a14);
+    // Safe zone overlay - semi-transparent to show obstacles underneath
+    // Use a darker tint to distinguish safe zone from danger zone
+    g.fillStyle(0x0a0a14, 0.3);
     g.fillRect(zoneX, zoneY, zoneW, zoneH);
-
-    // Redraw grid lines inside safe zone
-    g.lineStyle(0.5, 0x111122, 0.5);
-    for (let i = 0; i <= GRID_SIZE; i++) {
-      const p = i * CELL_SIZE;
-      if (p >= zoneX && p <= zoneX + zoneW) {
-        g.lineBetween(p, Math.max(zoneY, 0), p, Math.min(zoneY + zoneH, CANVAS_SIZE));
-      }
-      if (p >= zoneY && p <= zoneY + zoneH) {
-        g.lineBetween(Math.max(zoneX, 0), p, Math.min(zoneX + zoneW, CANVAS_SIZE), p);
-      }
-    }
 
     // Safe zone border — purple glow
     g.lineStyle(2, 0x8844ff, 0.6);
