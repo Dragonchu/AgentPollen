@@ -104,10 +104,21 @@ export class World {
     const agents: Agent[] = [];
     for (let i = 0; i < this.config.agentCount; i++) {
       let x: number, y: number;
-      // Keep trying until we find a passable tile (no attempt limit)
+      let attempts = 0;
+      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
+      
       do {
         x = Math.floor(Math.random() * this.config.gridSize);
         y = Math.floor(Math.random() * this.config.gridSize);
+        attempts++;
+        
+        // If we've tried many times, throw an error - the map may be too crowded
+        if (attempts >= maxAttempts) {
+          throw new Error(
+            `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts. ` +
+            `Map may have too few passable tiles (gridSize: ${this.config.gridSize}, agentCount: ${this.config.agentCount})`
+          );
+        }
       } while (!MapGenerator.isPassable(this.tileMap, x, y));
       
       agents.push(this.agentFactory.createAgent(x, y));
@@ -396,14 +407,26 @@ export class World {
 
   private spawnItems(count: number): void {
     const weapons = ["knife", "sword", "bow", "spear", "axe", "mace"];
-    for (let i = 0; i < count; i++) {
+    itemLoop: for (let i = 0; i < count; i++) {
       const idx = Math.floor(Math.random() * weapons.length);
       
       // Find a passable tile for item spawning
       let x: number, y: number;
+      let attempts = 0;
+      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
+      
       do {
         x = Math.floor(Math.random() * this.config.gridSize);
         y = Math.floor(Math.random() * this.config.gridSize);
+        attempts++;
+        
+        // If we can't find a spot after many attempts, skip this item
+        if (attempts >= maxAttempts) {
+          console.warn(
+            `Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`
+          );
+          continue itemLoop; // Skip to next item
+        }
       } while (!MapGenerator.isPassable(this.tileMap, x, y));
       
       this.items.push({
