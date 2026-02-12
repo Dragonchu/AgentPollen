@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   WorldConfig,
   WorldSyncState,
@@ -50,8 +51,8 @@ export class World {
   zoneCenterX: number = 0;
   zoneCenterY: number = 0;
 
-  /** Unique session ID for this game instance */
-  readonly sessionId: string;
+  /** Unique session ID for this game instance (regenerated on each init) */
+  sessionId: string;
 
   private decisionEngine: DecisionEngine;
   private pathfindingEngine: PathfindingEngine;
@@ -81,8 +82,8 @@ export class World {
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.shrinkBorder = this.config.gridSize;
-    // crypto.randomUUID() guarantees uniqueness without timestamp
-    this.sessionId = crypto.randomUUID();
+    // Initial session ID (will be regenerated on each init())
+    this.sessionId = randomUUID();
 
     // Initialize tile map
     this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
@@ -102,7 +103,11 @@ export class World {
 
   /** Initialize the world with agents and items */
   async init(): Promise<void> {
-    // Clear thinking history for the current session
+    // Start a new thinking history session for this run to avoid late writes
+    // from previous runs repopulating a cleared session.
+    this.sessionId = randomUUID();
+    
+    // Clear thinking history for the current (new) session
     await this.thinkingHistoryStorage.clearSession(this.sessionId);
 
     // Reset per-run world state for restarts

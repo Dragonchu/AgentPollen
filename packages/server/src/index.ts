@@ -67,7 +67,12 @@ function createThinkingStorage(): ThinkingHistoryStorage {
     console.log("Using null thinking storage (no persistence)");
     return new NullThinkingHistoryStorage();
   }
-  console.log("Using in-memory thinking storage");
+  if (THINKING_STORAGE === "memory") {
+    console.log("Using in-memory thinking storage");
+    return new InMemoryThinkingHistoryStorage();
+  }
+  // Invalid value - warn and fall back to memory
+  console.warn(`Invalid THINKING_STORAGE value: "${THINKING_STORAGE}". Expected "memory" or "null". Falling back to in-memory storage.`);
   return new InMemoryThinkingHistoryStorage();
 }
 
@@ -106,46 +111,48 @@ async function main() {
   // 6. Create sync manager
   const sync = new SyncManager(io, world);
 
-  // 7. Game loop
-  const gameLoop = setInterval(async () => {
-    if (world.phase !== GamePhase.Running) {
-      // Auto-restart after game over
-      if (world.phase === GamePhase.Finished) {
-        console.log(`Game over! Winner: ${world.winner?.name ?? "none"}`);
-        console.log("Restarting in 10 seconds...");
-        clearInterval(gameLoop);
-        setTimeout(async () => {
-          await world.init();
-          startLoop();
-        }, 10000);
+  // 7. Game loop with restart logic
+  let gameLoopInterval: NodeJS.Timeout | null = null;
+
+  function startGameLoop() {
+    if (gameLoopInterval) {
+      clearInterval(gameLoopInterval);
+    }
+
+    gameLoopInterval = setInterval(async () => {
+      if (world.phase !== GamePhase.Running) {
+        // Auto-restart after game over
+        if (world.phase === GamePhase.Finished) {
+          console.log(`Game over! Winner: ${world.winner?.name ?? "none"}`);
+          console.log("Restarting in 10 seconds...");
+          setTimeout(async () => {
+            await world.init();
+            console.log("Game restarted!");
+          }, 10000);
+        }
+        return;
       }
-      return;
-    }
 
-    await world.update();
-    sync.broadcastTick();
+      await world.update();
+      sync.broadcastTick();
 
-    // Log every 10 ticks
-    if (world.tick % 10 === 0) {
-      console.log(
-        `Tick ${world.tick} | Alive: ${world.aliveCount} | Viewers: ${sync.connectedCount}`,
-      );
-    }
-  }, TICK_INTERVAL);
-
-  function startLoop() {
-    setInterval(async () => {
-      if (world.phase === GamePhase.Running) {
-        await world.update();
-        sync.broadcastTick();
+      // Log every 10 ticks
+      if (world.tick % 10 === 0) {
+        console.log(
+          `Tick ${world.tick} | Alive: ${world.aliveCount} | Viewers: ${sync.connectedCount}`,
+        );
       }
     }, TICK_INTERVAL);
   }
 
-  // 7. Graceful shutdown
+  startGameLoop();
+
+  // 8. Graceful shutdown
   const shutdown = () => {
     console.log("\nShutting down...");
-    clearInterval(gameLoop);
+    if (gameLoopInterval) {
+      clearInterval(gameLoopInterval);
+    }
     // Extension: save world state here
     // await persistence.saveSnapshot(world.serialize());
     io.close();
