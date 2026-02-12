@@ -223,7 +223,7 @@ export function AIThinkingProcess({ agent }: AIThinkingProcessProps) {
                     cursor: "pointer",
                     padding: "4px 0",
                   }}>
-                    Show raw LLM response
+                    Show raw response
                   </summary>
                   <div style={{
                     marginTop: 6,

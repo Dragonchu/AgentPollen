@@ -104,19 +104,21 @@ export class RuleBasedEngine implements DecisionEngine {
     const { agent, nearbyAgents } = ctx;
     const hpPercent = Math.round((agent.hp / agent.maxHp) * 100);
     
-    let reasoning = `[Rule-Based AI] Trigger: ${trigger}. `;
-    reasoning += `Current HP: ${agent.hp}/${agent.maxHp} (${hpPercent}%). `;
-    reasoning += `Personality: ${agent.personality}. `;
+    const parts = [
+      `[Rule-Based AI] Trigger: ${trigger}.`,
+      `Current HP: ${agent.hp}/${agent.maxHp} (${hpPercent}%).`,
+      `Personality: ${agent.personality}.`,
+    ];
     
     if (nearbyAgents.length > 0) {
-      reasoning += `${nearbyAgents.length} agent(s) nearby. `;
+      parts.push(`${nearbyAgents.length} agent(s) nearby.`);
     }
     
     if (decision.reason) {
-      reasoning += `Decision: ${decision.reason}`;
+      parts.push(`Decision: ${decision.reason}`);
     }
     
-    return reasoning;
+    return parts.join(" ");
   }
 
   private personalityDecision(ctx: DecisionContext): Decision {
