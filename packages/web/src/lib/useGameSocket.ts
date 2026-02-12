@@ -11,6 +11,7 @@ import type {
   AgentFullState,
   GameEvent,
   VoteState,
+  TileMap,
 } from "@battle-royale/shared";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -24,6 +25,7 @@ export interface GameState {
   events: GameEvent[];
   votes: VoteState | null;
   selectedAgent: AgentFullState | null;
+  tileMap: TileMap | null;
 }
 
 export function useGameSocket() {
@@ -35,6 +37,7 @@ export function useGameSocket() {
     events: [],
     votes: null,
     selectedAgent: null,
+    tileMap: null,
   });
 
   useEffect(() => {
@@ -59,6 +62,7 @@ export function useGameSocket() {
         agents: agentMap,
         votes: data.votes,
         events: data.events,
+        tileMap: data.tileMap,
       }));
     });
 

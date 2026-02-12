@@ -476,6 +476,7 @@ export class World {
       items: [...this.items],
       votes: this.voteManager.getState(),
       events: this.pendingEvents.slice(-20),
+      tileMap: this.tileMap,
     };
   }
 
