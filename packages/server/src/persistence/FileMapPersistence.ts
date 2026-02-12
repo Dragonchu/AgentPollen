@@ -22,9 +22,20 @@ export class FileMapPersistence {
   }
 
   /**
+   * Validate map name to prevent path traversal attacks.
+   */
+  private validateName(name: string): void {
+    // Only allow alphanumeric characters, underscores, and hyphens
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      throw new Error(`Invalid map name: "${name}". Only alphanumeric characters, underscores, and hyphens are allowed.`);
+    }
+  }
+
+  /**
    * Save a map to disk.
    */
   async save(map: TileMap, name: string): Promise<void> {
+    this.validateName(name);
     const data = this.storage.serialize(map);
     const filePath = path.join(this.mapsDir, `${name}.map`);
     await fs.promises.writeFile(filePath, data);
@@ -35,6 +46,7 @@ export class FileMapPersistence {
    * Load a map from disk.
    */
   async load(name: string): Promise<TileMap> {
+    this.validateName(name);
     const filePath = path.join(this.mapsDir, `${name}.map`);
     const data = await fs.promises.readFile(filePath);
     const map = this.storage.deserialize(new Uint8Array(data));
@@ -46,6 +58,7 @@ export class FileMapPersistence {
    * Check if a map exists.
    */
   exists(name: string): boolean {
+    this.validateName(name);
     const filePath = path.join(this.mapsDir, `${name}.map`);
     return fs.existsSync(filePath);
   }
@@ -64,6 +77,7 @@ export class FileMapPersistence {
    * Delete a saved map.
    */
   async delete(name: string): Promise<void> {
+    this.validateName(name);
     const filePath = path.join(this.mapsDir, `${name}.map`);
     await fs.promises.unlink(filePath);
     console.log(`Map "${name}" deleted`);

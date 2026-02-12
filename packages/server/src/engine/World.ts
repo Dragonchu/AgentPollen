@@ -88,6 +88,18 @@ export class World {
 
   /** Initialize the world with agents and items */
   init(): void {
+    // Reset per-run world state for restarts
+    this.tick = 0;
+    this.aliveCount = 0;
+    this.winner = null;
+    this.items = [];
+    this.pendingEvents = [];
+    this.nextItemId = 0;
+    this.prevAgentStates.clear();
+    this.agentPaths.clear();
+    this.shrinkBorder = this.config.gridSize;
+    this.phase = GamePhase.WaitingToStart;
+
     // Spawn agents on passable tiles
     const agents: Agent[] = [];
     for (let i = 0; i < this.config.agentCount; i++) {
@@ -200,6 +212,8 @@ export class World {
         agent.moveRandom(this.config.gridSize);
         agent.actionState = AgentActionState.Exploring;
         agent.currentAction = decision.reason ?? "Exploring";
+        // Clear path since agent is not using pathfinding
+        this.agentPaths.delete(agent.id);
         break;
     }
   }
@@ -227,6 +241,8 @@ export class World {
         agent.memory.add(`I eliminated ${target.name}. Kill count: ${agent.killCount}`, 9, MemoryType.Observation);
         // Remove dead agent from all alliances
         for (const a of this.agents) a.alliances.delete(target.id);
+        // Clear any remaining path data for the eliminated agent
+        this.agentPaths.delete(target.id);
       }
     } else {
       // Use pathfinding to move toward target
@@ -281,6 +297,8 @@ export class World {
       agent.killCount++;
       this.aliveCount--;
       this.emitEvent(GameEventType.Kill, `${agent.name} eliminated ${target.name} through betrayal! (${this.aliveCount} remain)`, [agent.id, target.id]);
+      // Clear any remaining path data for the eliminated agent
+      this.agentPaths.delete(target.id);
     }
   }
 
@@ -318,6 +336,8 @@ export class World {
     agent.actionState = AgentActionState.Fleeing;
     agent.currentAction = "Fleeing!";
     agent.memory.add("I fled from danger", 5, MemoryType.Observation);
+    // Clear path since agent is not using pathfinding
+    this.agentPaths.delete(agent.id);
   }
 
   /**

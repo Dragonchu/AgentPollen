@@ -22,8 +22,11 @@ export class AStarPathfinder implements PathfindingEngine {
       return { waypoints: [start], cost: 0 };
     }
 
-    // If goal is blocked, return null
-    if (map.tiles[goal.y][goal.x].type === TileType.Blocked) {
+    // If start or goal is blocked, return null
+    if (
+      map.tiles[start.y][start.x].type === TileType.Blocked ||
+      map.tiles[goal.y][goal.x].type === TileType.Blocked
+    ) {
       return null;
     }
 

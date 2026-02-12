@@ -84,8 +84,10 @@ export class BinaryMapStorage implements MapStorageProvider {
     let byte = tile.type & 0x03; // Bits 0-1: type
     // Bits 2-7 reserved for future use (weight, flags, etc.)
     if (tile.weight !== undefined) {
-      // Store weight as 6 bits (0-63), clamped
-      const weight = Math.min(63, Math.max(0, Math.floor(tile.weight)));
+      // Store weight as 6 bits (1-63), clamped.
+      // We reserve 0 to mean "no explicit weight set" so that decoding
+      // can distinguish between "use default" and "explicit weight".
+      const weight = Math.min(63, Math.max(1, Math.floor(tile.weight)));
       byte |= (weight << 2);
     }
     return byte;
