@@ -6,6 +6,7 @@ import {
   MemoryType,
   Decision,
   ItemState,
+  Waypoint,
 } from "@battle-royale/shared";
 import { MemoryStream } from "./MemoryStream.js";
 
@@ -46,6 +47,10 @@ export class Agent {
   readonly memory: MemoryStream = new MemoryStream();
   readonly alliances: Set<number> = new Set();
   readonly enemies: Set<number> = new Set();
+
+  // Pathfinding: current waypoint path
+  waypoints: Waypoint[] = [];
+  currentWaypointIndex: number = 0;
 
   constructor(id: number, template: AgentTemplate, x: number, y: number) {
     this.id = id;
@@ -112,6 +117,55 @@ export class Agent {
     const dy = Math.floor(Math.random() * 3) - 1;
     this.x = Math.max(0, Math.min(gridSize - 1, this.x + dx));
     this.y = Math.max(0, Math.min(gridSize - 1, this.y + dy));
+  }
+
+  /**
+   * Set a new path for the agent to follow.
+   */
+  setPath(waypoints: Waypoint[]): void {
+    this.waypoints = waypoints;
+    this.currentWaypointIndex = 0;
+  }
+
+  /**
+   * Move along the current waypoint path.
+   * Returns true if movement occurred, false if path is complete or empty.
+   */
+  followPath(): boolean {
+    if (this.waypoints.length === 0 || this.currentWaypointIndex >= this.waypoints.length) {
+      return false;
+    }
+
+    const target = this.waypoints[this.currentWaypointIndex];
+    
+    // Check if we've reached the current waypoint
+    if (this.x === target.x && this.y === target.y) {
+      this.currentWaypointIndex++;
+      return this.followPath(); // Try to move to next waypoint
+    }
+
+    // Move toward current waypoint (one step)
+    const dx = Math.sign(target.x - this.x);
+    const dy = Math.sign(target.y - this.y);
+    this.x += dx;
+    this.y += dy;
+    
+    return true;
+  }
+
+  /**
+   * Clear the current path.
+   */
+  clearPath(): void {
+    this.waypoints = [];
+    this.currentWaypointIndex = 0;
+  }
+
+  /**
+   * Check if the agent has a path and hasn't reached the end yet.
+   */
+  hasPath(): boolean {
+    return this.waypoints.length > 0 && this.currentWaypointIndex < this.waypoints.length;
   }
 
   takeDamage(amount: number, source: string): void {

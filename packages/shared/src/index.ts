@@ -169,6 +169,8 @@ export interface ServerToClientEvents {
   "vote:state": (data: VoteState) => void;
   /** Agent detail (on demand) */
   "agent:detail": (data: AgentFullState) => void;
+  /** Agent paths (waypoints for movement) */
+  "sync:paths": (data: PathSyncPayload) => void;
 }
 
 /** Client → Server events */
@@ -200,6 +202,11 @@ export interface AgentSyncPayload {
 export interface ItemSyncPayload {
   added: ItemState[];
   removed: number[]; // item IDs
+}
+
+export interface PathSyncPayload {
+  /** Map of agent ID to their calculated path */
+  paths: Record<number, Waypoint[]>;
 }
 
 // --- Decision Engine Plugin Interface ---
@@ -255,6 +262,66 @@ export enum DecisionType {
   Loot = "loot",
   Explore = "explore",
   Rest = "rest",
+}
+
+// --- Pathfinding & Map ---
+
+/** Tile types for the tile-based map */
+export enum TileType {
+  Passable = 0,
+  Blocked = 1,
+}
+
+/** A single tile in the map grid */
+export interface Tile {
+  type: TileType;
+  /** Movement weight/cost, extensible for future terrain types (default: 1) */
+  weight?: number;
+  /** Items or objects on this tile (extensible for future features) */
+  items?: number[];
+}
+
+/** Tile-based map structure */
+export interface TileMap {
+  width: number;
+  height: number;
+  tiles: Tile[][];
+}
+
+/** A waypoint in a calculated path */
+export interface Waypoint {
+  x: number;
+  y: number;
+}
+
+/** A calculated path from start to goal */
+export interface Path {
+  waypoints: Waypoint[];
+  /** Total cost of the path */
+  cost: number;
+}
+
+/** Pathfinding engine plugin interface */
+export interface PathfindingEngine {
+  readonly name: string;
+  /**
+   * Find a path from start to goal on the given tile map.
+   * Returns null if no path exists.
+   */
+  findPath(map: TileMap, start: Waypoint, goal: Waypoint): Path | null;
+}
+
+/** Map storage provider plugin interface */
+export interface MapStorageProvider {
+  readonly name: string;
+  /**
+   * Serialize a tile map to a storable format (e.g., binary).
+   */
+  serialize(map: TileMap): Uint8Array;
+  /**
+   * Deserialize a tile map from storage format.
+   */
+  deserialize(data: Uint8Array): TileMap;
 }
 
 // --- Default Config ---

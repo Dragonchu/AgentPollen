@@ -113,6 +113,15 @@ export class SyncManager {
     // Vote state
     this.io.emit("vote:state", this.world.getVoteManager().getState());
 
+    // Agent paths (waypoints)
+    if (this.world.agentPaths.size > 0) {
+      const pathsObj: Record<number, any> = {};
+      for (const [agentId, waypoints] of this.world.agentPaths) {
+        pathsObj[agentId] = waypoints;
+      }
+      this.io.emit("sync:paths", { paths: pathsObj });
+    }
+
     // Update followed agents
     this.broadcastFollowedAgents();
   }

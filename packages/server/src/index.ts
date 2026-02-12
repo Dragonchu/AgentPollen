@@ -4,11 +4,13 @@ import {
   type ServerToClientEvents,
   type ClientToServerEvents,
   DecisionEngine,
+  PathfindingEngine,
 } from "@battle-royale/shared";
 import { World } from "./engine/World.js";
 import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
 import { LLMEngine } from "./plugins/LLMEngine.js";
 import { SyncManager } from "./network/SyncManager.js";
+import { AStarPathfinder } from "./pathfinding/AStarPathfinder.js";
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
@@ -71,17 +73,21 @@ async function main() {
   // 2. Create decision engine (plugin)
   const engine = createDecisionEngine();
 
-  // 3. Create and initialize world
+  // 3. Create pathfinding engine (plugin)
+  const pathfinder: PathfindingEngine = new AStarPathfinder();
+
+  // 4. Create and initialize world
   const world = new World(
     { agentCount: AGENT_COUNT, tickIntervalMs: TICK_INTERVAL },
     engine,
+    pathfinder,
   );
   world.init();
 
-  // 4. Create sync manager
+  // 5. Create sync manager
   const sync = new SyncManager(io, world);
 
-  // 5. Game loop
+  // 6. Game loop
   const gameLoop = setInterval(async () => {
     if (world.phase !== GamePhase.Running) {
       // Auto-restart after game over
@@ -117,7 +123,7 @@ async function main() {
     }, TICK_INTERVAL);
   }
 
-  // 6. Graceful shutdown
+  // 7. Graceful shutdown
   const shutdown = () => {
     console.log("\nShutting down...");
     clearInterval(gameLoop);
