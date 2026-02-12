@@ -122,7 +122,27 @@ export class YourEngine implements DecisionEngine {
 
 Then update `createDecisionEngine()` in `packages/server/src/index.ts` to support your new engine.
 
-### 2. Full Sync → Delta Sync
+### 2. Pathfinding System (✅ IMPLEMENTED)
+
+The game now includes server-side pathfinding with A* algorithm and tile-based maps.
+
+**Features:**
+- ✅ A* pathfinding algorithm for optimal path calculation
+- ✅ Tile-based map system with passable/blocked tiles
+- ✅ Binary map storage format (efficient persistence)
+- ✅ Plugin-based architecture for both pathfinding and storage
+- ✅ Automatic obstacle avoidance during agent movement
+- ✅ Path broadcasting to clients via Socket.IO
+
+**How It Works:**
+- Maps use a 2D grid where each tile can be passable or blocked
+- Server calculates optimal paths using A* when agents need to move
+- Agents follow waypoint paths one step at a time
+- Clients receive waypoint data for smooth movement visualization
+
+See [PATHFINDING.md](./PATHFINDING.md) for detailed documentation.
+
+### 3. Full Sync → Delta Sync
 In `SyncManager.broadcastTick()`, switch to delta mode:
 ```typescript
 // Uncomment the delta path in SyncManager.ts
@@ -132,20 +152,20 @@ if (delta.length > 0) {
 }
 ```
 
-### 3. Canvas 2D → Phaser
+### 4. Canvas 2D → Phaser
 Replace `GameCanvas.tsx` with a Phaser scene:
 - Create Phaser.Game in a React wrapper
 - Map agent properties to sprite sheets
 - Add animations for combat, death, zone shrink
 
-### 4. In-Memory → Persistent Storage
+### 5. In-Memory → Persistent Storage
 Implement `PersistenceProvider` interface with Redis/PostgreSQL:
 ```typescript
 // See persistence/PersistenceProvider.ts for the interface
 const persistence = new RedisPersistence(process.env.REDIS_URL);
 ```
 
-### 5. Custom Agent Templates
+### 6. Custom Agent Templates
 Add new agent types via `AgentFactory`:
 ```typescript
 factory.addTemplate({
@@ -156,7 +176,7 @@ factory.addTemplate({
 });
 ```
 
-### 6. Vote System Enhancements
+### 7. Vote System Enhancements
 The `VoteManager` supports extension via:
 - Vote weighting (modify `submitVote`)
 - Anti-spam (add cooldowns per playerId)
@@ -170,6 +190,7 @@ The `VoteManager` supports extension via:
 | S→C | `sync:world` | `{ tick, alive, border, phase }` | Every tick |
 | S→C | `sync:agents` | `{ tick, changes[] }` | Every tick |
 | S→C | `sync:events` | `GameEvent[]` | When events occur |
+| S→C | `sync:paths` | `{ paths: Record<agentId, waypoints[]> }` | Every tick |
 | S→C | `vote:state` | Vote tallies + timer | Every tick |
 | S→C | `agent:detail` | Full agent info | On request/follow |
 | C→S | `vote:submit` | `{ agentId, action }` | Player votes |

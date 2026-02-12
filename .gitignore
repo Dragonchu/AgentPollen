@@ -6,3 +6,5 @@ dist/
 *.tsbuildinfo
 eslint-results.sarif
 .playwright-mcp/
+maps/
+*.map
