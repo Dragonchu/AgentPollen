@@ -20,7 +20,7 @@ export default function Home() {
   // Listen for fullscreen changes
   useEffect(() => {
     const handleFullScreenChange = () => {
-      setIsFullScreen(!!document.fullscreenElement);
+      setIsFullScreen(document.fullscreenElement === arenaCardRef.current);
     };
 
     document.addEventListener("fullscreenchange", handleFullScreenChange);
@@ -80,9 +80,12 @@ export default function Home() {
                   <MiniButton label="2D View" active />
                   <MiniButton label="3D View" />
                   <button
+                    type="button"
                     onClick={toggleFullScreen}
                     className="flex items-center gap-1.5 px-2.5 py-1 font-mono text-[11px] font-medium rounded cursor-pointer transition-colors text-muted-foreground/60 bg-transparent border border-transparent hover:text-muted-foreground hover:border-border/40"
                     title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                    aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                    aria-pressed={isFullScreen}
                   >
                     {isFullScreen ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
