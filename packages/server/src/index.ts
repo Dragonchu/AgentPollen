@@ -87,6 +87,8 @@ async function main() {
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(PORT, {
     cors: {
       origin: (requestOrigin, callback) => {
+        console.log(`[CORS] origin callback invoked | request origin: ${requestOrigin ?? "(none)"}`);
+
         // If allowedOrigins is true (wildcard), allow everything
         if (allowedOrigins === true) {
           callback(null, true);
@@ -111,6 +113,17 @@ async function main() {
       methods: ["GET", "POST"],
       credentials: true,
     },
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin ?? "(none)";
+      console.log(`[allowRequest] incoming request | origin: ${origin} | url: ${req.url}`);
+      callback(null, true); // let CORS middleware handle the actual decision
+    },
+  });
+
+  // Log low-level engine connection errors
+  io.engine.on("connection_error", (err: { req: { headers: Record<string, string | undefined> }; code: number; message: string; context: unknown }) => {
+    const origin = err.req?.headers?.origin ?? "(none)";
+    console.error(`[Engine] connection_error | code: ${err.code} | message: ${err.message} | origin: ${origin}`);
   });
 
   // 2. Create decision engine (plugin)
