@@ -81,10 +81,33 @@ async function main() {
   console.log(`Agents: ${AGENT_COUNT} | Tick: ${TICK_INTERVAL}ms | Port: ${PORT}`);
   console.log(`CORS Origin: ${CORS_ORIGIN}`);
 
+  const allowedOrigins = parseCorsOrigin(CORS_ORIGIN);
+
   // 1. Create Socket.IO server
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(PORT, {
     cors: {
-      origin: parseCorsOrigin(CORS_ORIGIN),
+      origin: (requestOrigin, callback) => {
+        // If allowedOrigins is true (wildcard), allow everything
+        if (allowedOrigins === true) {
+          callback(null, true);
+          return;
+        }
+
+        const allowed =
+          typeof allowedOrigins === "string"
+            ? requestOrigin === allowedOrigins
+            : Array.isArray(allowedOrigins)
+              ? allowedOrigins.includes(requestOrigin ?? "")
+              : false;
+
+        if (!allowed) {
+          console.warn(
+            `[CORS] Blocked request from origin: ${requestOrigin ?? "(none)"} | Allowed origins: ${JSON.stringify(allowedOrigins)}`,
+          );
+        }
+
+        callback(null, allowed);
+      },
       methods: ["GET", "POST"],
       credentials: true,
     },
