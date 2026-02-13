@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  .landing-theme {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 92%;
+    --card: 222 47% 7%;
+    --card-foreground: 210 40% 92%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 210 40% 92%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 222 30% 14%;
+    --secondary-foreground: 210 40% 85%;
+    --muted: 222 30% 12%;
+    --muted-foreground: 210 20% 55%;
+    --accent: 25 100% 50%;
+    --accent-foreground: 222 47% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 195 100% 50%;
+    --chart-1: 195 100% 50%;
+    --chart-2: 25 100% 50%;
+    --chart-3: 195 80% 40%;
+    --chart-4: 25 80% 40%;
+    --chart-5: 210 60% 30%;
+    --radius: 0.5rem;
+    --neon-blue: 195 100% 50%;
+    --neon-orange: 25 100% 50%;
+    --arena-dark: 222 47% 3%;
+  }
+}
+
+@layer base {
+  .landing-theme * {
+    @apply border-border;
+  }
+  .landing-theme {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes pulse-neon {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.7; filter: brightness(1.4); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes data-stream {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-200px); opacity: 0; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.3; }
+  94% { opacity: 1; }
+  96% { opacity: 0.5; }
+  97% { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes glow-expand {
+  0%, 100% { box-shadow: 0 0 5px hsl(195 100% 50% / 0.3), 0 0 10px hsl(195 100% 50% / 0.1); }
+  50% { box-shadow: 0 0 20px hsl(195 100% 50% / 0.6), 0 0 40px hsl(195 100% 50% / 0.2); }
+}
+
+@keyframes vote-ripple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
