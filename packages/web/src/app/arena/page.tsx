@@ -112,6 +112,7 @@ export default function Home() {
                   tileMap={tileMap}
                   zoneCenterX={world?.zoneCenterX}
                   zoneCenterY={world?.zoneCenterY}
+                  isFullScreen={isFullScreen}
                 />
               </div>
             </Card>

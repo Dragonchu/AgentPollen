@@ -18,6 +18,7 @@ interface GameCanvasProps {
   tileMap?: TileMap | null;
   zoneCenterX?: number;
   zoneCenterY?: number;
+  isFullScreen?: boolean;
 }
 
 export function GameCanvas({
@@ -30,6 +31,7 @@ export function GameCanvas({
   tileMap = null,
   zoneCenterX = GRID_SIZE / 2,
   zoneCenterY = GRID_SIZE / 2,
+  isFullScreen = false,
 }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -112,7 +114,9 @@ export function GameCanvas({
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-[480px] aspect-square rounded-lg cursor-pointer border border-border overflow-hidden"
+      className={`w-full aspect-square rounded-lg cursor-pointer border border-border overflow-hidden ${
+        isFullScreen ? "" : "max-w-[480px]"
+      }`}
     />
   );
 }
