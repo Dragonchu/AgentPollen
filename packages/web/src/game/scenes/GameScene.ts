@@ -415,55 +415,83 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Draw agents as landing-page style silhouettes: radial glow + head circle +
+   * trapezoid body + two eyes (matching landing arena-canvas drawAgent).
+   */
   private drawAgents(): void {
     const g = this.agentGraphics;
     g.clear();
 
+    // Scale so silhouette fits in one cell; landing uses size 2–5, we use ~5 in pixel units
+    const AGENT_SIZE = 5;
+    const glowRadius = AGENT_SIZE * 5.5;
+
     for (const [_id, agent] of this.agents) {
       if (!agent.alive) continue;
 
-      // Use interpolated position if available, otherwise use actual position
       const displayState = this.agentDisplayStates.get(agent.id);
       const renderX = displayState ? displayState.displayX : agent.x;
       const renderY = displayState ? displayState.displayY : agent.y;
 
       const cx = renderX * CELL_SIZE + CELL_SIZE / 2;
       const cy = renderY * CELL_SIZE + CELL_SIZE / 2;
-      const radius = CELL_SIZE * 0.42; // Larger nodes
       const hue = (agent.id * 137) % 360;
-      const color = Phaser.Display.Color.HSLToColor(hue / 360, 0.7, 0.6).color;
+      const hueNorm = hue / 360;
       const isSelected = this.selectedAgentId === agent.id;
 
-      // Outer glow — more prominent
-      const glowLayers = isSelected ? 8 : 3;
+      // Landing colors: head hsl(hue,80%,40%), body hsl(hue,70%,30%), eyes bright
+      const headColor = Phaser.Display.Color.HSLToColor(hueNorm, 0.8, 0.4).color;
+      const bodyColor = Phaser.Display.Color.HSLToColor(hueNorm, 0.7, 0.3).color;
+      const eyeColor = Phaser.Display.Color.HSLToColor(hueNorm, 1, 0.5).color;
+
+      // Outer radial glow (mimic landing gradient with layered circles)
+      const glowLayers = isSelected ? 10 : 6;
       for (let i = glowLayers; i > 0; i--) {
-        g.fillStyle(color, isSelected ? 0.08 : 0.04);
-        g.fillCircle(cx, cy, radius + i * (isSelected ? 3 : 2));
+        const r = glowRadius * (0.3 + (i / glowLayers) * 0.7);
+        const alpha = (isSelected ? 0.12 : 0.06) * (1 - i / glowLayers) * (1 - i / (glowLayers * 2));
+        g.fillStyle(eyeColor, alpha);
+        g.fillCircle(cx, cy, r);
       }
 
-      // Body
-      g.fillStyle(color);
-      g.fillCircle(cx, cy, radius);
+      // Body trapezoid (same shape as landing: shoulders to narrower bottom)
+      const s = AGENT_SIZE;
+      g.fillStyle(bodyColor, 0.95);
+      g.fillTriangle(
+        cx - 1.5 * s, cy - s,
+        cx + 1.5 * s, cy - s,
+        cx + 0.8 * s, cy + 2.5 * s,
+      );
+      g.fillTriangle(
+        cx - 1.5 * s, cy - s,
+        cx + 0.8 * s, cy + 2.5 * s,
+        cx - 0.8 * s, cy + 2.5 * s,
+      );
 
-      // Inner highlight
-      g.fillStyle(0xffffff, 0.15);
-      g.fillCircle(cx - radius * 0.2, cy - radius * 0.2, radius * 0.35);
+      // Head circle
+      g.fillStyle(headColor, 0.95);
+      g.fillCircle(cx, cy - 2.5 * s, 1.2 * s);
+
+      // Eyes (two small bright circles)
+      g.fillStyle(eyeColor);
+      g.fillCircle(cx - 0.4 * s, cy - 2.5 * s, 0.25 * s);
+      g.fillCircle(cx + 0.4 * s, cy - 2.5 * s, 0.25 * s);
 
       // Selection ring
+      const ringR = glowRadius * 0.6;
       if (isSelected) {
         g.lineStyle(2.5, 0xffaa22, 0.9);
-        g.strokeCircle(cx, cy, radius + 2);
+        g.strokeCircle(cx, cy, ringR);
 
-        // Animated pulse ring (static representation)
         g.lineStyle(1.5, 0xffaa22, 0.3);
-        g.strokeCircle(cx, cy, radius + 6);
+        g.strokeCircle(cx, cy, ringR + 6);
       }
 
-      // HP bar background
+      // HP bar above agent (same as before)
       const barW = CELL_SIZE * 0.9;
       const barH = 3;
       const barX = cx - barW / 2;
-      const barY = cy - radius - 7;
+      const barY = cy - glowRadius - 4;
 
       g.fillStyle(0x0a0a14, 0.8);
       g.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
@@ -471,25 +499,21 @@ export class GameScene extends Phaser.Scene {
       g.fillStyle(0x1a1a2e);
       g.fillRect(barX, barY, barW, barH);
 
-      // HP bar fill
       const hpPct = agent.hp / (agent.maxHp || 100);
       const hpColor = hpPct > 0.6 ? 0x22cc88 : hpPct > 0.3 ? 0xff8800 : 0xff4444;
       g.fillStyle(hpColor);
       g.fillRect(barX, barY, barW * hpPct, barH);
 
-      // Name label for selected agent
       if (isSelected) {
-        // Draw a small name tag below the agent
         const nameTag = agent.name.substring(0, 6);
-        // Use a text object approach - draw a background rect
         const tagW = nameTag.length * 6 + 8;
         const tagH = 14;
         const tagX = cx - tagW / 2;
-        const tagY = cy + radius + 4;
+        const tagY = cy + 2.5 * s + 4;
 
         g.fillStyle(0x0a0a14, 0.9);
         g.fillRoundedRect(tagX, tagY, tagW, tagH, 3);
-        g.lineStyle(1, color, 0.4);
+        g.lineStyle(1, eyeColor, 0.4);
         g.strokeRoundedRect(tagX, tagY, tagW, tagH, 3);
       }
     }
