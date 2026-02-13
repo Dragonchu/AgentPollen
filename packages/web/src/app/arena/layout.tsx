@@ -1,21 +1,22 @@
+import { Geist, Geist_Mono } from "next/font/google";
+import "@/styles/landing-globals.css";
+
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
+
 export default function ArenaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;500;700&display=swap"
-        rel="stylesheet"
-      />
-      <div style={{
-        fontFamily: "'Space Grotesk', sans-serif",
-        background: "#0a0a14",
-        color: "#e8e8f0",
-        minHeight: "100vh",
-        overflow: "hidden",
-      }}>
+    <div className={`${geistSans.variable} ${geistMono.variable} landing-theme font-sans antialiased`}>
+      <div className="bg-background text-foreground min-h-screen overflow-hidden">
         {children}
       </div>
-    </>
+    </div>
   );
 }

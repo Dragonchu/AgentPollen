@@ -19,84 +19,49 @@ function formatTimestamp(timestamp: number): string {
 export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessProps) {
   if (!agent) {
     return (
-      <div style={{
-        padding: "40px 20px",
-        textAlign: "center",
-        color: "#555566",
-        fontSize: 13,
-      }}>
+      <div className="py-10 px-5 text-center text-muted-foreground/60 text-[13px]">
         Select an agent to view their thinking process
       </div>
     );
   }
 
-  // Use history if available, otherwise fall back to current thinking process
   const historyToDisplay = thinkingHistory.length > 0 ? thinkingHistory : (agent.thinkingProcess ? [agent.thinkingProcess] : []);
   const hasHistory = historyToDisplay.length > 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="flex flex-col gap-4">
       {/* Agent Status Bar */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 12px",
-        background: "#0a0a14",
-        borderRadius: 6,
-        border: "1px solid #1a1a2e",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: agent.alive ? "#22cc88" : "#ff2222",
-          }} />
-          <span style={{ fontSize: 12, color: "#e8e8f0", fontWeight: 600 }}>
+      <div className="flex justify-between items-center p-3 bg-background rounded-lg border border-border/40">
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-2 h-2 rounded-full animate-pulse-neon ${
+              agent.alive ? "bg-emerald-400" : "bg-destructive"
+            }`}
+            style={{ boxShadow: agent.alive ? "0 0 6px hsl(155 70% 50%)" : "0 0 6px hsl(0 84% 60%)" }}
+          />
+          <span className="text-xs text-foreground font-semibold">
             {agent.name}
           </span>
-          <span style={{ fontSize: 11, color: "#888899" }}>
+          <span className="text-[11px] text-muted-foreground">
             · {agent.personality}
           </span>
         </div>
-        <div style={{ fontSize: 11, color: "#888899" }}>
+        <div className="font-mono text-[11px] text-muted-foreground tabular-nums">
           HP: {agent.hp}/{agent.maxHp}
         </div>
       </div>
 
       {!hasHistory && (
-        <div style={{
-          padding: "20px",
-          textAlign: "center",
-          color: "#888899",
-          fontSize: 12,
-          background: "#0a0a14",
-          borderRadius: 6,
-          border: "1px solid #1a1a2e",
-        }}>
+        <div className="p-5 text-center text-muted-foreground text-xs bg-background rounded-lg border border-border/40">
           Waiting for AI decision...
         </div>
       )}
 
       {hasHistory && (
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          maxHeight: "calc(100vh - 400px)",
-          overflowY: "auto",
-          paddingRight: 4,
-        }}>
+        <div className="flex flex-col gap-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
           {/* Display history count */}
           {historyToDisplay.length > 1 && (
-            <div style={{
-              fontSize: 11,
-              color: "#888899",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: 1,
-            }}>
+            <div className="font-mono text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">
               {historyToDisplay.length} Decisions
             </div>
           )}
@@ -105,67 +70,38 @@ export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessP
           {historyToDisplay.map((thinking, idx) => (
             <div
               key={`${thinking.timestamp}-${idx}`}
-              style={{
-                padding: "12px 14px",
-                background: "#0a0a14",
-                borderRadius: 6,
-                border: idx === 0 ? "1px solid #8844ff" : "1px solid #1a1a2e",
-                opacity: idx === 0 ? 1 : 0.85,
-              }}
+              className={`p-3.5 bg-background rounded-lg border ${
+                idx === 0 ? "border-primary" : "border-border/40 opacity-85"
+              }`}
             >
               {/* Timestamp */}
-              <div style={{
-                fontSize: 10,
-                color: "#555566",
-                marginBottom: 8,
-                fontWeight: 600,
-              }}>
+              <div className="font-mono text-[10px] text-muted-foreground/60 mb-2 font-semibold">
                 {formatTimestamp(thinking.timestamp)}
-                {idx === 0 && <span style={{ color: "#8844ff", marginLeft: 8 }}>• LATEST</span>}
+                {idx === 0 && <span className="text-primary ml-2">· LATEST</span>}
               </div>
 
               {/* Action */}
-              <div style={{
-                marginBottom: 8,
-              }}>
-                <div style={{
-                  fontSize: 10,
-                  color: "#22cc88",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  marginBottom: 4,
-                }}>
+              <div className="mb-2">
+                <div
+                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent font-bold mb-1"
+                  style={{ textShadow: "0 0 8px hsl(25 100% 50% / 0.3)" }}
+                >
                   ACTION
                 </div>
-                <div style={{
-                  fontSize: 12,
-                  color: "#e8e8f0",
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontWeight: 600,
-                }}>
+                <div className="font-mono text-sm font-semibold text-foreground">
                   {thinking.action}
                 </div>
               </div>
 
               {/* Reasoning */}
               <div>
-                <div style={{
-                  fontSize: 10,
-                  color: "#8844ff",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  marginBottom: 4,
-                }}>
+                <div
+                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary font-bold mb-1"
+                  style={{ textShadow: "0 0 8px hsl(195 100% 50% / 0.3)" }}
+                >
                   REASONING
                 </div>
-                <div style={{
-                  fontSize: 11,
-                  color: "#c8c8d8",
-                  lineHeight: 1.5,
-                  whiteSpace: "pre-wrap",
-                }}>
+                <div className="text-[11px] text-foreground/70 leading-relaxed whitespace-pre-wrap">
                   {thinking.reasoning}
                 </div>
               </div>

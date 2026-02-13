@@ -51,39 +51,17 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
     });
 
   return (
-    <aside style={{
-      width: 220,
-      minWidth: 220,
-      background: "#0e0e1a",
-      borderRight: "1px solid #1a1a2e",
-      display: "flex",
-      flexDirection: "column",
-      height: "100%",
-      overflow: "hidden",
-    }}>
+    <aside className="w-[220px] min-w-[220px] bg-secondary border-r border-border/30 flex flex-col h-full overflow-hidden">
       {/* Navigation */}
-      <nav style={{
-        padding: "16px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-      }}>
+      <nav className="p-4 px-3 flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => (
           <div
             key={item.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "9px 12px",
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: item.active ? 600 : 400,
-              color: item.active ? "#22cc88" : "#888899",
-              background: item.active ? "rgba(34,204,136,0.08)" : "transparent",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-mono text-xs uppercase tracking-[0.15em] cursor-pointer transition-all ${
+              item.active
+                ? "font-semibold text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-primary/5"
+            }`}
           >
             <NavIcon type={item.icon} />
             {item.label}
@@ -92,34 +70,14 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
       </nav>
 
       {/* Divider */}
-      <div style={{ height: 1, background: "#1a1a2e", margin: "4px 12px" }} />
+      <div className="h-px bg-border/20 mx-3" />
 
       {/* Active Players */}
-      <div style={{
-        padding: "12px",
-        flex: 1,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}>
-        <div style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: "#555566",
-          textTransform: "uppercase",
-          letterSpacing: 1.5,
-          marginBottom: 10,
-          padding: "0 4px",
-        }}>
+      <div className="p-3 flex-1 overflow-hidden flex flex-col">
+        <div className="font-mono text-[10px] uppercase tracking-[0.4em] text-muted-foreground font-bold mb-2.5 px-1">
           Active Players
         </div>
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-        }}>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-px">
           {sorted.map((agent) => {
             const hue = (agent.id * 137) % 360;
             const isSelected = selectedId === agent.id;
@@ -127,48 +85,29 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
               <button
                 key={agent.id}
                 onClick={() => onSelect(agent.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 10px",
-                  background: isSelected ? "rgba(34,204,136,0.08)" : "transparent",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  opacity: agent.alive ? 1 : 0.35,
-                  width: "100%",
-                  transition: "background 0.15s",
-                }}
+                className={`flex items-center gap-2 px-2.5 py-1.5 border-none rounded cursor-pointer text-left w-full transition-colors ${
+                  isSelected ? "bg-primary/10" : "bg-transparent hover:bg-primary/5"
+                } ${agent.alive ? "opacity-100" : "opacity-35"}`}
               >
-                <div style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: agent.alive ? `hsl(${hue}, 70%, 60%)` : "#333",
-                  boxShadow: agent.alive ? `0 0 4px hsl(${hue}, 70%, 60%)` : "none",
-                  flexShrink: 0,
-                }} />
-                <span style={{
-                  flex: 1,
-                  fontSize: 12,
-                  color: isSelected ? "#22cc88" : agent.alive ? "#c8c8d0" : "#555566",
-                  fontWeight: isSelected ? 600 : 400,
-                }}>
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{
+                    background: agent.alive ? `hsl(${hue}, 70%, 60%)` : "#333",
+                    boxShadow: agent.alive ? `0 0 4px hsl(${hue}, 70%, 60%)` : "none",
+                  }}
+                />
+                <span className={`flex-1 text-xs ${
+                  isSelected ? "text-primary font-semibold" : agent.alive ? "text-foreground/80" : "text-muted-foreground/60"
+                }`}>
                   {agent.name}
                 </span>
                 {agent.alive && (
-                  <span style={{
-                    fontSize: 10,
-                    color: "#555566",
-                    fontVariantNumeric: "tabular-nums",
-                  }}>
+                  <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">
                     {agent.hp}HP
                   </span>
                 )}
                 {!agent.alive && (
-                  <span style={{ fontSize: 10, color: "#ff4444" }}>DEAD</span>
+                  <span className="font-mono text-[10px] text-destructive font-bold">DEAD</span>
                 )}
               </button>
             );
@@ -177,30 +116,16 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div style={{
-        padding: "12px 16px",
-        borderTop: "1px solid #1a1a2e",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-      }}>
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #8844ff, #22cc88)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          fontWeight: 700,
-          color: "#fff",
-        }}>
+      <div className="px-4 py-3 border-t border-border/30 flex items-center gap-2">
+        <div
+          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-foreground"
+          style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}
+        >
           G
         </div>
         <div>
-          <div style={{ fontSize: 12, color: "#e8e8f0", fontWeight: 500 }}>Guest</div>
-          <div style={{ fontSize: 10, color: "#555566" }}>Spectator</div>
+          <div className="text-xs text-foreground font-medium">Guest</div>
+          <div className="font-mono text-[10px] text-muted-foreground/60">Spectator</div>
         </div>
       </div>
     </aside>

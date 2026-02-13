@@ -20,21 +20,9 @@ const EVENT_ICONS: Record<string, string> = {
 
 export function EventFeed({ events }: EventFeedProps) {
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 2,
-      maxHeight: 260,
-      overflowY: "auto",
-    }}>
+    <div className="flex flex-col gap-0.5 max-h-[260px] overflow-y-auto">
       {events.length === 0 && (
-        <div style={{
-          fontSize: 12,
-          color: "#555566",
-          fontStyle: "italic",
-          padding: "20px 12px",
-          textAlign: "center",
-        }}>
+        <div className="text-xs text-muted-foreground/60 italic py-5 px-3 text-center">
           Waiting for action...
         </div>
       )}
@@ -43,39 +31,17 @@ export function EventFeed({ events }: EventFeedProps) {
         return (
           <div
             key={`${event.tick}-${i}`}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              padding: "6px 10px",
-              fontSize: 12,
-              borderRadius: 4,
-              background: i === 0 ? "rgba(255,255,255,0.02)" : "transparent",
-              transition: "background 0.2s",
-            }}
+            className={`flex items-start gap-2 px-2.5 py-1.5 text-xs rounded transition-colors ${
+              i === 0 ? "bg-foreground/[0.02]" : "hover:bg-foreground/[0.02]"
+            }`}
           >
-            <span style={{
-              fontSize: 12,
-              flexShrink: 0,
-              width: 18,
-              textAlign: "center",
-            }}>
+            <span className="text-xs shrink-0 w-[18px] text-center">
               {icon}
             </span>
-            <span style={{
-              flex: 1,
-              color: "#c8c8d0",
-              lineHeight: 1.4,
-            }}>
+            <span className="flex-1 text-foreground/80 leading-relaxed">
               {event.message}
             </span>
-            <span style={{
-              fontSize: 10,
-              color: "#555566",
-              fontVariantNumeric: "tabular-nums",
-              flexShrink: 0,
-              marginTop: 1,
-            }}>
+            <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums shrink-0 mt-px">
               t{event.tick}
             </span>
           </div>

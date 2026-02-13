@@ -16,23 +16,44 @@ const VOTE_OPTIONS = [
     label: "Rush to Loot Box",
     desc: "Grab nearby supplies before engaging",
     action: "explore and find items",
-    color: "#22cc88",
+    twColor: "emerald",
   },
   {
     key: "B",
     label: "Move to Safe Zone",
     desc: "Consolidate approach. Secure position.",
     action: "flee from danger",
-    color: "#4488ff",
+    twColor: "primary",
   },
   {
     key: "C",
     label: "Engage Nearest Enemy",
     desc: "High risk, high reward aggressive play",
     action: "attack the nearest enemy",
-    color: "#ff6644",
+    twColor: "destructive",
   },
 ];
+
+const COLOR_MAP: Record<string, { bg: string; border: string; text: string; fill: string }> = {
+  emerald: {
+    bg: "bg-emerald-400/10",
+    border: "border-emerald-400/30",
+    text: "text-emerald-400",
+    fill: "bg-emerald-400",
+  },
+  primary: {
+    bg: "bg-primary/10",
+    border: "border-primary/30",
+    text: "text-primary",
+    fill: "bg-primary",
+  },
+  destructive: {
+    bg: "bg-destructive/10",
+    border: "border-destructive/30",
+    text: "text-destructive",
+    fill: "bg-destructive",
+  },
+};
 
 export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePanelProps) {
   const [lastVoted, setLastVoted] = useState<string | null>(null);
@@ -59,58 +80,46 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
   const selectedAgent = agentId !== null ? agents.get(agentId) : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className="flex flex-col gap-3.5">
       {/* Subtitle */}
-      <div style={{ fontSize: 12, color: "#888899" }}>
+      <div className="text-xs text-muted-foreground">
         {selectedAgent
           ? `Vote to influence ${selectedAgent.name}'s actions`
           : "Select an agent to vote on their next action"}
       </div>
 
       {/* Timer */}
-      <div style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        gap: 4,
-      }}>
-        <div style={{
-          fontSize: 36,
-          fontWeight: 800,
-          color: timeRemaining < 10 ? "#ff4444" : "#ff8800",
-          fontVariantNumeric: "tabular-nums",
-          fontFamily: "'JetBrains Mono', monospace",
-          lineHeight: 1,
-        }}>
+      <div className="flex justify-center items-center flex-col gap-1">
+        <div
+          className={`font-mono text-4xl font-bold tabular-nums leading-none ${
+            timeRemaining < 10 ? "text-destructive" : "text-accent"
+          }`}
+          style={{ textShadow: timeRemaining < 10
+            ? "0 0 12px hsl(0 84% 60% / 0.5)"
+            : "0 0 12px hsl(25 100% 50% / 0.5)"
+          }}
+        >
           0:{timeRemaining.toString().padStart(2, "0")}
         </div>
-        <div style={{ fontSize: 11, color: "#555566" }}>
+        <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">
           Time remaining to vote
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={{
-        height: 3,
-        background: "#1a1a2e",
-        borderRadius: 2,
-        overflow: "hidden",
-      }}>
-        <div style={{
-          height: "100%",
-          width: `${(timeRemaining / 30) * 100}%`,
-          background: timeRemaining < 10
-            ? "linear-gradient(90deg, #ff4444, #ff6644)"
-            : "linear-gradient(90deg, #ff8800, #ffaa22)",
-          transition: "width 1s linear",
-          borderRadius: 2,
-        }} />
+      <div className="h-[3px] bg-border/40 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-1000 linear ${
+            timeRemaining < 10 ? "bg-destructive" : "bg-accent"
+          }`}
+          style={{ width: `${(timeRemaining / 30) * 100}%` }}
+        />
       </div>
 
       {/* Vote option cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {VOTE_OPTIONS.map((option) => {
+          const colors = COLOR_MAP[option.twColor];
           const matchingVote = currentVotes.find(v =>
             v.action.toLowerCase().includes(option.action.split(" ").slice(-2).join(" ").toLowerCase())
           );
@@ -124,84 +133,39 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
               key={option.key}
               onClick={() => handleVote(option.action)}
               disabled={agentId === null}
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 14px",
-                background: isVoted ? `${option.color}11` : "#0a0a14",
-                border: `1px solid ${isVoted ? option.color + "44" : "#1a1a2e"}`,
-                borderRadius: 8,
-                cursor: agentId !== null ? "pointer" : "default",
-                textAlign: "left",
-                width: "100%",
-                transition: "all 0.15s",
-                overflow: "hidden",
-                opacity: agentId === null ? 0.5 : 1,
-              }}
+              className={`relative flex items-center gap-3 px-3.5 py-3 rounded-lg text-left w-full transition-all overflow-hidden ${
+                agentId === null ? "opacity-50 cursor-default" : "cursor-pointer hover:border-border/60"
+              } ${
+                isVoted
+                  ? `${colors.bg} border ${colors.border}`
+                  : "bg-background border border-border/40"
+              }`}
             >
               {/* Vote percentage background fill */}
-              <div style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: `${votePct}%`,
-                background: `${option.color}0a`,
-                transition: "width 0.3s",
-                pointerEvents: "none",
-              }} />
+              <div
+                className={`absolute left-0 top-0 bottom-0 ${colors.bg} pointer-events-none transition-[width] duration-300`}
+                style={{ width: `${votePct}%`, opacity: 0.5 }}
+              />
 
               {/* Key badge */}
-              <div style={{
-                position: "relative",
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: `${option.color}18`,
-                border: `1px solid ${option.color}33`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                fontWeight: 700,
-                color: option.color,
-                flexShrink: 0,
-              }}>
+              <div className={`relative w-7 h-7 rounded-md ${colors.bg} border ${colors.border} flex items-center justify-center font-mono text-[13px] font-bold ${colors.text} shrink-0`}>
                 {option.key}
               </div>
 
               {/* Text */}
-              <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#e8e8f0",
-                  marginBottom: 1,
-                }}>
+              <div className="relative flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-foreground mb-px">
                   {option.label}
                 </div>
-                <div style={{
-                  fontSize: 11,
-                  color: "#555566",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}>
+                <div className="text-[11px] text-muted-foreground/60 truncate">
                   {option.desc}
                 </div>
               </div>
 
               {/* Vote percentage */}
-              <div style={{
-                position: "relative",
-                fontSize: 14,
-                fontWeight: 700,
-                color: votePct > 0 ? option.color : "#555566",
-                fontVariantNumeric: "tabular-nums",
-                flexShrink: 0,
-              }}>
+              <div className={`relative font-mono text-sm font-bold tabular-nums shrink-0 ${
+                votePct > 0 ? colors.text : "text-muted-foreground/60"
+              }`}>
                 {votePct > 0 ? `${votePct}%` : "--"}
               </div>
             </button>
@@ -211,39 +175,23 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
 
       {/* Custom action */}
       {agentId !== null && (
-        <div style={{ display: "flex", gap: 6 }}>
+        <div className="flex gap-1.5">
           <input
             type="text"
             value={customAction}
             onChange={(e) => setCustomAction(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCustomVote()}
             placeholder="Or type a custom command..."
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              background: "#0a0a14",
-              color: "#e8e8f0",
-              border: "1px solid #1a1a2e",
-              borderRadius: 6,
-              fontFamily: "inherit",
-              fontSize: 12,
-            }}
+            className="flex-1 px-3 py-2 bg-background text-foreground border border-border/40 rounded-md font-mono text-xs placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
           />
           <button
             onClick={handleCustomVote}
             disabled={!customAction.trim()}
-            style={{
-              padding: "8px 14px",
-              background: customAction.trim()
-                ? "linear-gradient(135deg, #ff8800, #ffaa22)"
-                : "#1a1a2e",
-              color: customAction.trim() ? "#000" : "#555566",
-              border: "none",
-              borderRadius: 6,
-              cursor: customAction.trim() ? "pointer" : "default",
-              fontWeight: 700,
-              fontSize: 12,
-            }}
+            className={`px-3.5 py-2 rounded-md font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+              customAction.trim()
+                ? "bg-accent/20 border border-accent/40 text-accent cursor-pointer hover:bg-accent/30"
+                : "bg-border/20 border border-border/20 text-muted-foreground/40 cursor-default"
+            }`}
           >
             Vote
           </button>
@@ -252,50 +200,27 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
 
       {/* Live vote tallies */}
       {agentId !== null && currentVotes.length > 0 && (
-        <div style={{
-          padding: "10px 12px",
-          background: "#0a0a14",
-          borderRadius: 6,
-          border: "1px solid #1a1a2e",
-        }}>
-          <div style={{
-            fontSize: 10,
-            color: "#555566",
-            marginBottom: 8,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            fontWeight: 600,
-          }}>
+        <div className="p-3 bg-background rounded-md border border-border/40">
+          <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 font-semibold mb-2">
             Live Votes ({totalVotes} total)
           </div>
           {currentVotes.map((v, i) => {
             const pct = totalVotes > 0 ? (v.votes / totalVotes) * 100 : 0;
             return (
-              <div key={i} style={{ marginBottom: 6 }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 11,
-                  marginBottom: 3,
-                }}>
-                  <span style={{ color: i === 0 ? "#ff8800" : "#888899" }}>{v.action}</span>
-                  <span style={{ color: "#555566", fontVariantNumeric: "tabular-nums" }}>
+              <div key={i} className="mb-1.5">
+                <div className="flex justify-between text-[11px] mb-0.5">
+                  <span className={i === 0 ? "text-accent" : "text-muted-foreground"}>{v.action}</span>
+                  <span className="text-muted-foreground/60 tabular-nums font-mono">
                     {v.votes} ({Math.round(pct)}%)
                   </span>
                 </div>
-                <div style={{
-                  height: 3,
-                  background: "#1a1a2e",
-                  borderRadius: 2,
-                  overflow: "hidden",
-                }}>
-                  <div style={{
-                    height: "100%",
-                    width: `${pct}%`,
-                    background: i === 0 ? "#ff8800" : "#333",
-                    borderRadius: 2,
-                    transition: "width 0.3s",
-                  }} />
+                <div className="h-[3px] bg-border/40 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-[width] duration-300 ${
+                      i === 0 ? "bg-accent" : "bg-muted-foreground/30"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
               </div>
             );
@@ -305,12 +230,7 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
 
       {/* Feedback */}
       {lastVoted && (
-        <div style={{
-          fontSize: 11,
-          color: "#22cc88",
-          textAlign: "center",
-          fontWeight: 500,
-        }}>
+        <div className="text-[11px] text-emerald-400 text-center font-medium">
           Vote submitted successfully
         </div>
       )}

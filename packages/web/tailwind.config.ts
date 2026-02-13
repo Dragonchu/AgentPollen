@@ -6,6 +6,8 @@ const config: Config = {
   content: [
     './src/components/landing/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/(landing)/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/arena/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
