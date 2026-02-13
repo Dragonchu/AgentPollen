@@ -9,10 +9,37 @@ import { Sidebar } from "@/components/Sidebar";
 import { AIThinkingProcess } from "@/components/AIThinkingProcess";
 import { AgentStats } from "@/components/AgentStats";
 import { GamePhase } from "@battle-royale/shared";
+import { useState, useRef, useEffect, forwardRef } from "react";
 
 export default function Home() {
   const { state, submitVote, inspectAgent } = useGameSocket();
   const { connected, world, agents, items, events, votes, selectedAgent, agentPaths, tileMap, thinkingHistory } = state;
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const arenaCardRef = useRef<HTMLDivElement>(null);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullScreenChange);
+  }, []);
+
+  const toggleFullScreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Enter full screen
+        await arenaCardRef.current?.requestFullscreen();
+      } else {
+        // Exit full screen
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Failed to toggle fullscreen:", err);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -45,14 +72,31 @@ export default function Home() {
           <div className="flex-1 min-w-0 flex flex-col gap-4">
             {/* Arena Map Card */}
             <Card
+              ref={arenaCardRef}
               title="Arena Map"
               subtitle="Zone Shrinking"
               rightContent={
                 <div className="flex gap-2">
                   <MiniButton label="2D View" active />
                   <MiniButton label="3D View" />
+                  <button
+                    onClick={toggleFullScreen}
+                    className="flex items-center gap-1.5 px-2.5 py-1 font-mono text-[11px] font-medium rounded cursor-pointer transition-colors text-muted-foreground/60 bg-transparent border border-transparent hover:text-muted-foreground hover:border-border/40"
+                    title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                  >
+                    {isFullScreen ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               }
+              isFullScreen={isFullScreen}
             >
               <div className="flex justify-center py-2">
                 <GameCanvas
@@ -132,21 +176,23 @@ export default function Home() {
 
 /* ---- Shared Card component ---- */
 
-function Card({
-  title,
-  subtitle,
-  icon,
-  rightContent,
-  children,
-}: {
+const Card = forwardRef<HTMLDivElement, {
   title: string;
   subtitle?: string;
   icon?: React.ReactNode;
   rightContent?: React.ReactNode;
   children: React.ReactNode;
-}) {
+  isFullScreen?: boolean;
+}>(({ title, subtitle, icon, rightContent, children, isFullScreen = false }, ref) => {
   return (
-    <div className="bg-card rounded-lg border border-border/40 p-4 flex flex-col gap-3">
+    <div 
+      ref={ref}
+      className={`bg-card rounded-lg border border-border/40 flex flex-col gap-3 ${
+        isFullScreen 
+          ? "h-screen w-screen p-8 justify-center" 
+          : "p-4"
+      }`}
+    >
       {/* Card header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
@@ -167,10 +213,14 @@ function Card({
       </div>
 
       {/* Card content */}
-      {children}
+      <div className={isFullScreen ? "flex-1 flex items-center justify-center" : ""}>
+        {children}
+      </div>
     </div>
   );
-}
+});
+
+Card.displayName = "Card";
 
 function MiniButton({ label, active = false }: { label: string; active?: boolean }) {
   return (
