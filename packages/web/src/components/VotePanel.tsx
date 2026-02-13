@@ -92,12 +92,8 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
       <div className="flex justify-center items-center flex-col gap-1">
         <div
           className={`font-mono text-4xl font-bold tabular-nums leading-none ${
-            timeRemaining < 10 ? "text-destructive" : "text-accent"
+            timeRemaining < 10 ? "text-destructive [text-shadow:0_0_12px_hsl(0_84%_60%_/_0.5)]" : "text-accent [text-shadow:0_0_12px_hsl(25_100%_50%_/_0.5)]"
           }`}
-          style={{ textShadow: timeRemaining < 10
-            ? "0 0 12px hsl(0 84% 60% / 0.5)"
-            : "0 0 12px hsl(25 100% 50% / 0.5)"
-          }}
         >
           0:{timeRemaining.toString().padStart(2, "0")}
         </div>
@@ -109,10 +105,10 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
       {/* Progress bar */}
       <div className="h-[3px] bg-border/40 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-[width] duration-1000 linear ${
+          className={`h-full rounded-full transition-[width] duration-1000 linear w-[var(--vote-progress-pct)] ${
             timeRemaining < 10 ? "bg-destructive" : "bg-accent"
           }`}
-          style={{ width: `${(timeRemaining / 30) * 100}%` }}
+          style={{ ["--vote-progress-pct" as string]: `${(timeRemaining / 30) * 100}%` }}
         />
       </div>
 
@@ -143,8 +139,8 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
             >
               {/* Vote percentage background fill */}
               <div
-                className={`absolute left-0 top-0 bottom-0 ${colors.bg} pointer-events-none transition-[width] duration-300`}
-                style={{ width: `${votePct}%`, opacity: 0.5 }}
+                className={`absolute left-0 top-0 bottom-0 ${colors.bg} pointer-events-none transition-[width] duration-300 w-[var(--vote-pct)] opacity-50`}
+                style={{ ["--vote-pct" as string]: `${votePct}%` }}
               />
 
               {/* Key badge */}
@@ -216,10 +212,10 @@ export function VotePanel({ agents, voteState, onVote, selectedAgentId }: VotePa
                 </div>
                 <div className="h-[3px] bg-border/40 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-[width] duration-300 ${
+                    className={`h-full rounded-full transition-[width] duration-300 w-[var(--tally-pct)] ${
                       i === 0 ? "bg-accent" : "bg-muted-foreground/30"
                     }`}
-                    style={{ width: `${pct}%` }}
+                    style={{ ["--tally-pct" as string]: `${pct}%` }}
                   />
                 </div>
               </div>

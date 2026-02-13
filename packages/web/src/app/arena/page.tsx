@@ -25,9 +25,7 @@ export default function Home() {
 
       {/* Game Over Banner */}
       {world?.phase === GamePhase.Finished && (
-        <div className="px-6 py-2.5 bg-gradient-to-r from-accent/10 to-accent/5 border-b border-accent text-center text-sm font-semibold text-accent"
-          style={{ textShadow: "0 0 10px hsl(25 100% 50% / 0.5)" }}
-        >
+        <div className="px-6 py-2.5 bg-gradient-to-r from-accent/10 to-accent/5 border-b border-accent text-center text-sm font-semibold text-accent [text-shadow:0_0_10px_hsl(25_100%_50%_/_0.5)]">
           {"\u{1F3C6}"} Game Over! Restarting soon...
         </div>
       )}
@@ -153,10 +151,7 @@ function Card({
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           {icon}
-          <span
-            className="font-mono text-xs uppercase tracking-[0.15em] font-bold text-foreground"
-            style={{ textShadow: "0 0 8px hsl(195 100% 50% / 0.3)" }}
-          >
+          <span className="font-mono text-xs uppercase tracking-[0.15em] font-bold text-foreground [text-shadow:0_0_8px_hsl(195_100%_50%_/_0.3)]">
             {title}
           </span>
           {subtitle && (

@@ -90,11 +90,8 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
                 } ${agent.alive ? "opacity-100" : "opacity-35"}`}
               >
                 <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{
-                    background: agent.alive ? `hsl(${hue}, 70%, 60%)` : "#333",
-                    boxShadow: agent.alive ? `0 0 4px hsl(${hue}, 70%, 60%)` : "none",
-                  }}
+                  className={`w-2 h-2 rounded-full shrink-0 ${agent.alive ? "bg-[hsl(var(--agent-hue)_70%_60%)] shadow-[0_0_4px_hsl(var(--agent-hue)_70%_60%)]" : "bg-[#333]"}`}
+                  style={agent.alive ? { ["--agent-hue" as string]: hue } : undefined}
                 />
                 <span className={`flex-1 text-xs ${
                   isSelected ? "text-primary font-semibold" : agent.alive ? "text-foreground/80" : "text-muted-foreground/60"
@@ -117,10 +114,7 @@ export function Sidebar({ agents, selectedId, onSelect }: SidebarProps) {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border/30 flex items-center gap-2">
-        <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-foreground"
-          style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}
-        >
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-foreground bg-gradient-to-br from-primary to-accent">
           G
         </div>
         <div>

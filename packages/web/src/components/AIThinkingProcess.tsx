@@ -35,9 +35,8 @@ export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessP
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full animate-pulse-neon ${
-              agent.alive ? "bg-emerald-400" : "bg-destructive"
+              agent.alive ? "bg-emerald-400 shadow-[0_0_6px_hsl(155_70%_50%)]" : "bg-destructive shadow-[0_0_6px_hsl(0_84%_60%)]"
             }`}
-            style={{ boxShadow: agent.alive ? "0 0 6px hsl(155 70% 50%)" : "0 0 6px hsl(0 84% 60%)" }}
           />
           <span className="text-xs text-foreground font-semibold">
             {agent.name}
@@ -82,10 +81,7 @@ export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessP
 
               {/* Action */}
               <div className="mb-2">
-                <div
-                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent font-bold mb-1"
-                  style={{ textShadow: "0 0 8px hsl(25 100% 50% / 0.3)" }}
-                >
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent font-bold mb-1 [text-shadow:0_0_8px_hsl(25_100%_50%_/_0.3)]">
                   ACTION
                 </div>
                 <div className="font-mono text-sm font-semibold text-foreground">
@@ -95,10 +91,7 @@ export function AIThinkingProcess({ agent, thinkingHistory }: AIThinkingProcessP
 
               {/* Reasoning */}
               <div>
-                <div
-                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary font-bold mb-1"
-                  style={{ textShadow: "0 0 8px hsl(195 100% 50% / 0.3)" }}
-                >
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary font-bold mb-1 [text-shadow:0_0_8px_hsl(195_100%_50%_/_0.3)]">
                   REASONING
                 </div>
                 <div className="text-[11px] text-foreground/70 leading-relaxed whitespace-pre-wrap">

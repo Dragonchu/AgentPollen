@@ -19,10 +19,7 @@ export function Header({ world, connected, aliveCount }: HeaderProps) {
     <header className="flex items-center justify-between px-6 py-3 bg-secondary border-b border-border/30 backdrop-blur-sm min-h-[56px]">
       {/* Left: Logo + LIVE badge */}
       <div className="flex items-center gap-4">
-        <h1
-          className="m-0 text-lg font-mono font-bold tracking-[0.3em] uppercase text-foreground"
-          style={{ textShadow: "0 0 10px hsl(195 100% 50% / 0.3)" }}
-        >
+        <h1 className="m-0 text-lg font-mono font-bold tracking-[0.3em] uppercase text-foreground [text-shadow:0_0_10px_hsl(195_100%_50%_/_0.3)]">
           <span className="text-accent">AI</span> Battle Royale
         </h1>
         <div className={`flex items-center gap-1.5 rounded px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider ${
@@ -32,9 +29,8 @@ export function Header({ world, connected, aliveCount }: HeaderProps) {
         }`}>
           <div
             className={`w-1.5 h-1.5 rounded-full animate-pulse-neon ${
-              connected ? "bg-emerald-400" : "bg-destructive"
+              connected ? "bg-emerald-400 shadow-[0_0_6px_hsl(155_70%_50%)]" : "bg-destructive shadow-[0_0_6px_hsl(0_84%_60%)]"
             }`}
-            style={{ boxShadow: connected ? "0 0 6px hsl(155 70% 50%)" : "0 0 6px hsl(0 84% 60%)" }}
           />
           LIVE
         </div>
@@ -68,10 +64,7 @@ export function Header({ world, connected, aliveCount }: HeaderProps) {
           </svg>
           Share
         </button>
-        <button
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary/20 border border-primary/40 rounded-md font-mono text-xs uppercase tracking-wider text-primary font-semibold cursor-pointer hover:bg-primary/30 transition-colors"
-          style={{ boxShadow: "0 0 12px hsl(195 100% 50% / 0.15)" }}
-        >
+        <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary/20 border border-primary/40 rounded-md font-mono text-xs uppercase tracking-wider text-primary font-semibold cursor-pointer hover:bg-primary/30 transition-colors shadow-[0_0_12px_hsl(195_100%_50%_/_0.15)]">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>

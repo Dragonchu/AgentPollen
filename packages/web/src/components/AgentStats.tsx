@@ -19,21 +19,15 @@ function StatBar({
 }) {
   const pct = Math.min(100, (value / maxValue) * 100);
   return (
-    <div className="mb-3">
+    <div className="mb-3" style={{ ["--stat-color" as string]: color, ["--stat-pct" as string]: `${pct}%` }}>
       <div className="flex justify-between items-center mb-1">
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">{label}</span>
-        <span
-          className="font-mono text-[13px] font-bold tabular-nums"
-          style={{ color }}
-        >
+        <span className="font-mono text-[13px] font-bold tabular-nums [color:var(--stat-color)]">
           {value}/{maxValue}
         </span>
       </div>
       <div className="h-1.5 bg-border/40 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-[width] duration-300"
-          style={{ width: `${pct}%`, background: color }}
-        />
+        <div className="h-full rounded-full transition-[width] duration-300 w-[var(--stat-pct)] [background:var(--stat-color)]" />
       </div>
     </div>
   );
@@ -41,11 +35,8 @@ function StatBar({
 
 function StatBox({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="bg-background rounded-lg border border-border/40 p-3 text-center">
-      <div
-        className="font-mono text-lg font-bold tabular-nums mb-0.5"
-        style={{ color }}
-      >
+    <div className="bg-background rounded-lg border border-border/40 p-3 text-center" style={{ ["--statbox-color" as string]: color }}>
+      <div className="font-mono text-lg font-bold tabular-nums mb-0.5 [color:var(--statbox-color)]">
         {value}
       </div>
       <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
@@ -73,11 +64,8 @@ export function AgentStats({ agent }: AgentStatsProps) {
       {/* Agent name header */}
       <div className="flex items-center gap-2 pb-2 border-b border-border/30">
         <div
-          className="w-3 h-3 rounded-full"
-          style={{
-            background: `hsl(${hue}, 70%, 60%)`,
-            boxShadow: `0 0 6px hsl(${hue}, 70%, 60%)`,
-          }}
+          className="w-3 h-3 rounded-full bg-[hsl(var(--agent-hue)_70%_60%)] shadow-[0_0_6px_hsl(var(--agent-hue)_70%_60%)]"
+          style={{ ["--agent-hue" as string]: hue }}
         />
         <span className="text-sm font-bold text-foreground">
           {agent.name} Stats

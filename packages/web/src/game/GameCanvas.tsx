@@ -112,15 +112,7 @@ export function GameCanvas({
   return (
     <div
       ref={containerRef}
-      style={{
-        width: "100%",
-        maxWidth: CANVAS_SIZE,
-        aspectRatio: "1",
-        borderRadius: 8,
-        cursor: "pointer",
-        border: "1px solid #1e1e2e",
-        overflow: "hidden",
-      }}
+      className="w-full max-w-[480px] aspect-square rounded-lg cursor-pointer border border-border overflow-hidden"
     />
   );
 }
