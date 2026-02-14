@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import type { AgentFullState, ItemState, Waypoint, TileMap } from "@battle-royale/shared";
 import type { GameScene } from "./scenes/GameScene";
 
-const CELL_SIZE = 24;
+const CELL_SIZE = 64;
 const GRID_SIZE = 20;
 const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
 

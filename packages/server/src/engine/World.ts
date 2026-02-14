@@ -182,6 +182,13 @@ export class World {
     for (const agent of shuffled) {
       if (!agent.alive) continue;
 
+      // 1. If agent has an ongoing path, continue following it (path caching)
+      if (agent.hasPath()) {
+        this.moveAlongPath(agent);
+        continue;
+      }
+
+      // 2. No path - make a new decision
       // Perceive
       const perception = agent.perceive(this.agents, this.items);
 
@@ -251,7 +258,10 @@ export class World {
         this.executeFlee(agent);
         break;
       default:
-        agent.moveRandom(this.config.gridSize, this.tileMap);
+        // Explore: move randomly but multiple steps
+        for (let i = 0; i < this.config.maxStepsPerTick; i++) {
+          agent.moveRandom(this.config.gridSize, this.tileMap);
+        }
         agent.actionState = AgentActionState.Exploring;
         agent.currentAction = decision.reason ?? "Exploring";
         // Clear path since agent is not using pathfinding
@@ -371,9 +381,14 @@ export class World {
       for (const a of perception.nearbyAgents) { avgX += a.agent.x; avgY += a.agent.y; }
       avgX /= perception.nearbyAgents.length;
       avgY /= perception.nearbyAgents.length;
-      agent.moveAwayFrom(avgX, avgY, this.config.gridSize, this.tileMap);
+      // Move away multiple steps
+      for (let i = 0; i < this.config.maxStepsPerTick; i++) {
+        agent.moveAwayFrom(avgX, avgY, this.config.gridSize, this.tileMap);
+      }
     } else {
-      agent.moveRandom(this.config.gridSize, this.tileMap);
+      for (let i = 0; i < this.config.maxStepsPerTick; i++) {
+        agent.moveRandom(this.config.gridSize, this.tileMap);
+      }
     }
     agent.actionState = AgentActionState.Fleeing;
     agent.currentAction = "Fleeing!";
@@ -383,9 +398,33 @@ export class World {
   }
 
   /**
+   * Move agent along its current path for multiple steps.
+   * Uses the configured maxStepsPerTick from WorldConfig.
+   */
+  private moveAlongPath(agent: Agent): void {
+    const maxSteps = this.config.maxStepsPerTick;
+
+    for (let i = 0; i < maxSteps; i++) {
+      const moved = agent.followPath(this.tileMap);
+
+      if (!moved) {
+        // Path completed or blocked - clear it to trigger re-decision next tick
+        agent.clearPath();
+        this.agentPaths.delete(agent.id);
+        break;
+      }
+    }
+
+    // Update stored path for client sync if agent still has a path
+    if (agent.hasPath()) {
+      this.agentPaths.set(agent.id, agent.waypoints);
+    }
+  }
+
+  /**
    * Move agent toward a target using pathfinding.
    * Falls back to simple movement if pathfinding fails.
-   * 
+   *
    * Note: If an agent is on a blocked tile (e.g., spawned before obstacles
    * were added, or map changed dynamically), pathfinding may fail. The
    * fallback ensures agents can still attempt movement.
@@ -393,20 +432,22 @@ export class World {
   private moveAgentToward(agent: Agent, targetX: number, targetY: number): void {
     const start = { x: agent.x, y: agent.y };
     const goal = { x: targetX, y: targetY };
-    
+
     // Try to find a path (will fail if start is blocked or unreachable)
     const path = this.pathfindingEngine.findPath(this.tileMap, start, goal);
-    
+
     if (path && path.waypoints.length > 0) {
+      // Limit path length if configured
+      const maxLength = this.config.maxPathLength ?? path.waypoints.length;
+      const limitedWaypoints = path.waypoints.slice(0, maxLength);
+
       // Set the path and move along it
-      agent.setPath(path.waypoints);
-      const followed = agent.followPath(this.tileMap);
-      if (followed) {
-        // Store path for client sync only if the agent is actually following it
-        this.agentPaths.set(agent.id, path.waypoints);
-      } else {
-        // If following the path failed (e.g., blocked waypoint), clear any stored path
-        this.agentPaths.delete(agent.id);
+      agent.setPath(limitedWaypoints);
+      this.moveAlongPath(agent);
+
+      // Store path for client sync if agent is following it
+      if (agent.hasPath()) {
+        this.agentPaths.set(agent.id, agent.waypoints);
       }
     } else {
       // Fallback to simple movement if pathfinding fails

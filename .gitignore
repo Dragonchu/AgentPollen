@@ -8,3 +8,4 @@ eslint-results.sarif
 .playwright-mcp/
 maps/
 *.map
+.idea/

@@ -101,6 +101,10 @@ export interface WorldConfig {
   zoneDamageBase: number;
   /** Minimum safe zone size (full width/height) */
   minZoneSize: number;
+  /** Maximum steps an agent can move per tick (default: 8) */
+  maxStepsPerTick: number;
+  /** Maximum path length for pathfinding to prevent over-planning (optional) */
+  maxPathLength?: number;
 }
 
 export interface WorldSyncState {
@@ -373,6 +377,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   agentTemplates: [],
   zoneDamageBase: 2,
   minZoneSize: 3,
+  maxStepsPerTick: 8,
+  maxPathLength: 15,
 };
 
 export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [
