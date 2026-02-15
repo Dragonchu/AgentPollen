@@ -19,7 +19,6 @@ export class GameScene extends Phaser.Scene {
   private zoneGraphics!: Phaser.GameObjects.Graphics;
   private connectionGraphics!: Phaser.GameObjects.Graphics;
   private allianceGraphics!: Phaser.GameObjects.Graphics;
-  private agentGraphics!: Phaser.GameObjects.Graphics;
 
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
@@ -36,7 +35,7 @@ export class GameScene extends Phaser.Scene {
   private onReady?: () => void;
 
   private readonly displayStateManager = new AgentDisplayStateManager();
-  private renderer!: GameSceneRenderer;
+  private gameSceneRenderer!: GameSceneRenderer;
 
   constructor() {
     super({ key: "GameScene" });
@@ -87,16 +86,14 @@ export class GameScene extends Phaser.Scene {
     this.zoneGraphics = this.add.graphics();
     this.connectionGraphics = this.add.graphics();
     this.allianceGraphics = this.add.graphics();
-    this.agentGraphics = this.add.graphics();
 
-    this.renderer = new GameSceneRenderer({
+    this.gameSceneRenderer = new GameSceneRenderer({
       grid: this.gridGraphics,
       zone: this.zoneGraphics,
       connection: this.connectionGraphics,
       alliance: this.allianceGraphics,
-      agent: this.agentGraphics,
     });
-    this.renderer.drawGrid();
+    this.gameSceneRenderer.drawGrid();
 
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.handleClick(pointer.x, pointer.y);
@@ -230,9 +227,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     const state = this.getRenderState();
-    this.renderer.drawConnections(state);
-    this.renderer.drawAlliances(state);
-    this.renderer.drawAgents(state);
+    this.gameSceneRenderer.drawConnections(state);
+    this.gameSceneRenderer.drawAlliances(state);
   }
 
   private getAnimationForState(actionState: AgentActionState, isMoving: boolean): string {
@@ -292,11 +288,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private redraw(): void {
-    this.renderer.drawZone(this.getRenderState());
+    this.gameSceneRenderer.drawZone(this.getRenderState());
     this.drawItems();
-    this.renderer.drawConnections(this.getRenderState());
-    this.renderer.drawAlliances(this.getRenderState());
-    this.renderer.drawAgents(this.getRenderState());
+    this.gameSceneRenderer.drawConnections(this.getRenderState());
+    this.gameSceneRenderer.drawAlliances(this.getRenderState());
   }
 
   private handleClick(px: number, py: number): void {
