@@ -2,11 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import type { AgentFullState, ItemState, Waypoint, TileMap } from "@battle-royale/shared";
-import type { GameScene } from "./scenes/GameScene";
-
-const CELL_SIZE = 64;
-const GRID_SIZE = 20;
-const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
+import { CANVAS_SIZE, GameScene, GRID_SIZE } from "./scenes/GameScene";
 
 interface GameCanvasProps {
   agents: Map<number, AgentFullState>;
