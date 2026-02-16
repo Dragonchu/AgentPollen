@@ -51,8 +51,8 @@ export class GameScene extends Phaser.Scene {
     // 1. Initialize managers
     this.stateManager = new GameStateManager();
     this.networkManager = new NetworkManager(this.stateManager);
-    this.uiManager = new UIManager(this, this.stateManager, this.networkManager);
     this.cameraManager = new CameraManager(this, this.cameras.main);
+    this.uiManager = new UIManager(this, this.stateManager, this.networkManager, this.cameraManager);
 
     // 2. Create graphics objects for game scene
     this.gridGraphics = this.add.graphics();
@@ -128,6 +128,14 @@ export class GameScene extends Phaser.Scene {
 
     // Update camera (handles keyboard panning)
     this.cameraManager.update();
+
+    // Update PiP camera to follow selected agent
+    if (this.cameraManager.isDualCameraEnabled() && selectedAgent && selectedAgent.alive) {
+      const displayState = this.displayStateManager.getDisplayStates().get(selectedAgent.id);
+      const targetX = displayState ? displayState.displayX * CELL_SIZE + CELL_SIZE / 2 : selectedAgent.x * CELL_SIZE + CELL_SIZE / 2;
+      const targetY = displayState ? displayState.displayY * CELL_SIZE + CELL_SIZE / 2 : selectedAgent.y * CELL_SIZE + CELL_SIZE / 2;
+      this.cameraManager.setPipCameraTarget(targetX, targetY);
+    }
 
     // Update display state
     this.displayStateManager.tick(delta, agents);
@@ -365,6 +373,13 @@ export class GameScene extends Phaser.Scene {
     if (closest) {
       this.networkManager.inspectAgent(closest.id);
     }
+  }
+
+  /**
+   * Get the camera manager (for testing/debugging)
+   */
+  getCameraManager(): CameraManager {
+    return this.cameraManager;
   }
 
   /**
