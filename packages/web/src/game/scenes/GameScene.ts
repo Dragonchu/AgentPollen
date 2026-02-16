@@ -18,6 +18,7 @@ import {
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
 import { UIManager } from "../managers/UIManager";
+import { CameraManager } from "../managers/CameraManager";
 
 // 对外保持原有导出，便于 GameCanvas 等调用方使用
 export { CELL_SIZE, GRID_SIZE, CANVAS_SIZE } from "./gameConstants";
@@ -26,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   private stateManager!: GameStateManager;
   private networkManager!: NetworkManager;
   private uiManager!: UIManager;
+  private cameraManager!: CameraManager;
 
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private zoneGraphics!: Phaser.GameObjects.Graphics;
@@ -50,6 +52,7 @@ export class GameScene extends Phaser.Scene {
     this.stateManager = new GameStateManager();
     this.networkManager = new NetworkManager(this.stateManager);
     this.uiManager = new UIManager(this, this.stateManager, this.networkManager);
+    this.cameraManager = new CameraManager(this);
 
     // 2. Create graphics objects for game scene
     this.gridGraphics = this.add.graphics();
@@ -65,9 +68,12 @@ export class GameScene extends Phaser.Scene {
     });
     this.gameSceneRenderer.drawGrid();
 
-    // 3. Setup input handling
+    // 3. Setup input handling (but don't interfere with camera drag)
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.handleClick(pointer.x, pointer.y);
+      // Only handle clicks if not dragging camera (left button drag is reserved for camera)
+      if (pointer.button === 2) {
+        this.handleClick(pointer.x, pointer.y);
+      }
     });
 
     // 4. Initialize UI manager
@@ -119,6 +125,9 @@ export class GameScene extends Phaser.Scene {
     const agents = this.stateManager.getAgents();
     const items = this.stateManager.getItems();
     const selectedAgent = this.stateManager.getSelectedAgent();
+
+    // Update camera (handles keyboard panning)
+    this.cameraManager.update();
 
     // Update display state
     this.displayStateManager.tick(delta, agents);
@@ -377,5 +386,13 @@ export class GameScene extends Phaser.Scene {
    */
   getUIManager(): UIManager {
     return this.uiManager;
+  }
+
+  /**
+   * Cleanup on scene shutdown
+   */
+  shutdown(): void {
+    this.cameraManager.destroy();
+    this.uiManager.destroy();
   }
 }
