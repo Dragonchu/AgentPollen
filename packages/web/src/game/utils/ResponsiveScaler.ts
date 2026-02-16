@@ -1,12 +1,22 @@
 /**
- * ResponsiveScaler helps scale UI elements based on canvas dimensions
- * This ensures the UI looks good at any screen size
+ * ResponsiveScaler helps calculate UI element sizes based on canvas dimensions
+ * using percentage-based layout for better responsiveness across screen sizes.
  */
 export class ResponsiveScaler {
   private canvasWidth: number;
   private canvasHeight: number;
-  private baseWidth: number = 1280; // Reference width
-  private baseHeight: number = 720; // Reference height
+  
+  // Percentage-based layout configuration
+  private readonly sidebarWidthPercent: number = 0.17; // 17% of canvas width
+  private readonly rightPanelWidthPercent: number = 0.265; // 26.5% of canvas width
+  private readonly headerHeightPercent: number = 0.078; // 7.8% of canvas height
+  private readonly paddingPercent: number = 0.00625; // 0.625% of canvas width
+
+  // Minimum dimensions to ensure usability on very small screens
+  private readonly minSidebarWidth: number = 150;
+  private readonly minRightPanelWidth: number = 250;
+  private readonly minHeaderHeight: number = 40;
+  private readonly minPadding: number = 4;
 
   constructor(canvasWidth: number, canvasHeight: number) {
     this.canvasWidth = canvasWidth;
@@ -14,11 +24,14 @@ export class ResponsiveScaler {
   }
 
   /**
-   * Get the scale factor based on canvas size
+   * Get the scale factor based on canvas size (for font scaling)
+   * Uses 1280x720 as reference for backward compatibility
    */
   getScaleFactor(): number {
-    const scaleX = this.canvasWidth / this.baseWidth;
-    const scaleY = this.canvasHeight / this.baseHeight;
+    const baseWidth = 1280;
+    const baseHeight = 720;
+    const scaleX = this.canvasWidth / baseWidth;
+    const scaleY = this.canvasHeight / baseHeight;
     return Math.min(scaleX, scaleY);
   }
 
@@ -32,41 +45,43 @@ export class ResponsiveScaler {
   }
 
   /**
-   * Scale a dimension (width, height, padding, etc.)
+   * Scale a dimension using percentage of canvas width
    */
   scaleDimension(baseDimension: number): number {
+    // For backward compatibility, scale based on the scale factor
     return Math.round(baseDimension * this.getScaleFactor());
   }
 
   /**
-   * Get adjusted sidebar width
+   * Get sidebar width as percentage of canvas width
    */
   getSidebarWidth(): number {
-    const baseWidth = 220;
-    return Math.max(150, this.scaleDimension(baseWidth));
+    const width = Math.round(this.canvasWidth * this.sidebarWidthPercent);
+    return Math.max(this.minSidebarWidth, width);
   }
 
   /**
-   * Get adjusted right panel width
+   * Get right panel width as percentage of canvas width
    */
   getRightPanelWidth(): number {
-    const baseWidth = 340;
-    return Math.max(250, this.scaleDimension(baseWidth));
+    const width = Math.round(this.canvasWidth * this.rightPanelWidthPercent);
+    return Math.max(this.minRightPanelWidth, width);
   }
 
   /**
-   * Get adjusted header height
+   * Get header height as percentage of canvas height
    */
   getHeaderHeight(): number {
-    const baseHeight = 56;
-    return Math.max(40, this.scaleDimension(baseHeight));
+    const height = Math.round(this.canvasHeight * this.headerHeightPercent);
+    return Math.max(this.minHeaderHeight, height);
   }
 
   /**
-   * Get adjusted padding
+   * Get padding as percentage of canvas width
    */
   getPadding(): number {
-    return Math.max(4, this.scaleDimension(8));
+    const padding = Math.round(this.canvasWidth * this.paddingPercent);
+    return Math.max(this.minPadding, padding);
   }
 
   /**
