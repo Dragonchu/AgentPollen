@@ -23,6 +23,7 @@ export class CameraManager {
   private pipTargetX: number = 0;
   private pipTargetY: number = 0;
   private pipBorderGraphics: Phaser.GameObjects.Graphics | null = null;
+  private pipLabelText: Phaser.GameObjects.Text | null = null;
 
   // Zoom constraints (dynamically computed)
   private fitZoom: number = 1;
@@ -496,6 +497,11 @@ export class CameraManager {
       this.pipBorderGraphics.destroy();
       this.pipBorderGraphics = null;
     }
+
+    if (this.pipLabelText) {
+      this.pipLabelText.destroy();
+      this.pipLabelText = null;
+    }
   }
 
   /**
@@ -510,21 +516,26 @@ export class CameraManager {
     this.pipBorderGraphics.lineStyle(4, 0x00ff00, 1);
     this.pipBorderGraphics.strokeRect(x, y, this.pipCameraWidth, this.pipCameraHeight);
 
-    // Draw label
+    // Draw label background
     this.pipBorderGraphics.fillStyle(0x000000, 0.7);
     this.pipBorderGraphics.fillRect(x, y, 100, 24);
 
-    // Add text (create a separate text object)
-    const labelText = this.scene.add.text(x + 5, y + 5, "Close-Up", {
+    // Destroy old label text if exists
+    if (this.pipLabelText) {
+      this.pipLabelText.destroy();
+    }
+
+    // Create new label text
+    this.pipLabelText = this.scene.add.text(x + 5, y + 5, "Close-Up", {
       fontSize: "14px",
       fontFamily: "Arial",
       color: "#00ff00",
       fontStyle: "bold",
     });
-    labelText.setDepth(10001);
+    this.pipLabelText.setDepth(10001);
     
     // Make main camera ignore the border and label
-    this.camera.ignore([this.pipBorderGraphics, labelText]);
+    this.camera.ignore([this.pipBorderGraphics, this.pipLabelText]);
   }
 
   /**
