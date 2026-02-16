@@ -137,23 +137,41 @@ export class CameraManager {
   }
 
   /**
-   * Handle mouse wheel zoom
+   * Handle mouse wheel zoom (zoom around mouse cursor)
    */
   private onMouseWheel(
-    _pointer: Phaser.Input.Pointer,
+    pointer: Phaser.Input.Pointer,
     _gameObjects: Phaser.GameObjects.GameObject[],
     _deltaX: number,
     deltaY: number
   ): void {
-    const currentZoom = this.camera.zoom;
+    const oldZoom = this.camera.zoom;
+
+    // 1. Get mouse screen coordinates
+    const mouseScreenX = pointer.x;
+    const mouseScreenY = pointer.y;
+
+    // 2. Calculate world coordinates at current zoom (before scaling)
+    const worldX = this.camera.scrollX + mouseScreenX / oldZoom;
+    const worldY = this.camera.scrollY + mouseScreenY / oldZoom;
+
+    // 3. Calculate new zoom level
     const zoomDelta = deltaY > 0 ? -this.ZOOM_SPEED : this.ZOOM_SPEED;
     const newZoom = Phaser.Math.Clamp(
-      currentZoom + zoomDelta,
+      oldZoom + zoomDelta,
       this.MIN_ZOOM,
       this.MAX_ZOOM
     );
 
+    // 4. Update camera zoom
     this.camera.setZoom(newZoom);
+
+    // 5. Adjust camera position to keep the world coordinate at the same screen position
+    const newScrollX = worldX - mouseScreenX / newZoom;
+    const newScrollY = worldY - mouseScreenY / newZoom;
+
+    // 6. Apply bounds checking
+    this.setCameraPosition(newScrollX, newScrollY);
   }
 
   /**
