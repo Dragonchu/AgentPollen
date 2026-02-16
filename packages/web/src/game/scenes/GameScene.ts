@@ -242,21 +242,27 @@ export class GameScene extends Phaser.Scene {
     return "idle-anim";
   }
 
-  private safePlayAnimation(sprite: Phaser.GameObjects.Sprite, animKey: string): void {
-    // Safely play animation, checking if it exists first
-    if (this.anims.exists(animKey)) {
+  private safePlayAnimation(sprite: Phaser.GameObjects.Sprite | undefined, animKey: string): void {
+    // Guard: ensure sprite exists and is not destroyed
+    if (!sprite || sprite.scene !== this) {
+      return;
+    }
+
+    // Only attempt to play animation if it exists
+    if (!this.anims.exists(animKey)) {
+      return;
+    }
+
+    // Don't replay if already playing
+    if (sprite.anims.currentAnim?.key === animKey) {
+      return;
+    }
+
+    try {
       sprite.play(animKey);
-    } else {
-      // Animation doesn't exist yet, which can happen during initialization
-      // Just skip playing for now, it will be set on next update
-      if (sprite.anims.currentAnim?.key !== animKey) {
-        try {
-          sprite.play(animKey);
-        } catch (e) {
-          // Silently fail if animation still doesn't exist
-          console.debug(`Animation ${animKey} not yet available for sprite`);
-        }
-      }
+    } catch (e) {
+      // Silently fail - animation may not be fully loaded yet
+      console.debug(`Failed to play animation ${animKey}:`, e);
     }
   }
 

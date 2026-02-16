@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {PreloadScene} from "@/game/scenes/PreloadScene";
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,15 +17,13 @@ export function GameCanvas() {
     ]).then(([Phaser, { GameScene, CANVAS_SIZE }]) => {
       if (destroyed || !containerRef.current) return;
 
-      const scene = new GameScene();
-
       const game = new Phaser.Game({
         type: Phaser.CANVAS,
         width: CANVAS_SIZE,
         height: CANVAS_SIZE,
         parent: containerRef.current,
         backgroundColor: "#0a0a14",
-        scene,
+        scene: [PreloadScene, GameScene],
         scale: {
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
