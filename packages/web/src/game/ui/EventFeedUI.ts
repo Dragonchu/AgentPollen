@@ -14,6 +14,7 @@ export class EventFeedUI extends BaseUI {
   private stateManager: GameStateManager;
   private scrollContainer?: ScrollableContainer;
   private eventItems: Map<number, Phaser.GameObjects.Container> = new Map();
+  private lastEventCount = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -57,17 +58,25 @@ export class EventFeedUI extends BaseUI {
   private updateEvents(events: GameEvent[]): void {
     if (!this.scrollContainer) return;
 
+    // Optimization: Only update if event count changed
+    const eventCount = events.length;
+    if (eventCount === this.lastEventCount && eventCount > 0) {
+      return; // No new events
+    }
+    this.lastEventCount = eventCount;
+
     // Clear old items
     for (const item of this.eventItems.values()) {
       item.destroy();
     }
     this.eventItems.clear();
 
-    // Create new event items (reverse order - newest first)
+    // Create new event items (reverse order - newest first, max 50)
+    const maxEvents = Math.min(50, events.length);
     let offsetY = 8;
-    const contentHeight = events.length * 32 + 16;
+    const contentHeight = maxEvents * 32 + 16;
 
-    for (let i = events.length - 1; i >= 0; i--) {
+    for (let i = events.length - 1; i >= events.length - maxEvents; i--) {
       const event = events[i];
       const item = this.createEventItem(event, offsetY);
       this.scrollContainer.getContentContainer().add(item);

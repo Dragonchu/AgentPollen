@@ -19,6 +19,7 @@ export class SidebarUI extends BaseUI {
   private agentItems: Map<number, Phaser.GameObjects.Container> = new Map();
   private agentBackgrounds: Map<number, Phaser.GameObjects.Rectangle> = new Map();
   private selectedAgentId: number | null = null;
+  private lastAgentCount = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -76,6 +77,15 @@ export class SidebarUI extends BaseUI {
 
   private updateAgents(agents: Map<number, AgentFullState>): void {
     if (!this.scrollContainer) return;
+
+    // Optimization: Only rebuild if agent count changed
+    const agentCount = agents.size;
+    if (agentCount === this.lastAgentCount && agentCount > 0) {
+      // Agent count hasn't changed, just update selection highlighting
+      this.updateSelection();
+      return;
+    }
+    this.lastAgentCount = agentCount;
 
     // Clear old items
     for (const item of this.agentItems.values()) {

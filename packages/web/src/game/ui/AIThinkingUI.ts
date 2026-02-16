@@ -26,6 +26,7 @@ export class AIThinkingUI extends BaseUI {
   private selectedAgent: AgentFullState | null = null;
   private thinkingHistory: ThinkingProcess[] = [];
   private lastUpdateTime = 0;
+  private lastHistoryLength = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -160,19 +161,27 @@ export class AIThinkingUI extends BaseUI {
   private updateThinkingHistory(history: ThinkingProcess[]): void {
     if (!this.scrollContainer) return;
 
+    // Optimization: Skip update if history length hasn't changed (except for timestamp refresh)
+    const historyLength = history.length;
+    if (historyLength === this.lastHistoryLength && historyLength > 0) {
+      return; // No new thinking entries, timestamps will be refreshed in update()
+    }
+    this.lastHistoryLength = historyLength;
+
     // Clear old items
     for (const item of this.thinkingItems.values()) {
       item.destroy();
     }
     this.thinkingItems.clear();
 
-    // Create items in reverse order (newest first)
+    // Create items in reverse order (newest first, max 20)
+    const maxItems = Math.min(20, history.length);
     let offsetY = 8;
-    const contentHeight = history.length * 60 + 16;
+    const contentHeight = maxItems * 60 + 16;
 
     const now = Date.now();
 
-    for (let i = history.length - 1; i >= 0; i--) {
+    for (let i = history.length - 1; i >= history.length - maxItems; i--) {
       const process = history[i];
       const item = this.createThinkingItem(process, offsetY, now, i === history.length - 1);
       this.scrollContainer.getContentContainer().add(item);
@@ -261,8 +270,34 @@ export class AIThinkingUI extends BaseUI {
   update(time: number, _delta: number): void {
     // Refresh relative timestamps every 5 seconds
     if (time - this.lastUpdateTime > 5000 && this.thinkingHistory.length > 0) {
-      this.updateThinkingHistory(this.thinkingHistory);
+      this.refreshTimestamps();
       this.lastUpdateTime = time;
+    }
+  }
+
+  private refreshTimestamps(): void {
+    if (!this.scrollContainer) return;
+    const now = Date.now();
+
+    const items = this.scrollContainer.getContentContainer().list;
+    let itemIndex = 0;
+
+    for (let i = this.thinkingHistory.length - 1; i >= Math.max(0, this.thinkingHistory.length - 20); i--) {
+      if (itemIndex >= items.length) break;
+
+      const process = this.thinkingHistory[i];
+      const item = items[itemIndex] as Phaser.GameObjects.Container;
+
+      if (item && item.list.length > 0) {
+        // Update timestamp text (first child after bg)
+        const timeStr = this.getRelativeTime(now - process.timestamp);
+        const timeText = item.list[1] as Phaser.GameObjects.Text;
+        if (timeText && timeText.setText) {
+          timeText.setText(timeStr);
+        }
+      }
+
+      itemIndex++;
     }
   }
 
