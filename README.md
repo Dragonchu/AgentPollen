@@ -142,7 +142,28 @@ The game now includes server-side pathfinding with A* algorithm and tile-based m
 
 See [PATHFINDING.md](./PATHFINDING.md) for detailed documentation.
 
-### 3. Full Sync → Delta Sync
+### 3. Dual Camera System (✅ IMPLEMENTED)
+
+The game now supports dual camera mode with a Picture-in-Picture (PiP) view.
+
+**Features:**
+- ✅ Main camera for full world view with pan/zoom controls
+- ✅ PiP camera showing 2x zoomed view of selected agent
+- ✅ Toggle button in game UI to enable/disable dual camera
+- ✅ Automatic agent following in PiP view
+- ✅ Visual border and label for PiP camera
+- ✅ Independent zoom levels for each camera
+
+**How It Works:**
+- Click "Dual Camera" button in top-left to enable PiP view
+- PiP camera (300x300px) appears in bottom-right corner
+- When an agent is selected, PiP camera automatically follows them
+- PiP camera shows close-up (2x zoom) while main camera shows strategic view
+- Both cameras render the same game world independently
+
+See [packages/web/DUAL_CAMERA.md](./packages/web/DUAL_CAMERA.md) for detailed documentation.
+
+### 4. Full Sync → Delta Sync
 In `SyncManager.broadcastTick()`, switch to delta mode:
 ```typescript
 // Uncomment the delta path in SyncManager.ts
@@ -152,20 +173,20 @@ if (delta.length > 0) {
 }
 ```
 
-### 4. Canvas 2D → Phaser
+### 5. Canvas 2D → Phaser
 Replace `GameCanvas.tsx` with a Phaser scene:
 - Create Phaser.Game in a React wrapper
 - Map agent properties to sprite sheets
 - Add animations for combat, death, zone shrink
 
-### 5. In-Memory → Persistent Storage
+### 6. In-Memory → Persistent Storage
 Implement `PersistenceProvider` interface with Redis/PostgreSQL:
 ```typescript
 // See persistence/PersistenceProvider.ts for the interface
 const persistence = new RedisPersistence(process.env.REDIS_URL);
 ```
 
-### 6. Custom Agent Templates
+### 7. Custom Agent Templates
 Add new agent types via `AgentFactory`:
 ```typescript
 factory.addTemplate({
@@ -176,7 +197,7 @@ factory.addTemplate({
 });
 ```
 
-### 7. Vote System Enhancements
+### 8. Vote System Enhancements
 The `VoteManager` supports extension via:
 - Vote weighting (modify `submitVote`)
 - Anti-spam (add cooldowns per playerId)
