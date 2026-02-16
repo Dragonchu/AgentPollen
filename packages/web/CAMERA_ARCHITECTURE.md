@@ -122,14 +122,22 @@ screenY = (worldY - camera.scrollY) * camera.zoom;
 鼠标释放 → 停止拖拽
 ```
 
-## 缩放机制
+## 缩放机制（围绕鼠标位置缩放）
 
 ```
 鼠标滚轮事件
   ↓
-判断滚动方向:
-  - deltaY < 0: 向上滚动 → 放大 (zoom *= 1.1)
-  - deltaY > 0: 向下滚动 → 缩小 (zoom *= 0.9)
+获取鼠标屏幕坐标:
+  mouseScreenX = pointer.x
+  mouseScreenY = pointer.y
+  ↓
+计算缩放前的世界坐标（鼠标指向的游戏世界位置）:
+  worldX = scrollX + (mouseScreenX / oldZoom)
+  worldY = scrollY + (mouseScreenY / oldZoom)
+  ↓
+判断滚动方向并计算新缩放:
+  - deltaY < 0: 向上滚动 → newZoom = oldZoom + 0.1
+  - deltaY > 0: 向下滚动 → newZoom = oldZoom - 0.1
   ↓
 限制范围:
   clampedZoom = Clamp(newZoom, 0.3, 3.0)
@@ -137,7 +145,28 @@ screenY = (worldY - camera.scrollY) * camera.zoom;
 设置新缩放:
   camera.setZoom(clampedZoom)
   ↓
-自动调整摄像机位置保持在边界内
+关键步骤：调整摄像机位置保持世界坐标在屏幕相同位置:
+  newScrollX = worldX - (mouseScreenX / clampedZoom)
+  newScrollY = worldY - (mouseScreenY / clampedZoom)
+  ↓
+应用边界检查:
+  setCameraPosition(newScrollX, newScrollY)
+  ↓
+完成：鼠标指向的世界位置保持在屏幕相同位置
+```
+
+### 关键公式
+
+```
+缩放前的世界坐标:
+  W = S + M / Z_old
+  其中: W = 世界坐标，S = 摄像机滚动，M = 鼠标屏幕坐标，Z_old = 旧缩放
+
+缩放后的摄像机位置:
+  S' = W - M / Z_new
+  其中: S' = 新的摄像机滚动位置，Z_new = 新缩放
+
+结果: 鼠标指向的世界点 W 在屏幕上的位置不变
 ```
 
 ## 边界管理
