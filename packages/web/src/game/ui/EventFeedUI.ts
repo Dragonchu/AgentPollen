@@ -22,9 +22,10 @@ export class EventFeedUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager
+    stateManager: GameStateManager,
+    worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
-    super(scene, x, y, width, height);
+    super(scene, x, y, width, height, worldCamera);
     this.stateManager = stateManager;
   }
 

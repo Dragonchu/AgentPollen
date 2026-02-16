@@ -36,9 +36,10 @@ export class VotePanelUI extends BaseUI {
     width: number,
     height: number,
     stateManager: GameStateManager,
-    networkManager: NetworkManager
+    networkManager: NetworkManager,
+    worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
-    super(scene, x, y, width, height);
+    super(scene, x, y, width, height, worldCamera);
     this.stateManager = stateManager;
     this.networkManager = networkManager;
   }

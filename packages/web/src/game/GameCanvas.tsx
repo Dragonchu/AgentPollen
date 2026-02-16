@@ -1,45 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {PreloadScene} from "@/game/scenes/PreloadScene";
+import { useEffect, useRef } from "react";
+import { PreloadScene } from "@/game/scenes/PreloadScene";
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 1280, height: 720 });
-  const [mounted, setMounted] = useState(false);
-
-  // Initialize dimensions after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
-    // Calculate game dimensions based on window size
-    const updateDimensions = () => {
-      if (!containerRef.current || typeof window === "undefined") return;
-
-      // Get available space (with some padding)
-      const width = window.innerWidth - 32;
-      const height = window.innerHeight - 32;
-
-      // Use the smaller dimension to maintain game aspect
-      const size = Math.min(width, height);
-      setDimensions({
-        width: size,
-        height: size,
-      });
-    };
-
-    // Set initial dimensions
-    updateDimensions();
-
-    // Update on window resize
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
-  }, [mounted]);
 
   useEffect(() => {
     let destroyed = false;
@@ -58,15 +24,15 @@ export function GameCanvas() {
 
       const game = new Phaser.Game({
         type: Phaser.AUTO,
-        width: dimensions.width,
-        height: dimensions.height,
+        width: window.innerWidth,
+        height: window.innerHeight,
         parent: containerRef.current,
         backgroundColor: "#0a0a14",
         scene: [PreloadScene, GameScene],
         scale: {
           mode: Phaser.Scale.RESIZE,
-          autoCenter: Phaser.Scale.CENTER_BOTH,
-          expandParent: true,
+          autoCenter: Phaser.Scale.NO_CENTER,
+          expandParent: false,
         },
         render: { antialias: true },
         audio: { noAudio: true },
@@ -78,13 +44,17 @@ export function GameCanvas() {
 
     return () => {
       destroyed = true;
+      if (gameRef.current) {
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+      }
     };
-  }, [dimensions]);
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center bg-background overflow-hidden"
+      className="w-screen h-screen bg-background overflow-hidden"
     />
   );
 }

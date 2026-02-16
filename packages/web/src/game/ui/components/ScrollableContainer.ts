@@ -19,19 +19,22 @@ export class ScrollableContainer {
   private maxScrollY: number = 0;
   private scrollEnabled: boolean = false;
   private cachedBounds: Phaser.Geom.Rectangle | null = null;
+  private worldCamera?: Phaser.Cameras.Scene2D.Camera;
 
   constructor(
     scene: Phaser.Scene,
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
+    worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.worldCamera = worldCamera;
 
     // Main container
     this.container = scene.add.container(x, y);
@@ -43,6 +46,12 @@ export class ScrollableContainer {
     // Mask for clipping
     this.mask = scene.add.graphics();
     this.updateMask();
+
+    // Make worldCamera ignore these objects so they stay fixed on screen
+    if (worldCamera) {
+      worldCamera.ignore(this.container);
+      worldCamera.ignore(this.mask);
+    }
   }
 
   /**

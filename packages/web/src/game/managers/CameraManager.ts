@@ -3,7 +3,7 @@ import { CELL_SIZE, GRID_SIZE } from "../scenes/gameConstants";
 
 /**
  * CameraManager handles camera movement, zooming, and viewport management
- * Supports mouse drag for panning and mouse wheel for zooming
+ * for the world camera. Supports mouse drag panning and mouse wheel zooming.
  */
 export class CameraManager {
   private scene: Phaser.Scene;
@@ -13,8 +13,9 @@ export class CameraManager {
   private worldWidth: number = GRID_SIZE * CELL_SIZE;
   private worldHeight: number = GRID_SIZE * CELL_SIZE;
 
-  // Zoom constraints
-  private readonly MIN_ZOOM = 0.3;
+  // Zoom constraints (dynamically computed)
+  private fitZoom: number = 1;
+  private minZoom: number = 0.3;
   private readonly MAX_ZOOM = 3;
   private readonly ZOOM_SPEED = 0.1;
 
@@ -36,10 +37,20 @@ export class CameraManager {
     right: false,
   };
 
-  constructor(scene: Phaser.Scene) {
+  // UI overlap check callback
+  private isPointerOverUI?: (x: number, y: number) => boolean;
+
+  constructor(scene: Phaser.Scene, camera: Phaser.Cameras.Scene2D.Camera) {
     this.scene = scene;
-    this.camera = scene.cameras.main;
+    this.camera = camera;
     this.init();
+  }
+
+  /**
+   * Set callback to check if pointer is over UI (to block zoom when scrolling UI)
+   */
+  setPointerOverUICheck(fn: (x: number, y: number) => boolean): void {
+    this.isPointerOverUI = fn;
   }
 
   /**
@@ -53,6 +64,16 @@ export class CameraManager {
 
     // Set camera bounds
     this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+    // Calculate fitZoom so entire map is visible
+    this.fitZoom = Math.min(
+      this.camera.displayWidth / this.worldWidth,
+      this.camera.displayHeight / this.worldHeight
+    );
+    this.minZoom = this.fitZoom * 0.8;
+
+    // Set initial zoom to fitZoom
+    this.camera.setZoom(this.fitZoom);
 
     // Center camera on map
     this.centerCamera();
@@ -145,6 +166,9 @@ export class CameraManager {
     _deltaX: number,
     deltaY: number
   ): void {
+    // Don't zoom if pointer is over UI
+    if (this.isPointerOverUI?.(pointer.x, pointer.y)) return;
+
     const oldZoom = this.camera.zoom;
 
     // 1. Get mouse screen coordinates
@@ -159,7 +183,7 @@ export class CameraManager {
     const zoomDelta = deltaY > 0 ? -this.ZOOM_SPEED : this.ZOOM_SPEED;
     const newZoom = Phaser.Math.Clamp(
       oldZoom + zoomDelta,
-      this.MIN_ZOOM,
+      this.minZoom,
       this.MAX_ZOOM
     );
 
@@ -260,6 +284,41 @@ export class CameraManager {
     camera.setScroll(clampedX, clampedY);
   }
 
+  // ============ Coordinate Conversion ============
+
+  /**
+   * Convert screen coordinates to world coordinates
+   */
+  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+    return {
+      x: this.camera.scrollX + screenX / this.camera.zoom,
+      y: this.camera.scrollY + screenY / this.camera.zoom,
+    };
+  }
+
+  /**
+   * Convert world coordinates to screen coordinates
+   */
+  worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
+    return {
+      x: (worldX - this.camera.scrollX) * this.camera.zoom,
+      y: (worldY - this.camera.scrollY) * this.camera.zoom,
+    };
+  }
+
+  /**
+   * Convert screen coordinates to grid coordinates
+   */
+  screenToGrid(screenX: number, screenY: number): { gx: number; gy: number } {
+    const world = this.screenToWorld(screenX, screenY);
+    return {
+      gx: Math.floor(world.x / CELL_SIZE),
+      gy: Math.floor(world.y / CELL_SIZE),
+    };
+  }
+
+  // ============ Camera Control ============
+
   /**
    * Center camera on map
    */
@@ -278,10 +337,10 @@ export class CameraManager {
   }
 
   /**
-   * Reset camera to initial state (centered, zoom 1)
+   * Reset camera to initial state (centered, fitZoom)
    */
   resetCamera(): void {
-    this.camera.setZoom(1);
+    this.camera.setZoom(this.fitZoom);
     this.centerCamera();
   }
 
@@ -318,7 +377,7 @@ export class CameraManager {
    * Set zoom level
    */
   setZoom(zoom: number): void {
-    const clampedZoom = Phaser.Math.Clamp(zoom, this.MIN_ZOOM, this.MAX_ZOOM);
+    const clampedZoom = Phaser.Math.Clamp(zoom, this.minZoom, this.MAX_ZOOM);
     this.camera.setZoom(clampedZoom);
   }
 

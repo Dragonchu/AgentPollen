@@ -12,22 +12,30 @@ export abstract class BaseUI {
   protected width: number;
   protected height: number;
   protected visible: boolean = true;
+  protected worldCamera?: Phaser.Cameras.Scene2D.Camera;
 
   constructor(
     scene: Phaser.Scene,
     x: number = 0,
     y: number = 0,
     width: number = 0,
-    height: number = 0
+    height: number = 0,
+    worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.worldCamera = worldCamera;
 
     this.container = scene.add.container(x, y);
     this.container.setDepth(1000); // Ensure UI is on top
+
+    // Make worldCamera ignore this UI container so it doesn't move with world pan/zoom
+    if (worldCamera) {
+      worldCamera.ignore(this.container);
+    }
   }
 
   /**
