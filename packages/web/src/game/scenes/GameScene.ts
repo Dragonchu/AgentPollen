@@ -52,7 +52,7 @@ export class GameScene extends Phaser.Scene {
     this.stateManager = new GameStateManager();
     this.networkManager = new NetworkManager(this.stateManager);
     this.uiManager = new UIManager(this, this.stateManager, this.networkManager);
-    this.cameraManager = new CameraManager(this);
+    this.cameraManager = new CameraManager(this, this.cameras.main);
 
     // 2. Create graphics objects for game scene
     this.gridGraphics = this.add.graphics();
