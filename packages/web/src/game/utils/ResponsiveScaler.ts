@@ -54,7 +54,8 @@ export class ResponsiveScaler {
   }
 
   /**
-   * Scale a dimension using percentage of canvas width
+   * Scale a dimension based on the scale factor (for backward compatibility)
+   * Uses 1280x720 as reference and scales proportionally
    */
   scaleDimension(baseDimension: number): number {
     // For backward compatibility, scale based on the scale factor
@@ -95,16 +96,26 @@ export class ResponsiveScaler {
 
   /**
    * Get a percentage-based width
+   * @param ratio - A value between 0 and 1 representing the percentage (e.g., 0.5 for 50%)
+   * @returns The calculated width in pixels
    */
-  getPercentageWidth(percent: number): number {
-    return Math.round(this.canvasWidth * percent);
+  getPercentageWidth(ratio: number): number {
+    if (ratio < 0 || ratio > 1) {
+      console.warn(`getPercentageWidth: ratio ${ratio} is outside [0,1] range`);
+    }
+    return Math.round(this.canvasWidth * ratio);
   }
 
   /**
    * Get a percentage-based height
+   * @param ratio - A value between 0 and 1 representing the percentage (e.g., 0.5 for 50%)
+   * @returns The calculated height in pixels
    */
-  getPercentageHeight(percent: number): number {
-    return Math.round(this.canvasHeight * percent);
+  getPercentageHeight(ratio: number): number {
+    if (ratio < 0 || ratio > 1) {
+      console.warn(`getPercentageHeight: ratio ${ratio} is outside [0,1] range`);
+    }
+    return Math.round(this.canvasHeight * ratio);
   }
 
   /**

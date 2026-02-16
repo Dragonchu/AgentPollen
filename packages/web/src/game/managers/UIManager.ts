@@ -133,7 +133,7 @@ export class UIManager {
     // AI Thinking (bottom center)
     // Position at bottom with ~19.4% height (140/720 ≈ 0.194)
     const thinkingHeight = this.scaler.getPercentageHeight(0.194);
-    const thinkingY = rightPanelY + rightPanelHeight - thinkingHeight / 2;
+    const thinkingY = rightPanelY + rightPanelHeight - padding - thinkingHeight / 2;
     const thinkingWidth = this.canvasWidth - sidebarWidth - rightPanelWidth - padding * 2;
     const thinkingX = sidebarWidth + thinkingWidth / 2;
 
