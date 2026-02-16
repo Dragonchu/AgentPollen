@@ -2,6 +2,12 @@ import * as Phaser from "phaser";
 import { GameStateManager } from "./GameStateManager";
 import { NetworkManager } from "./NetworkManager";
 import { BaseUI } from "../ui/BaseUI";
+import { HeaderUI } from "../ui/HeaderUI";
+import { EventFeedUI } from "../ui/EventFeedUI";
+import { SidebarUI } from "../ui/SidebarUI";
+import { AgentStatsUI } from "../ui/AgentStatsUI";
+import { VotePanelUI } from "../ui/VotePanelUI";
+import { AIThinkingUI } from "../ui/AIThinkingUI";
 
 /**
  * UIManager manages all UI components for the game.
@@ -20,6 +26,10 @@ export class UIManager {
   private readonly RIGHT_PANEL_WIDTH = 340;
   private readonly PADDING = 8;
 
+  // Canvas dimensions (will be set in create)
+  private canvasWidth = 1280;
+  private canvasHeight = 720;
+
   constructor(
     scene: Phaser.Scene,
     stateManager: GameStateManager,
@@ -34,8 +44,105 @@ export class UIManager {
    * Create all UI components
    */
   create(): void {
+    // Get canvas dimensions
+    this.canvasWidth = this.scene.scale.width;
+    this.canvasHeight = this.scene.scale.height;
+
+    // Create header
+    const headerUI = new HeaderUI(
+      this.scene,
+      this.canvasWidth / 2,
+      this.HEADER_HEIGHT / 2,
+      this.canvasWidth,
+      this.HEADER_HEIGHT,
+      this.stateManager
+    );
+    headerUI.create();
+    this.uiComponents.set("header", headerUI);
+
+    // Create sidebar
+    const sidebarX = this.SIDEBAR_WIDTH / 2;
+    const sidebarY = this.HEADER_HEIGHT + (this.canvasHeight - this.HEADER_HEIGHT) / 2;
+    const sidebarHeight = this.canvasHeight - this.HEADER_HEIGHT;
+
+    const sidebarUI = new SidebarUI(
+      this.scene,
+      sidebarX,
+      sidebarY,
+      this.SIDEBAR_WIDTH,
+      sidebarHeight,
+      this.stateManager,
+      this.networkManager
+    );
+    sidebarUI.create();
+    this.uiComponents.set("sidebar", sidebarUI);
+
+    // Create right panel components
+    const rightPanelX = this.canvasWidth - this.RIGHT_PANEL_WIDTH / 2;
+    const rightPanelY = this.HEADER_HEIGHT;
+    const rightPanelHeight = this.canvasHeight - this.HEADER_HEIGHT;
+
+    // Vote panel (top right)
+    const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
+    const votePanelUI = new VotePanelUI(
+      this.scene,
+      rightPanelX,
+      rightPanelY + votePanelHeight / 2,
+      this.RIGHT_PANEL_WIDTH - 8,
+      votePanelHeight - 8,
+      this.stateManager,
+      this.networkManager
+    );
+    votePanelUI.create();
+    this.uiComponents.set("votePanel", votePanelUI);
+
+    // Agent stats (middle right)
+    const statsHeight = Math.floor(rightPanelHeight * 0.25);
+    const statsY = rightPanelY + votePanelHeight + statsHeight / 2;
+    const agentStatsUI = new AgentStatsUI(
+      this.scene,
+      rightPanelX,
+      statsY,
+      this.RIGHT_PANEL_WIDTH - 8,
+      statsHeight - 8,
+      this.stateManager
+    );
+    agentStatsUI.create();
+    this.uiComponents.set("agentStats", agentStatsUI);
+
+    // Event feed (bottom right)
+    const eventFeedY = rightPanelY + votePanelHeight + statsHeight;
+    const eventFeedHeight = rightPanelHeight - votePanelHeight - statsHeight;
+    const eventFeedUI = new EventFeedUI(
+      this.scene,
+      rightPanelX,
+      eventFeedY + eventFeedHeight / 2,
+      this.RIGHT_PANEL_WIDTH - 8,
+      eventFeedHeight - 8,
+      this.stateManager
+    );
+    eventFeedUI.create();
+    this.uiComponents.set("eventFeed", eventFeedUI);
+
+    // AI Thinking (bottom center)
+    const thinkingY = rightPanelY + rightPanelHeight - 150;
+    const thinkingHeight = 140;
+    const thinkingWidth = this.canvasWidth - this.SIDEBAR_WIDTH - this.RIGHT_PANEL_WIDTH - 16;
+    const thinkingX = this.SIDEBAR_WIDTH + thinkingWidth / 2;
+
+    const aiThinkingUI = new AIThinkingUI(
+      this.scene,
+      thinkingX,
+      thinkingY,
+      thinkingWidth,
+      thinkingHeight,
+      this.stateManager,
+      this.networkManager
+    );
+    aiThinkingUI.create();
+    this.uiComponents.set("aiThinking", aiThinkingUI);
+
     this.setupStateListeners();
-    // UI components will be created here as they are implemented
   }
 
   /**
