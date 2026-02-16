@@ -46,8 +46,10 @@ export class CameraManager {
    * Initialize camera and input handlers
    */
   private init(): void {
-    // Set world bounds
-    this.scene.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    // Set physics world bounds (if physics is enabled)
+    if (this.scene.physics?.world) {
+      this.scene.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    }
 
     // Set camera bounds
     this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
