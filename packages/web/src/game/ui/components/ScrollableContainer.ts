@@ -18,6 +18,7 @@ export class ScrollableContainer {
   private contentHeight: number = 0;
   private maxScrollY: number = 0;
   private scrollEnabled: boolean = false;
+  private cachedBounds: Phaser.Geom.Rectangle | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -69,17 +70,14 @@ export class ScrollableContainer {
     if (this.scrollEnabled) return;
     this.scrollEnabled = true;
 
+    // Cache bounds for reuse
+    this.updateBoundsCache();
+
     this.scene.input.on(
       "wheel",
       (pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
-        // Only scroll if pointer is over this container
-        const bounds = new Phaser.Geom.Rectangle(
-          this.x - this.width / 2,
-          this.y - this.height / 2,
-          this.width,
-          this.height
-        );
-        if (Phaser.Geom.Rectangle.Contains(bounds, pointer.x, pointer.y)) {
+        // Only scroll if pointer is over this container (use cached bounds)
+        if (this.cachedBounds && Phaser.Geom.Rectangle.Contains(this.cachedBounds, pointer.x, pointer.y)) {
           this.scroll(deltaY);
         }
       }
@@ -139,6 +137,23 @@ export class ScrollableContainer {
   }
 
   /**
+   * Update the cached bounds (called when position changes)
+   */
+  private updateBoundsCache(): void {
+    if (this.cachedBounds) {
+      this.cachedBounds.x = this.x - this.width / 2;
+      this.cachedBounds.y = this.y - this.height / 2;
+    } else {
+      this.cachedBounds = new Phaser.Geom.Rectangle(
+        this.x - this.width / 2,
+        this.y - this.height / 2,
+        this.width,
+        this.height
+      );
+    }
+  }
+
+  /**
    * Set position
    */
   setPosition(x: number, y: number): void {
@@ -146,6 +161,8 @@ export class ScrollableContainer {
     this.y = y;
     this.container.setPosition(x, y);
     this.updateMask();
+    // Update cached bounds after position changes
+    this.updateBoundsCache();
   }
 
   /**
