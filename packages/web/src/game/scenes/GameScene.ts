@@ -162,7 +162,7 @@ export class GameScene extends Phaser.Scene {
         const isMoving =
           displayState.path.length > 0 && displayState.pathIndex < displayState.path.length;
         const initialAnim = this.getAnimationForState(agent.actionState, isMoving);
-        sprite.play(initialAnim);
+        this.safePlayAnimation(sprite, initialAnim);
         displayState.currentAnimation = agent.actionState;
         this.agentSprites.set(id, sprite);
       } else {
@@ -173,7 +173,7 @@ export class GameScene extends Phaser.Scene {
           displayState.currentAnimation !== agent.actionState ||
           newAnim !== sprite.anims.currentAnim?.key
         ) {
-          sprite.play(newAnim);
+          this.safePlayAnimation(sprite, newAnim);
           displayState.currentAnimation = agent.actionState;
           if (agent.actionState === AgentActionState.Fighting) {
             sprite.setTexture(ASSETS.IMAGES.WARRIOR_ATTACK.KEY);
@@ -240,6 +240,24 @@ export class GameScene extends Phaser.Scene {
     if (actionState === AgentActionState.Fighting) return "attack-anim";
     if (isMoving) return "walk-anim";
     return "idle-anim";
+  }
+
+  private safePlayAnimation(sprite: Phaser.GameObjects.Sprite, animKey: string): void {
+    // Safely play animation, checking if it exists first
+    if (this.anims.exists(animKey)) {
+      sprite.play(animKey);
+    } else {
+      // Animation doesn't exist yet, which can happen during initialization
+      // Just skip playing for now, it will be set on next update
+      if (sprite.anims.currentAnim?.key !== animKey) {
+        try {
+          sprite.play(animKey);
+        } catch (e) {
+          // Silently fail if animation still doesn't exist
+          console.debug(`Animation ${animKey} not yet available for sprite`);
+        }
+      }
+    }
   }
 
   private getDirectionFromMovement(fromX: number, toX: number): Direction {
