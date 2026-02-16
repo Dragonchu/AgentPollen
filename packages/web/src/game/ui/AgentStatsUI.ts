@@ -23,6 +23,7 @@ export class AgentStatsUI extends BaseUI {
   private actionText?: Phaser.GameObjects.Text;
   private allianceText?: Phaser.GameObjects.Text;
   private enemyText?: Phaser.GameObjects.Text;
+  private lastSelectedAgentId: number | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -152,6 +153,7 @@ export class AgentStatsUI extends BaseUI {
     const initialAgent = this.stateManager.getSelectedAgent();
     if (initialAgent) {
       this.selectedAgent = initialAgent;
+      this.lastSelectedAgentId = initialAgent.id;
       this.updateDisplay();
     }
   }
@@ -196,6 +198,10 @@ export class AgentStatsUI extends BaseUI {
 
   private updateDisplay(): void {
     if (!this.selectedAgent) {
+      // Only update if selection actually changed
+      if (this.lastSelectedAgentId === null) return;
+      this.lastSelectedAgentId = null;
+
       this.nameText?.setText("No Agent Selected");
       this.healthBar?.setValue(0);
       this.shieldBar?.setValue(0);
@@ -205,6 +211,12 @@ export class AgentStatsUI extends BaseUI {
       this.updateStatBoxes(0, 0, 0, "");
       return;
     }
+
+    // Optimization: Skip full update if agent didn't change
+    if (this.selectedAgent.id === this.lastSelectedAgentId) {
+      return; // Same agent, no need to update
+    }
+    this.lastSelectedAgentId = this.selectedAgent.id;
 
     const agent = this.selectedAgent;
 
