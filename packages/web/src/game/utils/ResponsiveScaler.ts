@@ -1,6 +1,15 @@
 /**
  * ResponsiveScaler helps calculate UI element sizes based on canvas dimensions
  * using percentage-based layout for better responsiveness across screen sizes.
+ * 
+ * Layout percentages are calculated based on the reference design at 1280x720:
+ * - Sidebar: 220px / 1280px = 17% of width
+ * - Right Panel: 340px / 1280px = 26.5% of width
+ * - Header: 56px / 720px = 7.8% of height
+ * - Padding: 8px / 1280px = 0.625% of width
+ * 
+ * This ensures consistent proportions across all screen sizes while maintaining
+ * minimum dimensions for usability on small screens.
  */
 export class ResponsiveScaler {
   private canvasWidth: number;
@@ -82,6 +91,20 @@ export class ResponsiveScaler {
   getPadding(): number {
     const padding = Math.round(this.canvasWidth * this.paddingPercent);
     return Math.max(this.minPadding, padding);
+  }
+
+  /**
+   * Get a percentage-based width
+   */
+  getPercentageWidth(percent: number): number {
+    return Math.round(this.canvasWidth * percent);
+  }
+
+  /**
+   * Get a percentage-based height
+   */
+  getPercentageHeight(percent: number): number {
+    return Math.round(this.canvasHeight * percent);
   }
 
   /**

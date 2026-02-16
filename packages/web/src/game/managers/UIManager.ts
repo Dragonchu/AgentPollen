@@ -131,8 +131,9 @@ export class UIManager {
     this.uiComponents.set("eventFeed", eventFeedUI);
 
     // AI Thinking (bottom center)
-    const thinkingY = rightPanelY + rightPanelHeight - this.scaler.scaleDimension(150);
-    const thinkingHeight = this.scaler.scaleDimension(140);
+    // Position at bottom with ~19.4% height (140/720 ≈ 0.194)
+    const thinkingHeight = this.scaler.getPercentageHeight(0.194);
+    const thinkingY = rightPanelY + rightPanelHeight - thinkingHeight / 2;
     const thinkingWidth = this.canvasWidth - sidebarWidth - rightPanelWidth - padding * 2;
     const thinkingX = sidebarWidth + thinkingWidth / 2;
 
