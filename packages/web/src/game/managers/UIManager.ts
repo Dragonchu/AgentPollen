@@ -8,10 +8,12 @@ import { SidebarUI } from "../ui/SidebarUI";
 import { AgentStatsUI } from "../ui/AgentStatsUI";
 import { VotePanelUI } from "../ui/VotePanelUI";
 import { AIThinkingUI } from "../ui/AIThinkingUI";
+import { ResponsiveScaler } from "../utils/ResponsiveScaler";
 
 /**
  * UIManager manages all UI components for the game.
  * It subscribes to state changes and updates UI components accordingly.
+ * Supports responsive scaling based on canvas dimensions.
  */
 export class UIManager {
   private scene: Phaser.Scene;
@@ -19,12 +21,7 @@ export class UIManager {
   private networkManager: NetworkManager;
   private uiComponents: Map<string, BaseUI> = new Map();
   private unsubscribeFunctions: Array<() => void> = [];
-
-  // Layout dimensions
-  private readonly SIDEBAR_WIDTH = 220;
-  private readonly HEADER_HEIGHT = 56;
-  private readonly RIGHT_PANEL_WIDTH = 340;
-  private readonly PADDING = 8;
+  private scaler: ResponsiveScaler | null = null;
 
   // Canvas dimensions (will be set in create)
   private canvasWidth = 1280;
@@ -48,28 +45,37 @@ export class UIManager {
     this.canvasWidth = this.scene.scale.width;
     this.canvasHeight = this.scene.scale.height;
 
+    // Initialize responsive scaler
+    this.scaler = new ResponsiveScaler(this.canvasWidth, this.canvasHeight);
+
+    // Get scaled dimensions
+    const sidebarWidth = this.scaler.getSidebarWidth();
+    const headerHeight = this.scaler.getHeaderHeight();
+    const rightPanelWidth = this.scaler.getRightPanelWidth();
+    const padding = this.scaler.getPadding();
+
     // Create header
     const headerUI = new HeaderUI(
       this.scene,
       this.canvasWidth / 2,
-      this.HEADER_HEIGHT / 2,
+      headerHeight / 2,
       this.canvasWidth,
-      this.HEADER_HEIGHT,
+      headerHeight,
       this.stateManager
     );
     headerUI.create();
     this.uiComponents.set("header", headerUI);
 
     // Create sidebar
-    const sidebarX = this.SIDEBAR_WIDTH / 2;
-    const sidebarY = this.HEADER_HEIGHT + (this.canvasHeight - this.HEADER_HEIGHT) / 2;
-    const sidebarHeight = this.canvasHeight - this.HEADER_HEIGHT;
+    const sidebarX = sidebarWidth / 2;
+    const sidebarY = headerHeight + (this.canvasHeight - headerHeight) / 2;
+    const sidebarHeight = this.canvasHeight - headerHeight;
 
     const sidebarUI = new SidebarUI(
       this.scene,
       sidebarX,
       sidebarY,
-      this.SIDEBAR_WIDTH,
+      sidebarWidth,
       sidebarHeight,
       this.stateManager,
       this.networkManager
@@ -78,9 +84,9 @@ export class UIManager {
     this.uiComponents.set("sidebar", sidebarUI);
 
     // Create right panel components
-    const rightPanelX = this.canvasWidth - this.RIGHT_PANEL_WIDTH / 2;
-    const rightPanelY = this.HEADER_HEIGHT;
-    const rightPanelHeight = this.canvasHeight - this.HEADER_HEIGHT;
+    const rightPanelX = this.canvasWidth - rightPanelWidth / 2;
+    const rightPanelY = headerHeight;
+    const rightPanelHeight = this.canvasHeight - headerHeight;
 
     // Vote panel (top right)
     const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
@@ -88,8 +94,8 @@ export class UIManager {
       this.scene,
       rightPanelX,
       rightPanelY + votePanelHeight / 2,
-      this.RIGHT_PANEL_WIDTH - 8,
-      votePanelHeight - 8,
+      rightPanelWidth - padding,
+      votePanelHeight - padding,
       this.stateManager,
       this.networkManager
     );
@@ -103,8 +109,8 @@ export class UIManager {
       this.scene,
       rightPanelX,
       statsY,
-      this.RIGHT_PANEL_WIDTH - 8,
-      statsHeight - 8,
+      rightPanelWidth - padding,
+      statsHeight - padding,
       this.stateManager
     );
     agentStatsUI.create();
@@ -117,18 +123,18 @@ export class UIManager {
       this.scene,
       rightPanelX,
       eventFeedY + eventFeedHeight / 2,
-      this.RIGHT_PANEL_WIDTH - 8,
-      eventFeedHeight - 8,
+      rightPanelWidth - padding,
+      eventFeedHeight - padding,
       this.stateManager
     );
     eventFeedUI.create();
     this.uiComponents.set("eventFeed", eventFeedUI);
 
     // AI Thinking (bottom center)
-    const thinkingY = rightPanelY + rightPanelHeight - 150;
-    const thinkingHeight = 140;
-    const thinkingWidth = this.canvasWidth - this.SIDEBAR_WIDTH - this.RIGHT_PANEL_WIDTH - 16;
-    const thinkingX = this.SIDEBAR_WIDTH + thinkingWidth / 2;
+    const thinkingY = rightPanelY + rightPanelHeight - this.scaler.scaleDimension(150);
+    const thinkingHeight = this.scaler.scaleDimension(140);
+    const thinkingWidth = this.canvasWidth - sidebarWidth - rightPanelWidth - padding * 2;
+    const thinkingX = sidebarWidth + thinkingWidth / 2;
 
     const aiThinkingUI = new AIThinkingUI(
       this.scene,
@@ -277,8 +283,9 @@ export class UIManager {
    * Calculate position for left sidebar
    */
   getLeftSidebarPosition(): { x: number; y: number } {
+    const sidebarWidth = this.scaler?.getSidebarWidth() || 220;
     return {
-      x: this.SIDEBAR_WIDTH / 2,
+      x: sidebarWidth / 2,
       y: this.scene.scale.height / 2,
     };
   }
@@ -287,9 +294,10 @@ export class UIManager {
    * Calculate position for header
    */
   getHeaderPosition(): { x: number; y: number } {
+    const headerHeight = this.scaler?.getHeaderHeight() || 56;
     return {
       x: this.scene.scale.width / 2,
-      y: this.HEADER_HEIGHT / 2,
+      y: headerHeight / 2,
     };
   }
 
@@ -298,8 +306,9 @@ export class UIManager {
    */
   getRightPanelPosition(): { x: number; y: number } {
     const canvasWidth = this.scene.scale.width;
+    const rightPanelWidth = this.scaler?.getRightPanelWidth() || 340;
     return {
-      x: canvasWidth - this.RIGHT_PANEL_WIDTH / 2,
+      x: canvasWidth - rightPanelWidth / 2,
       y: this.scene.scale.height / 2,
     };
   }
@@ -310,11 +319,15 @@ export class UIManager {
   getPlayableArea(): { x: number; y: number; width: number; height: number } {
     const canvasWidth = this.scene.scale.width;
     const canvasHeight = this.scene.scale.height;
+    const sidebarWidth = this.scaler?.getSidebarWidth() || 220;
+    const headerHeight = this.scaler?.getHeaderHeight() || 56;
+    const rightPanelWidth = this.scaler?.getRightPanelWidth() || 340;
+
     return {
-      x: this.SIDEBAR_WIDTH,
-      y: this.HEADER_HEIGHT,
-      width: canvasWidth - this.SIDEBAR_WIDTH - this.RIGHT_PANEL_WIDTH,
-      height: canvasHeight - this.HEADER_HEIGHT,
+      x: sidebarWidth,
+      y: headerHeight,
+      width: canvasWidth - sidebarWidth - rightPanelWidth,
+      height: canvasHeight - headerHeight,
     };
   }
 }
