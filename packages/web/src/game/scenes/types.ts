@@ -1,4 +1,4 @@
-import type { AgentActionState, Waypoint } from "@battle-royale/shared";
+import type {AgentActionState, Waypoint} from "@battle-royale/shared";
 import type { SpriteDirection } from "@/constants/Assets";
 
 /**

@@ -1,20 +1,32 @@
-import type { AgentFullState, ItemState, TileMap, Waypoint } from "@battle-royale/shared";
+import type {
+  AgentFullState,
+  ItemState,
+  TileMap,
+  Waypoint,
+} from "@battle-royale/shared";
 import { AgentActionState, TileType } from "@battle-royale/shared";
 import * as Phaser from "phaser";
 import { SpriteDirection } from "@/constants/Assets";
 import { ASSETS } from "@/constants/Assets";
 import { AgentDisplayStateManager } from "./AgentDisplayStateManager";
 import { CELL_SIZE, GRID_SIZE } from "./gameConstants";
-import type { Direction } from "./types";
+import type {Direction} from "./types";
 import {
   type GameSceneRenderState,
   GameSceneRenderer,
 } from "./GameSceneRenderer";
+import { GameStateManager } from "../managers/GameStateManager";
+import { NetworkManager } from "../managers/NetworkManager";
+import { UIManager } from "../managers/UIManager";
 
 // 对外保持原有导出，便于 GameCanvas 等调用方使用
 export { CELL_SIZE, GRID_SIZE, CANVAS_SIZE } from "./gameConstants";
 
 export class GameScene extends Phaser.Scene {
+  private stateManager!: GameStateManager;
+  private networkManager!: NetworkManager;
+  private uiManager!: UIManager;
+
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private zoneGraphics!: Phaser.GameObjects.Graphics;
   private connectionGraphics!: Phaser.GameObjects.Graphics;
@@ -23,65 +35,23 @@ export class GameScene extends Phaser.Scene {
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
 
-  private agents: Map<number, AgentFullState> = new Map();
-  private items: ItemState[] = [];
-  private selectedAgentId: number | null = null;
-  private shrinkBorder = GRID_SIZE;
-  private zoneCenterX = GRID_SIZE / 2;
-  private zoneCenterY = GRID_SIZE / 2;
-  private tileMap: TileMap | null = null;
-
-  private onAgentClick?: (agentId: number) => void;
-  private onReady?: () => void;
-
   private readonly displayStateManager = new AgentDisplayStateManager();
   private gameSceneRenderer!: GameSceneRenderer;
+
+  private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private animCreated = false;
 
   constructor() {
     super({ key: "GameScene" });
   }
 
-  setOnReady(callback: () => void): void {
-    this.onReady = callback;
-  }
-
-  setOnAgentClick(callback: (agentId: number) => void): void {
-    this.onAgentClick = callback;
-  }
-
-  preload(): void {
-    this.load.image(ASSETS.IMAGES.ROCK2, "/assets/Terrain/Decorations/Rocks/Rock2.png");
-    this.load.image(
-      ASSETS.IMAGES.GOLD_RESOURCE,
-      "/assets/Terrain/Resources/Gold/GoldResource/Gold_Resource.png"
-    );
-    this.load.spritesheet(
-      ASSETS.IMAGES.WARRIOR_RUN.KEY,
-      ASSETS.IMAGES.WARRIOR_RUN.PATH,
-      {
-        frameWidth: ASSETS.IMAGES.WARRIOR_RUN.WIDTH,
-        frameHeight: ASSETS.IMAGES.WARRIOR_RUN.HEIGHT,
-      }
-    );
-    this.load.spritesheet(
-      ASSETS.IMAGES.WARRIOR_ATTACK.KEY,
-      ASSETS.IMAGES.WARRIOR_ATTACK.PATH,
-      {
-        frameWidth: ASSETS.IMAGES.WARRIOR_RUN.WIDTH,
-        frameHeight: ASSETS.IMAGES.WARRIOR_RUN.HEIGHT,
-      }
-    );
-    this.load.spritesheet(
-      ASSETS.IMAGES.WARRIOR_IDLE.KEY,
-      ASSETS.IMAGES.WARRIOR_IDLE.PATH,
-      {
-        frameWidth: ASSETS.IMAGES.WARRIOR_IDLE.WIDTH,
-        frameHeight: ASSETS.IMAGES.WARRIOR_IDLE.HEIGHT,
-      }
-    );
-  }
-
   create(): void {
+    // 1. Initialize managers
+    this.stateManager = new GameStateManager();
+    this.networkManager = new NetworkManager(this.stateManager);
+    this.uiManager = new UIManager(this, this.stateManager, this.networkManager);
+
+    // 2. Create graphics objects for game scene
     this.gridGraphics = this.add.graphics();
     this.zoneGraphics = this.add.graphics();
     this.connectionGraphics = this.add.graphics();
@@ -95,49 +65,84 @@ export class GameScene extends Phaser.Scene {
     });
     this.gameSceneRenderer.drawGrid();
 
+    // 3. Setup input handling
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.handleClick(pointer.x, pointer.y);
     });
 
-    this.onReady?.();
+    // 4. Initialize UI manager
+    this.uiManager.create();
+
+    // 5. Connect to server and start receiving data
+    this.networkManager.connect();
+
+    // 6. Setup state listeners for game rendering
+    this.setupStateListeners();
   }
 
-  updateData(
-    agents: Map<number, AgentFullState>,
-    items: ItemState[],
-    selectedAgentId: number | null,
-    shrinkBorder: number,
-    agentPaths: Record<number, Waypoint[]> = {},
-    tileMap: TileMap | null,
-    zoneCenterX = GRID_SIZE / 2,
-    zoneCenterY = GRID_SIZE / 2
-  ): void {
-    this.displayStateManager.updateFromServer(agents, agentPaths);
+  private setupStateListeners(): void {
+    // Listen to agent updates to redraw
+    this.stateManager.on<"state:agents:updated", Map<number, AgentFullState>>(
+      "state:agents:updated",
+      (agents) => {
+        this.displayStateManager.updateFromServer(agents, this.stateManager.getAgentPaths());
+        this.redraw();
+      }
+    );
 
-    this.agents = agents;
-    this.items = items;
-    this.selectedAgentId = selectedAgentId;
-    this.shrinkBorder = shrinkBorder;
-    this.zoneCenterX = zoneCenterX;
-    this.zoneCenterY = zoneCenterY;
+    // Listen to tilemap updates to draw obstacles
+    this.stateManager.on<"state:tilemap:updated", TileMap>(
+      "state:tilemap:updated",
+      (tileMap) => {
+        this.drawObstacles(tileMap);
+      }
+    );
 
-    const wasNull = !this.tileMap;
-    this.tileMap = tileMap;
-    if (tileMap && wasNull) {
-      this.drawObstacles();
-    }
+    // Listen to path updates
+    this.stateManager.on<"state:paths:updated", Record<number, Waypoint[]>>(
+      "state:paths:updated",
+      (paths) => {
+        this.displayStateManager.updateFromServer(this.stateManager.getAgents(), paths);
+      }
+    );
 
-    this.redraw();
+    // Listen to agent selection for highlighting
+    this.stateManager.on<"state:agent:selected", AgentFullState | null>(
+      "state:agent:selected",
+      (_agent) => {
+        this.redraw();
+      }
+    );
   }
 
-  update(_time: number, delta: number): void {
-    this.displayStateManager.tick(delta, this.agents);
+  update(time: number, delta: number): void {
+    const agents = this.stateManager.getAgents();
+    const items = this.stateManager.getItems();
+    const selectedAgent = this.stateManager.getSelectedAgent();
 
-    let animCreated = false;
+    // Update display state
+    this.displayStateManager.tick(delta, agents);
+
+    // Update agent sprites and animations
+    this.updateAgentSprites(agents);
+
+    // Draw items
+    this.drawItems(items);
+
+    // Draw connections and alliances
+    const state = this.getRenderState(agents, selectedAgent);
+    this.gameSceneRenderer.drawConnections(state);
+    this.gameSceneRenderer.drawAlliances(state);
+
+    // Update UI manager
+    this.uiManager.update(time, delta);
+  }
+
+  private updateAgentSprites(agents: Map<number, AgentFullState>): void {
     const displayStates = this.displayStateManager.getDisplayStates();
 
     for (const [id, displayState] of displayStates) {
-      const agent = this.agents.get(id);
+      const agent = agents.get(id);
       if (!agent?.alive) {
         const sprite = this.agentSprites.get(id);
         if (sprite) {
@@ -149,35 +154,9 @@ export class GameScene extends Phaser.Scene {
 
       let sprite = this.agentSprites.get(id);
       if (!sprite) {
-        if (!animCreated) {
-          this.anims.create({
-            key: "walk-anim",
-            frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_RUN.KEY, {
-              start: 0,
-              end: 5,
-            }),
-            frameRate: 6,
-            repeat: -1,
-          });
-          this.anims.create({
-            key: "attack-anim",
-            frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_ATTACK.KEY, {
-              start: 0,
-              end: 5,
-            }),
-            frameRate: 6,
-            repeat: -1,
-          });
-          this.anims.create({
-            key: "idle-anim",
-            frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_IDLE.KEY, {
-              start: 0,
-              end: 3,
-            }),
-            frameRate: 4,
-            repeat: -1,
-          });
-          animCreated = true;
+        if (!this.animCreated) {
+          this.createAnimations();
+          this.animCreated = true;
         }
         sprite = this.add.sprite(0, 0, ASSETS.IMAGES.WARRIOR_RUN.KEY);
         const isMoving =
@@ -219,16 +198,42 @@ export class GameScene extends Phaser.Scene {
 
     for (const id of this.agentSprites.keys()) {
       const hasDisplay = displayStates.has(id);
-      const alive = this.agents.get(id)?.alive;
+      const alive = agents.get(id)?.alive;
       if (!hasDisplay || !alive) {
         this.agentSprites.get(id)?.destroy();
         this.agentSprites.delete(id);
       }
     }
+  }
 
-    const state = this.getRenderState();
-    this.gameSceneRenderer.drawConnections(state);
-    this.gameSceneRenderer.drawAlliances(state);
+  private createAnimations(): void {
+    this.anims.create({
+      key: "walk-anim",
+      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_RUN.KEY, {
+        start: 0,
+        end: 5,
+      }),
+      frameRate: 6,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: "attack-anim",
+      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_ATTACK.KEY, {
+        start: 0,
+        end: 5,
+      }),
+      frameRate: 6,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: "idle-anim",
+      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_IDLE.KEY, {
+        start: 0,
+        end: 3,
+      }),
+      frameRate: 4,
+      repeat: -1,
+    });
   }
 
   private getAnimationForState(actionState: AgentActionState, isMoving: boolean): string {
@@ -241,34 +246,45 @@ export class GameScene extends Phaser.Scene {
     return toX < fromX ? SpriteDirection.Left : SpriteDirection.Right;
   }
 
-  private getRenderState(): GameSceneRenderState {
+  private getRenderState(
+    agents: Map<number, AgentFullState>,
+    selectedAgent: AgentFullState | null
+  ): GameSceneRenderState {
+    const world = this.stateManager.getWorld();
     return {
-      agents: this.agents,
+      agents,
       agentDisplayStates: this.displayStateManager.getDisplayStates(),
-      selectedAgentId: this.selectedAgentId,
-      shrinkBorder: this.shrinkBorder,
-      zoneCenterX: this.zoneCenterX,
-      zoneCenterY: this.zoneCenterY,
+      selectedAgentId: selectedAgent?.id ?? null,
+      shrinkBorder: world?.shrinkBorder ?? GRID_SIZE,
+      zoneCenterX: world?.zoneCenterX ?? GRID_SIZE / 2,
+      zoneCenterY: world?.zoneCenterY ?? GRID_SIZE / 2,
     };
   }
 
-  private drawObstacles(): void {
-    if (!this.tileMap) return;
-    for (let y = 0; y < this.tileMap.height; y++) {
-      for (let x = 0; x < this.tileMap.width; x++) {
-        const tile = this.tileMap.tiles[y][x];
+  private drawObstacles(tileMap: TileMap): void {
+    // Clear old obstacles
+    for (const sprite of this.obstacleSprites.values()) {
+      sprite.destroy();
+    }
+    this.obstacleSprites.clear();
+
+    // Draw new obstacles
+    for (let y = 0; y < tileMap.height; y++) {
+      for (let x = 0; x < tileMap.width; x++) {
+        const tile = tileMap.tiles[y][x];
         if (tile.type === TileType.Blocked) {
-          const px = x * CELL_SIZE;
-          const py = y * CELL_SIZE;
-          this.add.sprite(px, py, ASSETS.IMAGES.ROCK2);
+          const px = x * CELL_SIZE + CELL_SIZE / 2;
+          const py = y * CELL_SIZE + CELL_SIZE / 2;
+          const sprite = this.add.sprite(px, py, ASSETS.IMAGES.ROCK2);
+          this.obstacleSprites.set(`${x},${y}`, sprite);
         }
       }
     }
   }
 
-  private drawItems(): void {
-    const currentItemIds = new Set(this.items.map((item) => item.id));
-    for (const item of this.items) {
+  private drawItems(items: ItemState[]): void {
+    const currentItemIds = new Set(items.map((item) => item.id));
+    for (const item of items) {
       const cx = item.x * CELL_SIZE + CELL_SIZE / 2;
       const cy = item.y * CELL_SIZE + CELL_SIZE / 2;
       let sprite = this.itemSprites.get(item.id);
@@ -288,19 +304,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private redraw(): void {
-    this.gameSceneRenderer.drawZone(this.getRenderState());
-    this.drawItems();
-    this.gameSceneRenderer.drawConnections(this.getRenderState());
-    this.gameSceneRenderer.drawAlliances(this.getRenderState());
+    const agents = this.stateManager.getAgents();
+    const selectedAgent = this.stateManager.getSelectedAgent();
+    const state = this.getRenderState(agents, selectedAgent);
+    this.gameSceneRenderer.drawZone(state);
+    this.gameSceneRenderer.drawConnections(state);
+    this.gameSceneRenderer.drawAlliances(state);
   }
 
   private handleClick(px: number, py: number): void {
     const gx = Math.floor(px / CELL_SIZE);
     const gy = Math.floor(py / CELL_SIZE);
     const displayStates = this.displayStateManager.getDisplayStates();
+    const agents = this.stateManager.getAgents();
 
     let closest: { id: number; dist: number } | null = null;
-    for (const [, agent] of this.agents) {
+    for (const [, agent] of agents) {
       if (!agent.alive) continue;
       const displayState = displayStates.get(agent.id);
       const renderX = displayState ? displayState.displayX : agent.x;
@@ -311,7 +330,28 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (closest) {
-      this.onAgentClick?.(closest.id);
+      this.networkManager.inspectAgent(closest.id);
     }
+  }
+
+  /**
+   * Get the state manager (for testing/debugging)
+   */
+  getStateManager(): GameStateManager {
+    return this.stateManager;
+  }
+
+  /**
+   * Get the network manager (for testing/debugging)
+   */
+  getNetworkManager(): NetworkManager {
+    return this.networkManager;
+  }
+
+  /**
+   * Get the UI manager (for testing/debugging)
+   */
+  getUIManager(): UIManager {
+    return this.uiManager;
   }
 }
