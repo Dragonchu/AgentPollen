@@ -51,6 +51,16 @@ export abstract class BaseUI {
   }
 
   /**
+   * Resize the UI component when canvas dimensions change.
+   * Default implementation updates position and size.
+   */
+  resize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.setSize(width, height);
+  }
+
+  /**
    * Destroy the UI component
    */
   destroy(): void {

@@ -357,6 +357,13 @@ export class CameraManager {
   }
 
   /**
+   * Focus camera on a world position (smooth pan to center agent)
+   */
+  focusOnAgent(worldX: number, worldY: number, duration: number = 400): void {
+    this.panToPosition(worldX, worldY, duration);
+  }
+
+  /**
    * Pan camera to a specific world position (animated)
    */
   panToPosition(targetX: number, targetY: number, duration: number = 500): void {
@@ -564,6 +571,18 @@ export class CameraManager {
 
       this.pipCamera.setScroll(scrollX, scrollY);
     }
+  }
+
+  /**
+   * Handle canvas resize - recalculate fitZoom, minZoom, update PiP viewport
+   */
+  onResize(): void {
+    this.fitZoom = Math.min(
+      this.camera.displayWidth / this.worldWidth,
+      this.camera.displayHeight / this.worldHeight
+    );
+    this.minZoom = this.fitZoom * 0.8;
+    this.updatePipCameraPosition();
   }
 
   /**

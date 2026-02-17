@@ -62,9 +62,9 @@ export class UIManager {
     this.canvasHeight = this.scene.scale.height;
 
     // Calculate responsive layout dimensions (percentage-based)
-    this.sidebarWidth = Math.max(180, Math.floor(this.canvasWidth * 0.15));
+    this.sidebarWidth = Math.max(200, Math.floor(this.canvasWidth * 0.15));
     this.headerHeight = Math.max(44, Math.floor(this.canvasHeight * 0.06));
-    this.rightPanelWidth = Math.max(260, Math.floor(this.canvasWidth * 0.2));
+    this.rightPanelWidth = Math.max(280, Math.floor(this.canvasWidth * 0.2));
     this.padding = 8;
 
     const wc = this.worldCamera;
@@ -166,9 +166,9 @@ export class UIManager {
     aiThinkingUI.create();
     this.uiComponents.set("aiThinking", aiThinkingUI);
 
-    // Camera Control (top-left below header)
-    const cameraControlWidth = 140;
-    const cameraControlHeight = 32;
+    // Camera Control (top-left below header, with focus button)
+    const cameraControlWidth = 200;
+    const cameraControlHeight = 40;
     const cameraControlX = this.sidebarWidth + this.padding + cameraControlWidth / 2;
     const cameraControlY = this.headerHeight + this.padding + cameraControlHeight / 2;
 
@@ -179,12 +179,90 @@ export class UIManager {
       cameraControlWidth,
       cameraControlHeight,
       this.cameraManager,
+      this.stateManager,
+      this.displayStateManager,
       wc
     );
     cameraControlUI.create();
     this.uiComponents.set("cameraControl", cameraControlUI);
 
     this.setupStateListeners();
+    this.setupResizeListener();
+  }
+
+  private setupResizeListener(): void {
+    this.scene.scale.on("resize", this.onResize, this);
+  }
+
+  private onResize(): void {
+    const newWidth = this.scene.scale.width;
+    const newHeight = this.scene.scale.height;
+
+    this.canvasWidth = newWidth;
+    this.canvasHeight = newHeight;
+    this.sidebarWidth = Math.max(200, Math.floor(newWidth * 0.15));
+    this.headerHeight = Math.max(44, Math.floor(newHeight * 0.06));
+    this.rightPanelWidth = Math.max(280, Math.floor(newWidth * 0.2));
+
+    const wc = this.worldCamera;
+
+    // Header
+    const header = this.uiComponents.get("header");
+    if (header) {
+      header.setPosition(newWidth / 2, this.headerHeight / 2);
+      header.resize(newWidth, this.headerHeight);
+    }
+
+    // Sidebar
+    const sidebar = this.uiComponents.get("sidebar");
+    if (sidebar) {
+      const sidebarX = this.sidebarWidth / 2;
+      const sidebarY = this.headerHeight + (newHeight - this.headerHeight) / 2;
+      const sidebarHeight = newHeight - this.headerHeight;
+      sidebar.setPosition(sidebarX, sidebarY);
+      sidebar.resize(this.sidebarWidth, sidebarHeight);
+    }
+
+    // Right panel
+    const rightPanelX = newWidth - this.rightPanelWidth / 2;
+    const rightPanelY = this.headerHeight;
+    const rightPanelHeight = newHeight - this.headerHeight;
+
+    const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
+    const votePanel = this.uiComponents.get("votePanel");
+    if (votePanel) {
+      votePanel.setPosition(rightPanelX, rightPanelY + votePanelHeight / 2);
+      votePanel.resize(this.rightPanelWidth - this.padding, votePanelHeight - this.padding);
+    }
+
+    const statsHeight = Math.floor(rightPanelHeight * 0.25);
+    const agentStats = this.uiComponents.get("agentStats");
+    if (agentStats) {
+      agentStats.setPosition(rightPanelX, rightPanelY + votePanelHeight + statsHeight / 2);
+      agentStats.resize(this.rightPanelWidth - this.padding, statsHeight - this.padding);
+    }
+
+    const eventFeed = this.uiComponents.get("eventFeed");
+    if (eventFeed) {
+      const eventFeedY = rightPanelY + votePanelHeight + statsHeight;
+      const eventFeedHeight = rightPanelHeight - votePanelHeight - statsHeight;
+      eventFeed.setPosition(rightPanelX, eventFeedY + eventFeedHeight / 2);
+      eventFeed.resize(this.rightPanelWidth - this.padding, eventFeedHeight - this.padding);
+    }
+
+    // Camera control
+    const cameraControl = this.uiComponents.get("cameraControl");
+    if (cameraControl) {
+      const cameraControlWidth = 200;
+      const cameraControlHeight = 40;
+      cameraControl.setPosition(
+        this.sidebarWidth + this.padding + cameraControlWidth / 2,
+        this.headerHeight + this.padding + cameraControlHeight / 2
+      );
+      cameraControl.resize(cameraControlWidth, cameraControlHeight);
+    }
+
+    this.cameraManager.onResize();
   }
 
   /**
@@ -283,6 +361,7 @@ export class UIManager {
    * Destroy all UI components and cleanup
    */
   destroy(): void {
+    this.scene.scale.off("resize", this.onResize, this);
     for (const component of this.uiComponents.values()) {
       component.destroy();
     }

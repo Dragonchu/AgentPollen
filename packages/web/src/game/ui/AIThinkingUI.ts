@@ -6,6 +6,7 @@ import { NetworkManager } from "../managers/NetworkManager";
 import { CameraManager } from "../managers/CameraManager";
 import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
 import { CELL_SIZE } from "../scenes/gameConstants";
+import { THEME } from "./theme";
 
 /**
  * AIThinkingUI displays AI thinking as a speech bubble above the selected agent's head.
@@ -57,11 +58,11 @@ export class AIThinkingUI extends BaseUI {
     let text: Phaser.GameObjects.Text;
 
     if (rexScene.rexUI?.add?.roundRectangle) {
-      const background = rexScene.rexUI.add.roundRectangle(0, 0, w, h, 8, 0x1a1a2e, 0.95);
+      const background = rexScene.rexUI.add.roundRectangle(0, 0, w, h, THEME.spacing.radius, THEME.colors.card, 0.95);
       text = scene.add.text(0, 0, "", {
-        fontSize: "11px",
+        fontSize: THEME.font.label,
         fontFamily: "Arial",
-        color: "#00ffff",
+        color: THEME.css.primary,
         wordWrap: { width: w - 16 },
         align: "left",
       });
@@ -78,12 +79,12 @@ export class AIThinkingUI extends BaseUI {
       });
     } else {
       const bg = scene.add.graphics();
-      bg.fillStyle(0x1a1a2e, 0.95);
-      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+      bg.fillStyle(THEME.colors.card, 0.95);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, THEME.spacing.radius);
       text = scene.add.text(0, 0, "", {
-        fontSize: "11px",
+        fontSize: THEME.font.label,
         fontFamily: "Arial",
-        color: "#00ffff",
+        color: THEME.css.primary,
         wordWrap: { width: w - 16 },
         align: "center",
       });

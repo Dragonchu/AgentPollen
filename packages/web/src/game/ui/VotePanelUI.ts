@@ -3,6 +3,7 @@ import { VoteState, AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
+import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
   rexUI?: {
@@ -47,15 +48,15 @@ export class VotePanelUI extends BaseUI {
     const startY = -this.height / 2 + padding;
 
     this.drawText(-this.width / 2 + padding, startY, "Time Remaining:", {
-      fontSize: "11px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#aaaaaa",
+      color: THEME.css.mutedForeground,
     }).setOrigin(0, 0);
 
     this.countdownText = this.drawText(this.width / 2 - padding, startY, "0.0s", {
-      fontSize: "12px",
+      fontSize: THEME.font.body,
       fontFamily: "Arial",
-      color: "#ffff00",
+      color: THEME.css.accent,
       fontStyle: "bold",
     });
     this.countdownText.setOrigin(1, 0);
@@ -66,12 +67,12 @@ export class VotePanelUI extends BaseUI {
 
     const scene = this.scene as RexScene;
     if (scene.rexUI?.add?.lineProgress) {
-      const bar = scene.rexUI.add.lineProgress(0, countdownBarY, barW, barH, 0x00ff00, 1);
+      const bar = scene.rexUI.add.lineProgress(0, countdownBarY, barW, barH, THEME.colors.primary, 1);
       this.countdownBar = bar as Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
       this.container.add(bar);
     } else {
-      const bg = this.scene.add.rectangle(0, countdownBarY, barW, barH, 0x222222);
-      const fill = this.scene.add.rectangle(-barW / 2, countdownBarY, barW, barH, 0x00ff00);
+      const bg = this.scene.add.rectangle(0, countdownBarY, barW, barH, THEME.colors.muted);
+      const fill = this.scene.add.rectangle(-barW / 2, countdownBarY, barW, barH, THEME.colors.primary);
       this.container.add(bg);
       this.container.add(fill);
       this.countdownBar = {
@@ -86,7 +87,7 @@ export class VotePanelUI extends BaseUI {
     const votesStartY = countdownBarY + 20;
     const presetActions = ["Attack", "Defend", "Heal"];
     const cardWidth = (this.width - padding * 2 - 6) / 3;
-    const cardHeight = 40;
+    const cardHeight = 48;
 
     for (let i = 0; i < 3; i++) {
       const x = -this.width / 2 + padding + i * (cardWidth + 3);
@@ -114,25 +115,25 @@ export class VotePanelUI extends BaseUI {
 
   private createVoteCard(x: number, y: number, width: number, height: number, action: string): Phaser.GameObjects.Container {
     const card = this.scene.add.container(x, y);
-    const bg = this.scene.add.rectangle(0, 0, width, height, 0x1a1a2e, 1);
+    const bg = this.scene.add.rectangle(0, 0, width, height, THEME.colors.card, 1);
     bg.setOrigin(0, 0);
-    bg.setStrokeStyle(1, 0x444444);
+    bg.setStrokeStyle(1, THEME.colors.border);
     bg.setInteractive();
     card.add(bg);
 
-    const label = this.scene.add.text(width / 2, 10, action, {
-      fontSize: "11px",
+    const label = this.scene.add.text(width / 2, 12, action, {
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#00ffff",
+      color: THEME.css.primary,
       fontStyle: "bold",
     });
     label.setOrigin(0.5, 0);
     card.add(label);
 
-    const countText = this.scene.add.text(width / 2, 28, "0", {
-      fontSize: "12px",
+    const countText = this.scene.add.text(width / 2, 32, "0", {
+      fontSize: THEME.font.body,
       fontFamily: "Arial",
-      color: "#ffff00",
+      color: THEME.css.accent,
       fontStyle: "bold",
     });
     countText.setOrigin(0.5, 0.5);
@@ -141,9 +142,16 @@ export class VotePanelUI extends BaseUI {
 
     bg.on("pointerdown", () => {
       if (this.selectedAgent !== null) this.networkManager.submitVote(this.selectedAgent, action);
+      this.scene.tweens.add({
+        targets: bg,
+        scaleX: 0.98,
+        scaleY: 0.98,
+        duration: 50,
+        yoyo: true,
+      });
     });
-    bg.on("pointerover", () => bg.setFillStyle(0x222244, 1));
-    bg.on("pointerout", () => bg.setFillStyle(0x1a1a2e, 1));
+    bg.on("pointerover", () => bg.setFillStyle(THEME.colors.secondary, 1));
+    bg.on("pointerout", () => bg.setFillStyle(THEME.colors.card, 1));
 
     return card;
   }

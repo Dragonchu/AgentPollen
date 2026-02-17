@@ -40,7 +40,7 @@ export function GameCanvas() {
         width: window.innerWidth,
         height: window.innerHeight,
         parent: containerRef.current,
-        backgroundColor: "#0a0a14",
+        backgroundColor: "#070a12",
         scene: GameScene,
         scale: {
           mode: Phaser.Scale.RESIZE,

@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { WorldSyncState, GamePhase } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
+import { THEME } from "./theme";
 
 /**
  * HeaderUI displays game information at the top of the screen:
@@ -42,32 +43,32 @@ export class HeaderUI extends BaseUI {
 
     const rexScene = this.scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject } } };
     if (rexScene.rexUI?.add?.roundRectangle) {
-      const bg = rexScene.rexUI.add.roundRectangle(0, 0, this.width, this.height, 0, 0x0a0a14, 0.9);
+      const bg = rexScene.rexUI.add.roundRectangle(0, 0, this.width, this.height, 0, THEME.colors.background, 0.9);
       this.container.addAt(bg, 0);
     }
 
     // Title/Logo
     const titleText = this.drawText(leftX, 0, "⚔ AI BATTLE ROYALE", {
-      fontSize: "16px",
+      fontSize: THEME.font.title,
       fontFamily: "Arial",
-      color: "#00ffff",
+      color: THEME.css.primary,
       fontStyle: "bold",
     });
     titleText.setOrigin(0, 0.5);
 
-    // LIVE indicator with breathing animation (red circle)
+    // LIVE indicator with breathing animation
     const liveX = leftX + 200;
     const liveCircle = this.createGraphics();
     liveCircle.setPosition(liveX, 0);
-    liveCircle.fillStyle(0xff0000, 1);
+    liveCircle.fillStyle(THEME.colors.destructive, 1);
     liveCircle.fillCircle(0, 0, 6);
     this.liveIndicator = liveCircle;
 
     // LIVE text
     const liveText = this.drawText(liveX + 12, 0, "LIVE", {
-      fontSize: "12px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#ff0000",
+      color: THEME.css.destructive,
       fontStyle: "bold",
     });
     liveText.setOrigin(0, 0.5);
@@ -82,7 +83,7 @@ export class HeaderUI extends BaseUI {
     this.aliveCountText = this.drawText(rightX - 80, 0, "Alive: 0", {
       fontSize: "14px",
       fontFamily: "Arial",
-      color: "#00ff00",
+      color: THEME.css.primary,
       fontStyle: "bold",
     });
     this.aliveCountText.setOrigin(1, 0.5);
@@ -91,16 +92,16 @@ export class HeaderUI extends BaseUI {
     this.countdownText = this.drawText(rightX - 180, 0, "Time: --:--", {
       fontSize: "14px",
       fontFamily: "Arial",
-      color: "#ffff00",
+      color: THEME.css.accent,
       fontStyle: "bold",
     });
     this.countdownText.setOrigin(1, 0.5);
 
     // Round/Phase
     this.roundText = this.drawText(rightX - 280, 0, "Phase: Waiting", {
-      fontSize: "12px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#aaaaaa",
+      color: THEME.css.mutedForeground,
     });
     this.roundText.setOrigin(1, 0.5);
 

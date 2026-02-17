@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { GameEvent, GameEventType } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
+import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
   rexUI?: {
@@ -58,12 +59,12 @@ export class EventFeedUI extends BaseUI {
         panel: { child: sizer, mask: {} },
         slider: false,
         mouseWheelScroller: { focus: true, speed: 0.1 },
-        background: scene.rexUI.add.roundRectangle(0, 0, panelW, panelH, 8, 0x1a1a2e, 0.8),
+        background: scene.rexUI.add.roundRectangle(0, 0, panelW, panelH, THEME.spacing.radius, THEME.colors.card, 0.8),
       });
       this.scrollPanel = panel as Phaser.GameObjects.GameObject & { layout: () => void };
       this.container.add(this.scrollPanel);
     } else {
-      const placeholder = this.scene.add.text(0, 0, "RexUI required", { fontSize: "12px", fontFamily: "Arial", color: "#ff0000" });
+      const placeholder = this.scene.add.text(0, 0, "RexUI required", { fontSize: "12px", fontFamily: "Arial", color: THEME.css.destructive });
       this.container.add(placeholder);
     }
 
@@ -99,19 +100,26 @@ export class EventFeedUI extends BaseUI {
 
   private createEventItem(event: GameEvent): Phaser.GameObjects.Container {
     const item = this.scene.add.container(0, 0);
+    item.setAlpha(0);
+    this.scene.tweens.add({
+      targets: item,
+      alpha: 1,
+      duration: 200,
+      ease: "Power2",
+    });
     const iconEmoji = this.getEventEmoji(event.type);
     const iconText = this.scene.add.text(0, 0, iconEmoji, {
       fontSize: "16px",
       fontFamily: "Arial",
-      color: "#ffffff",
+      color: THEME.css.foreground,
     });
     iconText.setOrigin(0, 0.5);
     item.add(iconText);
 
     const descText = this.scene.add.text(24, 0, event.message, {
-      fontSize: "11px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#cccccc",
+      color: THEME.css.mutedForeground,
       wordWrap: { width: 250 },
     });
     descText.setOrigin(0, 0.5);

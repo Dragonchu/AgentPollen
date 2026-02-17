@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
+import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
   rexUI?: {
@@ -22,6 +23,10 @@ export class AgentStatsUI extends BaseUI {
   private shieldBar?: Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
   private nameText?: Phaser.GameObjects.Text;
   private lastSelectedAgentId: number | null = null;
+  private lastHealthValue = 0;
+  private lastShieldValue = 0;
+  private healthTween?: Phaser.Tweens.Tween;
+  private shieldTween?: Phaser.Tweens.Tween;
 
   constructor(
     scene: Phaser.Scene,
@@ -40,19 +45,19 @@ export class AgentStatsUI extends BaseUI {
     const padding = 12;
     const startY = -this.height / 2 + padding;
 
-    this.nameText = this.drawText(-this.width / 2 + padding, startY, "No Agent Selected", {
-      fontSize: "14px",
+    this.nameText = this.drawText(-this.width / 2 + padding, startY, "点击左侧 Agent 选择", {
+      fontSize: THEME.font.body,
       fontFamily: "Arial",
-      color: "#00ffff",
+      color: THEME.css.primary,
       fontStyle: "bold",
     });
     this.nameText.setOrigin(0, 0);
 
     const healthY = startY + 30;
     this.drawText(-this.width / 2 + padding, healthY, "HP:", {
-      fontSize: "11px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#ffffff",
+      color: THEME.css.foreground,
     }).setOrigin(0, 0);
 
     const barW = this.width - padding * 2 - 60;
@@ -60,12 +65,12 @@ export class AgentStatsUI extends BaseUI {
     const scene = this.scene as RexScene;
 
     if (scene.rexUI?.add?.lineProgress) {
-      const hpBar = scene.rexUI.add.lineProgress(-this.width / 2 + padding + 40 + barW / 2, healthY + 8 + barH / 2, barW, barH, 0x00ff00, 1);
+      const hpBar = scene.rexUI.add.lineProgress(-this.width / 2 + padding + 40 + barW / 2, healthY + 8 + barH / 2, barW, barH, THEME.colors.primary, 1);
       this.healthBar = hpBar as Phaser.GameObjects.GameObject & { setValue: (v: number) => void; setBarColor?: (c: number) => void };
       this.container.add(hpBar);
     } else {
-      const bg = this.scene.add.rectangle(-this.width / 2 + padding + 40 + barW / 2, healthY + 8 + barH / 2, barW, barH, 0x222222);
-      const fill = this.scene.add.rectangle(-this.width / 2 + padding + 40, healthY + 8 + barH / 2, barW, barH, 0x00ff00);
+      const bg = this.scene.add.rectangle(-this.width / 2 + padding + 40 + barW / 2, healthY + 8 + barH / 2, barW, barH, THEME.colors.muted);
+      const fill = this.scene.add.rectangle(-this.width / 2 + padding + 40, healthY + 8 + barH / 2, barW, barH, THEME.colors.primary);
       this.container.add(bg);
       this.container.add(fill);
       this.healthBar = {
@@ -80,18 +85,18 @@ export class AgentStatsUI extends BaseUI {
 
     const shieldY = healthY + 28;
     this.drawText(-this.width / 2 + padding, shieldY, "Shield:", {
-      fontSize: "11px",
+      fontSize: THEME.font.label,
       fontFamily: "Arial",
-      color: "#ffffff",
+      color: THEME.css.foreground,
     }).setOrigin(0, 0);
 
     if (scene.rexUI?.add?.lineProgress) {
-      const shBar = scene.rexUI.add.lineProgress(-this.width / 2 + padding + 40 + barW / 2, shieldY + 8 + barH / 2, barW, barH, 0x0088ff, 0);
+      const shBar = scene.rexUI.add.lineProgress(-this.width / 2 + padding + 40 + barW / 2, shieldY + 8 + barH / 2, barW, barH, THEME.colors.primary, 0);
       this.shieldBar = shBar as Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
       this.container.add(shBar);
     } else {
-      const bg = this.scene.add.rectangle(-this.width / 2 + padding + 40 + barW / 2, shieldY + 8 + barH / 2, barW, barH, 0x222222);
-      const fill = this.scene.add.rectangle(-this.width / 2 + padding + 40, shieldY + 8 + barH / 2, 0, barH, 0x0088ff);
+      const bg = this.scene.add.rectangle(-this.width / 2 + padding + 40 + barW / 2, shieldY + 8 + barH / 2, barW, barH, THEME.colors.muted);
+      const fill = this.scene.add.rectangle(-this.width / 2 + padding + 40, shieldY + 8 + barH / 2, 0, barH, THEME.colors.primary);
       this.container.add(bg);
       this.container.add(fill);
       this.shieldBar = {
@@ -120,7 +125,13 @@ export class AgentStatsUI extends BaseUI {
     if (!this.selectedAgent) {
       if (this.lastSelectedAgentId !== null) {
         this.lastSelectedAgentId = null;
-        this.nameText?.setText("No Agent Selected");
+        this.lastHealthValue = 0;
+        this.lastShieldValue = 0;
+        this.healthTween?.stop();
+        this.healthTween = undefined;
+        this.shieldTween?.stop();
+        this.shieldTween = undefined;
+        this.nameText?.setText("点击左侧 Agent 选择");
         this.healthBar?.setValue(0);
         this.shieldBar?.setValue(0);
       }
@@ -134,19 +145,38 @@ export class AgentStatsUI extends BaseUI {
     this.nameText?.setText(`${agent.name}${agent.alive ? " 🟢" : " 🔴"}`);
 
     const healthRatio = agent.maxHp > 0 ? agent.hp / agent.maxHp : 0;
-    this.healthBar?.setValue(healthRatio);
-    this.updateHealthBarColor(healthRatio);
+    this.healthTween?.stop();
+    this.healthTween = this.scene.tweens.addCounter({
+      from: this.lastHealthValue,
+      to: healthRatio,
+      duration: 300,
+      ease: "Power2",
+      onUpdate: (tween) => {
+        const v = tween.getValue();
+        this.healthBar?.setValue(v);
+        this.updateHealthBarColor(v);
+      },
+      onComplete: () => { this.lastHealthValue = healthRatio; },
+    });
 
     const maxShield = agent.defense * 5;
     const shieldRatio = maxShield > 0 ? Math.min(agent.defense, maxShield) / maxShield : 0;
-    this.shieldBar?.setValue(shieldRatio);
+    this.shieldTween?.stop();
+    this.shieldTween = this.scene.tweens.addCounter({
+      from: this.lastShieldValue,
+      to: shieldRatio,
+      duration: 300,
+      ease: "Power2",
+      onUpdate: (tween) => this.shieldBar?.setValue(tween.getValue()),
+      onComplete: () => { this.lastShieldValue = shieldRatio; },
+    });
   }
 
   private updateHealthBarColor(ratio: number): void {
     if (!this.healthBar?.setBarColor) return;
-    let color = 0x00ff00;
-    if (ratio <= 0.3) color = 0xff0000;
-    else if (ratio <= 0.6) color = 0xffaa00;
+    let color = THEME.colors.primary;
+    if (ratio <= 0.3) color = THEME.colors.destructive;
+    else if (ratio <= 0.6) color = THEME.colors.accent;
     this.healthBar.setBarColor(color);
   }
 

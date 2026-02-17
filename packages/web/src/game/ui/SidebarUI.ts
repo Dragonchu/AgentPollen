@@ -3,6 +3,7 @@ import { AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
+import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
   rexUI?: {
@@ -25,6 +26,7 @@ export class SidebarUI extends BaseUI {
   private contentSizer?: Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
   private agentItems: Map<number, Phaser.GameObjects.Container> = new Map();
   private agentBackgrounds: Map<number, Phaser.GameObjects.Rectangle> = new Map();
+  private agentLeftBars: Map<number, Phaser.GameObjects.Rectangle> = new Map();
   private selectedAgentId: number | null = null;
   private lastAgentCount = 0;
 
@@ -46,7 +48,18 @@ export class SidebarUI extends BaseUI {
   create(): void {
     const scene = this.scene as RexScene;
     const panelW = this.width - 16;
-    const panelH = this.height - 16;
+    const titleH = 28;
+    const panelH = this.height - 16 - titleH;
+
+    // Agents title
+    const titleText = this.scene.add.text(0, -this.height / 2 + 12, "AGENTS", {
+      fontSize: THEME.font.label,
+      fontFamily: "Arial",
+      color: THEME.css.mutedForeground,
+      fontStyle: "bold",
+    });
+    titleText.setOrigin(0, 0);
+    this.container.add(titleText);
 
     if (scene.rexUI?.add?.scrollablePanel) {
       const sizer = scene.rexUI.add.sizer({
@@ -58,18 +71,18 @@ export class SidebarUI extends BaseUI {
 
       const panel = scene.rexUI.add.scrollablePanel({
         x: 0,
-        y: 0,
+        y: titleH / 2,
         width: panelW,
         height: panelH,
         panel: { child: sizer, mask: {} },
         slider: false,
         mouseWheelScroller: { focus: true, speed: 0.1 },
-        background: scene.rexUI.add.roundRectangle(0, 0, panelW, panelH, 8, 0x1a1a2e, 0.8),
+        background: scene.rexUI.add.roundRectangle(0, 0, panelW, panelH, THEME.spacing.radius, THEME.colors.card, 0.8),
       });
       this.scrollPanel = panel as Phaser.GameObjects.GameObject & { layout: () => void };
       this.container.add(this.scrollPanel);
     } else {
-      const placeholder = this.scene.add.text(0, 0, "RexUI required", { fontSize: "12px", fontFamily: "Arial", color: "#ff0000" });
+      const placeholder = this.scene.add.text(0, 0, "RexUI required", { fontSize: "12px", fontFamily: "Arial", color: THEME.css.destructive });
       this.container.add(placeholder);
     }
 
@@ -103,6 +116,7 @@ export class SidebarUI extends BaseUI {
     for (const item of this.agentItems.values()) item.destroy();
     this.agentItems.clear();
     this.agentBackgrounds.clear();
+    this.agentLeftBars.clear();
 
     this.contentSizer.removeAll(true);
 
@@ -116,7 +130,7 @@ export class SidebarUI extends BaseUI {
 
     for (const agent of sorted) {
       const item = this.createAgentItem(agent);
-      this.contentSizer.add(item, { padding: { top: 4, bottom: 4 }, expand: false });
+      this.contentSizer.add(item, { padding: { top: 6, bottom: 6 }, expand: false });
       this.agentItems.set(agent.id, item);
     }
 
@@ -126,11 +140,30 @@ export class SidebarUI extends BaseUI {
 
   private createAgentItem(agent: AgentFullState): Phaser.GameObjects.Container {
     const item = this.scene.add.container(0, 0);
+    const itemHeight = 48;
+    const itemWidth = this.width - 32;
+    const leftBarWidth = 4;
 
-    const bg = this.scene.add.rectangle(0, 0, this.width - 32, 36, 0x222222, 0.5);
+    const leftBar = this.scene.add.rectangle(0, 0, leftBarWidth, itemHeight, THEME.colors.primary, 0);
+    leftBar.setOrigin(0, 0.5);
+    item.add(leftBar);
+    this.agentLeftBars.set(agent.id, leftBar);
+
+    const bg = this.scene.add.rectangle(leftBarWidth, 0, itemWidth - leftBarWidth, itemHeight, THEME.colors.secondary, 0.5);
     bg.setOrigin(0, 0.5);
     bg.setInteractive();
-    bg.on("pointerdown", () => this.networkManager.inspectAgent(agent.id));
+    bg.on("pointerdown", () => {
+      this.networkManager.inspectAgent(agent.id);
+      this.scene.tweens.add({
+        targets: bg,
+        scaleX: 0.98,
+        scaleY: 0.98,
+        duration: 50,
+        yoyo: true,
+      });
+    });
+    bg.on("pointerover", () => bg.setFillStyle(THEME.colors.secondary, 0.7));
+    bg.on("pointerout", () => this.updateSelection());
     item.add(bg);
     this.agentBackgrounds.set(agent.id, bg);
 
@@ -138,23 +171,23 @@ export class SidebarUI extends BaseUI {
     const color = Phaser.Display.Color.HSLToColor(hue / 360, 0.7, 0.6).color;
     const dot = this.scene.add.graphics();
     dot.fillStyle(color, 1);
-    dot.fillCircle(0, 0, 6);
+    dot.fillCircle(leftBarWidth + 6, 0, 6);
     item.add(dot);
 
     const statusText = agent.alive ? "🟢" : "🔴";
-    const nameText = this.scene.add.text(12, -8, `${agent.name} ${statusText}`, {
-      fontSize: "12px",
+    const nameText = this.scene.add.text(leftBarWidth + 12, -10, `${agent.name} ${statusText}`, {
+      fontSize: THEME.font.body,
       fontFamily: "Arial",
-      color: agent.alive ? "#ffffff" : "#888888",
+      color: agent.alive ? THEME.css.foreground : THEME.css.mutedForeground,
       fontStyle: "bold",
     });
     nameText.setOrigin(0, 0);
     item.add(nameText);
 
-    const statsText = this.scene.add.text(12, 4, `K: ${agent.killCount} | HP: ${agent.hp}`, {
-      fontSize: "10px",
+    const statsText = this.scene.add.text(leftBarWidth + 12, 6, `K: ${agent.killCount} | HP: ${agent.hp}`, {
+      fontSize: THEME.font.small,
       fontFamily: "Arial",
-      color: "#aaaaaa",
+      color: THEME.css.mutedForeground,
     });
     statsText.setOrigin(0, 0);
     item.add(statsText);
@@ -164,12 +197,15 @@ export class SidebarUI extends BaseUI {
 
   private updateSelection(): void {
     for (const [agentId, bg] of this.agentBackgrounds) {
+      const leftBar = this.agentLeftBars.get(agentId);
       if (agentId === this.selectedAgentId) {
-        bg.setFillStyle(0x00ffff, 0.3);
-        bg.setStrokeStyle(2, 0x00ffff);
+        bg.setFillStyle(THEME.colors.primary, 0.2);
+        bg.setStrokeStyle(2, THEME.colors.primary);
+        leftBar?.setFillStyle(THEME.colors.primary, 1);
       } else {
-        bg.setFillStyle(0x222222, 0.5);
+        bg.setFillStyle(THEME.colors.secondary, 0.5);
         bg.setStrokeStyle(0);
+        leftBar?.setFillStyle(THEME.colors.primary, 0);
       }
     }
   }

@@ -1,15 +1,24 @@
 import * as Phaser from "phaser";
 import { BaseUI } from "./BaseUI";
 import { CameraManager } from "../managers/CameraManager";
+import { GameStateManager } from "../managers/GameStateManager";
+import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
+import { CELL_SIZE } from "../scenes/gameConstants";
+import { THEME } from "./theme";
 
 /**
  * CameraControlUI displays camera controls:
  * - Toggle dual camera mode button
+ * - Focus on selected agent button (visible when agent selected)
  */
 export class CameraControlUI extends BaseUI {
   private cameraManager: CameraManager;
+  private stateManager: GameStateManager;
+  private displayStateManager: AgentDisplayStateManager;
   private toggleButtonText?: Phaser.GameObjects.Text;
   private buttonBackground?: Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
+  private focusButton?: Phaser.GameObjects.GameObject;
+  private focusIcon?: Phaser.GameObjects.Text;
   private isHovered = false;
 
   constructor(
@@ -19,47 +28,90 @@ export class CameraControlUI extends BaseUI {
     width: number,
     height: number,
     cameraManager: CameraManager,
+    stateManager: GameStateManager,
+    displayStateManager: AgentDisplayStateManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.cameraManager = cameraManager;
+    this.stateManager = stateManager;
+    this.displayStateManager = displayStateManager;
   }
 
   create(): void {
-    const buttonWidth = 140;
-    const buttonHeight = 32;
+    const dualButtonWidth = 140;
+    const buttonHeight = 40;
+    const focusSize = 40;
+    const gap = 8;
+    const dualX = -(dualButtonWidth + gap + focusSize) / 2 + dualButtonWidth / 2;
+    const focusX = (dualButtonWidth + gap + focusSize) / 2 - focusSize / 2;
 
     const rexScene = this.scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject } } };
 
     if (rexScene.rexUI?.add?.roundRectangle) {
-      const bg = rexScene.rexUI.add.roundRectangle(0, 0, buttonWidth, buttonHeight, 8, 0x333333, 0.9);
-      this.buttonBackground = bg as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
-      this.container.add(bg);
+      const bg = rexScene.rexUI.add.roundRectangle(dualX, 0, dualButtonWidth, buttonHeight, THEME.spacing.radius, THEME.colors.secondary, 0.9);
       bg.setInteractive();
       bg.on("pointerover", () => { this.isHovered = true; this.updateButtonState(); });
       bg.on("pointerout", () => { this.isHovered = false; this.updateButtonState(); });
       bg.on("pointerdown", () => this.toggleDualCamera());
+      this.buttonBackground = bg as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void };
+      this.container.add(bg);
+
+      const focusBg = rexScene.rexUI.add.roundRectangle(focusX, 0, focusSize, focusSize, THEME.spacing.radius, THEME.colors.secondary, 0.9);
+      focusBg.setInteractive();
+      focusBg.on("pointerover", () => this.updateFocusButton());
+      focusBg.on("pointerout", () => this.updateFocusButton());
+      focusBg.on("pointerdown", () => this.focusOnSelectedAgent());
+      this.focusButton = focusBg;
+      this.container.add(focusBg);
+
+      this.focusIcon = this.scene.add.text(focusX, 0, "◎", {
+        fontSize: "18px",
+        fontFamily: "Arial",
+        color: THEME.css.primary,
+      });
+      this.focusIcon.setOrigin(0.5, 0.5);
+      this.container.add(this.focusIcon);
     } else {
       const g = this.createGraphics();
-      g.setPosition(0, 0);
-      this.buttonBackground = g as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
+      g.setPosition(dualX, 0);
+      this.buttonBackground = g as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void };
       this.container.add(g);
-      const hitArea = new Phaser.Geom.Rectangle(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight);
+      const hitArea = new Phaser.Geom.Rectangle(dualX - dualButtonWidth / 2, -buttonHeight / 2, dualButtonWidth, buttonHeight);
       this.container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
       this.container.on("pointerover", () => { this.isHovered = true; this.updateButtonState(); });
       this.container.on("pointerout", () => { this.isHovered = false; this.updateButtonState(); });
       this.container.on("pointerdown", () => this.toggleDualCamera());
     }
 
-    this.toggleButtonText = this.drawText(10, 0, "Dual Camera", {
-      fontSize: "13px",
+    this.toggleButtonText = this.drawText(dualX - dualButtonWidth / 2 + 10, 0, "Dual Camera", {
+      fontSize: THEME.font.body,
       fontFamily: "Arial",
-      color: "#ffffff",
+      color: THEME.css.foreground,
       fontStyle: "bold",
     });
     this.toggleButtonText.setOrigin(0, 0.5);
 
     this.updateButtonState();
+    this.updateFocusButton();
+  }
+
+  private focusOnSelectedAgent(): void {
+    const agent = this.stateManager.getSelectedAgent();
+    if (!agent?.alive) return;
+    const displayState = this.displayStateManager.getDisplayStates().get(agent.id);
+    const displayX = displayState ? displayState.displayX : agent.x;
+    const displayY = displayState ? displayState.displayY : agent.y;
+    const worldX = displayX * CELL_SIZE + CELL_SIZE / 2;
+    const worldY = displayY * CELL_SIZE + CELL_SIZE / 2;
+    this.cameraManager.focusOnAgent(worldX, worldY);
+  }
+
+  private updateFocusButton(): void {
+    const agent = this.stateManager.getSelectedAgent();
+    const visible = !!agent?.alive;
+    this.focusButton?.setVisible(visible);
+    this.focusIcon?.setVisible(visible);
   }
 
   private updateButtonState(): void {
@@ -67,10 +119,10 @@ export class CameraControlUI extends BaseUI {
     this.toggleButtonText?.setText(isDualEnabled ? "Dual: ON" : "Dual Camera");
 
     if (!this.buttonBackground) return;
-    let bgColor = 0x333333;
+    let bgColor = THEME.colors.secondary;
     let alpha = 0.9;
     if (isDualEnabled) {
-      bgColor = 0x00aa00;
+      bgColor = THEME.colors.primary;
       alpha = 0.95;
     }
     if (this.isHovered) alpha = 1;
@@ -80,11 +132,13 @@ export class CameraControlUI extends BaseUI {
       bg.setFillStyle(bgColor, alpha);
     } else {
       const g = this.buttonBackground as Phaser.GameObjects.Graphics;
+      const dualButtonWidth = 140;
+      const buttonHeight = 40;
       g.clear();
       g.fillStyle(bgColor, alpha);
-      g.fillRoundedRect(-70, -16, 140, 32, 8);
-      g.lineStyle(2, isDualEnabled ? 0x00ff00 : 0x666666, 1);
-      g.strokeRoundedRect(-70, -16, 140, 32, 8);
+      g.fillRoundedRect(-dualButtonWidth / 2, -buttonHeight / 2, dualButtonWidth, buttonHeight, THEME.spacing.radius);
+      g.lineStyle(2, isDualEnabled ? THEME.colors.primary : THEME.colors.border, 1);
+      g.strokeRoundedRect(-dualButtonWidth / 2, -buttonHeight / 2, dualButtonWidth, buttonHeight, THEME.spacing.radius);
     }
   }
 
@@ -95,6 +149,7 @@ export class CameraControlUI extends BaseUI {
 
   update(): void {
     this.updateButtonState();
+    this.updateFocusButton();
   }
 
   destroy(): void {
