@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { GameStateManager } from "./GameStateManager";
 import { NetworkManager } from "./NetworkManager";
 import { CameraManager } from "./CameraManager";
-import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
+import { AgentMotionManager } from "./AgentMotionManager";
 import { BaseUI } from "../ui/BaseUI";
 import { HeaderUI } from "../ui/HeaderUI";
 import { EventFeedUI } from "../ui/EventFeedUI";
@@ -10,7 +10,6 @@ import { SidebarUI } from "../ui/SidebarUI";
 import { AgentStatsUI } from "../ui/AgentStatsUI";
 import { VotePanelUI } from "../ui/VotePanelUI";
 import { AIThinkingUI } from "../ui/AIThinkingUI";
-import { CameraControlUI } from "../ui/CameraControlUI";
 
 /**
  * UIManager manages all UI components for the game.
@@ -22,10 +21,9 @@ export class UIManager {
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
   private cameraManager: CameraManager;
-  private displayStateManager: AgentDisplayStateManager;
+  private motionManager: AgentMotionManager;
   private worldCamera: Phaser.Cameras.Scene2D.Camera;
   private uiComponents: Map<string, BaseUI> = new Map();
-  private unsubscribeFunctions: Array<() => void> = [];
 
   // Canvas dimensions (will be set in create)
   private canvasWidth = 1280;
@@ -42,14 +40,14 @@ export class UIManager {
     stateManager: GameStateManager,
     networkManager: NetworkManager,
     cameraManager: CameraManager,
-    displayStateManager: AgentDisplayStateManager,
+    motionManager: AgentMotionManager,
     worldCamera: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
     this.stateManager = stateManager;
     this.networkManager = networkManager;
     this.cameraManager = cameraManager;
-    this.displayStateManager = displayStateManager;
+    this.motionManager = motionManager;
     this.worldCamera = worldCamera;
   }
 
@@ -161,7 +159,7 @@ export class UIManager {
       this.stateManager,
       this.networkManager,
       this.cameraManager,
-      this.displayStateManager,
+      this.motionManager,
       wc
     );
     aiThinkingUI.create();
@@ -275,40 +273,22 @@ export class UIManager {
    */
   private setupStateListeners(): void {
     // Listen to world updates
-    const unsubWorld = this.stateManager.on("state:world:updated", (_world) => {
-      this.onWorldUpdated();
-    });
-    this.unsubscribeFunctions.push(unsubWorld);
+    this.stateManager.on("state:world:updated", this.onWorldUpdated, this);
 
     // Listen to agent updates
-    const unsubAgents = this.stateManager.on("state:agents:updated", (_agents) => {
-      this.onAgentsUpdated();
-    });
-    this.unsubscribeFunctions.push(unsubAgents);
+    this.stateManager.on("state:agents:updated", this.onAgentsUpdated, this);
 
     // Listen to event updates
-    const unsubEvents = this.stateManager.on("state:events:updated", (_events) => {
-      this.onEventsUpdated();
-    });
-    this.unsubscribeFunctions.push(unsubEvents);
+    this.stateManager.on("state:events:updated", this.onEventsUpdated, this);
 
     // Listen to vote updates
-    const unsubVotes = this.stateManager.on("state:votes:updated", (_votes) => {
-      this.onVotesUpdated();
-    });
-    this.unsubscribeFunctions.push(unsubVotes);
+    this.stateManager.on("state:votes:updated", this.onVotesUpdated, this);
 
     // Listen to agent selection
-    const unsubSelected = this.stateManager.on("state:agent:selected", (_agent) => {
-      this.onAgentSelected();
-    });
-    this.unsubscribeFunctions.push(unsubSelected);
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
 
     // Listen to thinking history updates
-    const unsubThinking = this.stateManager.on("state:thinking:updated", (_history) => {
-      this.onThinkingUpdated();
-    });
-    this.unsubscribeFunctions.push(unsubThinking);
+    this.stateManager.on("state:thinking:updated", this.onThinkingUpdated, this);
   }
 
   /**
@@ -341,15 +321,20 @@ export class UIManager {
    */
   destroy(): void {
     this.scene.scale.off("resize", this.onResize, this);
+
+    // Unsubscribe from all state events
+    this.stateManager.off("state:world:updated", this.onWorldUpdated, this);
+    this.stateManager.off("state:agents:updated", this.onAgentsUpdated, this);
+    this.stateManager.off("state:events:updated", this.onEventsUpdated, this);
+    this.stateManager.off("state:votes:updated", this.onVotesUpdated, this);
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.stateManager.off("state:thinking:updated", this.onThinkingUpdated, this);
+
+    // Destroy all UI components
     for (const component of this.uiComponents.values()) {
       component.destroy();
     }
     this.uiComponents.clear();
-
-    for (const unsubscribe of this.unsubscribeFunctions) {
-      unsubscribe();
-    }
-    this.unsubscribeFunctions = [];
   }
 
   // ============ Event handlers ============

@@ -8,9 +8,9 @@ import { AgentActionState, TileType } from "@battle-royale/shared";
 import * as Phaser from "phaser";
 import { SpriteDirection } from "@/constants/Assets";
 import { ASSETS } from "@/constants/Assets";
-import { AgentDisplayStateManager } from "./AgentDisplayStateManager";
+import { AgentMotionManager } from "../managers/AgentMotionManager";
 import { CELL_SIZE } from "./gameConstants";
-import type {Direction} from "./types";
+import type { Direction, AgentDisplayState } from "./types";
 import {
   type GameSceneRenderState,
 } from "./GameSceneRenderer";
@@ -36,7 +36,8 @@ export class GameScene extends Phaser.Scene {
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
 
-  private readonly displayStateManager = new AgentDisplayStateManager();
+  private readonly motionManager = new AgentMotionManager();
+  private motionStates = new Map<number, AgentDisplayState>();
 
   private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private tileBackground: Phaser.GameObjects.TileSprite | null = null;
@@ -90,7 +91,7 @@ export class GameScene extends Phaser.Scene {
     this.cameraManager.initialize();
     // Set agent position callback - returns GRID coordinates
     this.cameraManager.setAgentGridPositionCallback((agentId: number): GridCoord | null => {
-      const displayState = this.displayStateManager.getDisplayStates().get(agentId);
+      const displayState = this.motionStates.get(agentId);
       if (displayState) {
         // displayX/displayY are in GRID coordinates
         return { gridX: displayState.displayX, gridY: displayState.displayY };
@@ -116,7 +117,7 @@ export class GameScene extends Phaser.Scene {
       this.stateManager,
       this.networkManager,
       this.cameraManager,
-      this.displayStateManager,
+      this.motionManager,
       this.cameras.main,
     );
     this.uiManager.create();
@@ -139,7 +140,7 @@ export class GameScene extends Phaser.Scene {
     if (!agentId) {
       return null;
     }
-    const displayState = this.displayStateManager.getDisplayStates().get(agentId);
+    const displayState = this.motionStates.get(agentId);
     if (displayState) {
       // displayX/displayY are in GRID coordinates
       return { gridX: displayState.displayX, gridY: displayState.displayY };
@@ -162,54 +163,65 @@ export class GameScene extends Phaser.Scene {
 
   private setupStateListeners(): void {
     // Listen to agent updates to redraw
-    this.stateManager.on<"state:agents:updated", Map<number, AgentFullState>>(
-      "state:agents:updated",
-      (agents) => {
-        this.displayStateManager.updateFromServer(agents, this.stateManager.getAgentPaths());
-        this.redraw();
-      }
-    );
+    this.stateManager.on("state:agents:updated", this.onAgentsUpdated, this);
 
     // Listen to tilemap updates to draw obstacles and update world dimensions
-    this.stateManager.on<"state:tilemap:updated", TileMap>(
-      "state:tilemap:updated",
-      (tileMap) => {
-        // Update camera world dimensions based on tilemap size
-        this.cameraManager.setWorldDimensions(tileMap.width, tileMap.height);
-
-        // Create tile background if not already created
-        if (!this.tileBackground) {
-          const worldWidth = tileMap.width * CELL_SIZE;
-          const worldHeight = tileMap.height * CELL_SIZE;
-          this.tileBackground = this.add.tileSprite(
-            0, 0,
-            worldWidth, worldHeight,
-            ASSETS.IMAGES.Tile.KEY,
-          ).setOrigin(0, 0);
-          // Make uiCamera ignore the tile background so it's only rendered by worldCamera
-          this.registerGameObject(this.tileBackground);
-        }
-
-        // Draw obstacles
-        this.drawObstacles(tileMap);
-      }
-    );
+    this.stateManager.on("state:tilemap:updated", this.onTilemapUpdated, this);
 
     // Listen to path updates
-    this.stateManager.on<"state:paths:updated", Record<number, Waypoint[]>>(
-      "state:paths:updated",
-      (paths) => {
-        this.displayStateManager.updateFromServer(this.stateManager.getAgents(), paths);
-      }
-    );
+    this.stateManager.on("state:paths:updated", this.onPathsUpdated, this);
 
     // Listen to agent selection for highlighting
-    this.stateManager.on<"state:agent:selected", AgentFullState | null>(
-      "state:agent:selected",
-      (_agent) => {
-        this.redraw();
-      }
-    );
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+
+    // Listen to motion updates
+    this.motionManager.on("motion:updated", this.onMotionUpdated, this);
+    this.motionManager.on("motion:frame-updated", this.onMotionFrameUpdated, this);
+  }
+
+  private onMotionUpdated(motionStates: Map<number, AgentDisplayState>): void {
+    this.motionStates = motionStates;
+    this.redraw();
+  }
+
+  private onMotionFrameUpdated(motionStates: Map<number, AgentDisplayState>): void {
+    this.motionStates = motionStates;
+    // No need to redraw on every frame update (performance optimization)
+    // Sprite updates happen in update() method
+  }
+
+  private onAgentsUpdated(agents: Map<number, AgentFullState>): void {
+    this.motionManager.updateFromServer(agents, this.stateManager.getAgentPaths());
+    this.redraw();
+  }
+
+  private onTilemapUpdated(tileMap: TileMap): void {
+    // Update camera world dimensions based on tilemap size
+    this.cameraManager.setWorldDimensions(tileMap.width, tileMap.height);
+
+    // Create tile background if not already created
+    if (!this.tileBackground) {
+      const worldWidth = tileMap.width * CELL_SIZE;
+      const worldHeight = tileMap.height * CELL_SIZE;
+      this.tileBackground = this.add.tileSprite(
+        0, 0,
+        worldWidth, worldHeight,
+        ASSETS.IMAGES.Tile.KEY,
+      ).setOrigin(0, 0);
+      // Make uiCamera ignore the tile background so it's only rendered by worldCamera
+      this.registerGameObject(this.tileBackground);
+    }
+
+    // Draw obstacles
+    this.drawObstacles(tileMap);
+  }
+
+  private onPathsUpdated(paths: Record<number, Waypoint[]>): void {
+    this.motionManager.updateFromServer(this.stateManager.getAgents(), paths);
+  }
+
+  private onAgentSelected(_agent: AgentFullState | null): void {
+    this.redraw();
   }
 
   /**
@@ -243,7 +255,7 @@ export class GameScene extends Phaser.Scene {
 
     // Update PiP camera to follow selected agent
     if (this.cameraManager.isDualCameraEnabled() && selectedAgent && selectedAgent.alive) {
-      const displayState = this.displayStateManager.getDisplayStates().get(selectedAgent.id);
+      const displayState = this.motionStates.get(selectedAgent.id);
       // Get agent grid position (displayX/displayY or agent.x/y are both GRID coordinates)
       const gridPos: GridCoord = displayState
         ? { gridX: displayState.displayX, gridY: displayState.displayY }
@@ -255,7 +267,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Update display state
-    this.displayStateManager.tick(delta, agents);
+    this.motionManager.tick(delta, agents);
 
     // Update agent sprites and animations
     this.updateAgentSprites(agents);
@@ -273,7 +285,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateAgentSprites(agents: Map<number, AgentFullState>): void {
-    const displayStates = this.displayStateManager.getDisplayStates();
+    const displayStates = this.motionStates;
 
     for (const [id, displayState] of displayStates) {
       const agent = agents.get(id);
@@ -433,7 +445,7 @@ export class GameScene extends Phaser.Scene {
 
     return {
       agents,
-      agentDisplayStates: this.displayStateManager.getDisplayStates(),
+      agentDisplayStates: this.motionStates,
       selectedAgentId: selectedAgent?.id ?? null,
       shrinkBorder: world?.shrinkBorder ?? defaultGridSize,
       zoneCenterX: world?.zoneCenterX ?? defaultGridSize / 2,
@@ -505,7 +517,7 @@ export class GameScene extends Phaser.Scene {
   private handleClick(screenX: number, screenY: number): void {
     // Convert screen coordinates to grid coordinates using CameraManager
     const clickGridPos = this.cameraManager.screenToGrid(screenX, screenY);
-    const displayStates = this.displayStateManager.getDisplayStates();
+    const displayStates = this.motionStates;
     const agents = this.stateManager.getAgents();
 
     let closest: { id: number; dist: number } | null = null;
@@ -578,7 +590,19 @@ export class GameScene extends Phaser.Scene {
    * Cleanup on scene shutdown
    */
   shutdown(): void {
+    // Unsubscribe from all state events
+    this.stateManager.off("state:agents:updated", this.onAgentsUpdated, this);
+    this.stateManager.off("state:tilemap:updated", this.onTilemapUpdated, this);
+    this.stateManager.off("state:paths:updated", this.onPathsUpdated, this);
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+
+    // Unsubscribe from motion events
+    this.motionManager.off("motion:updated", this.onMotionUpdated, this);
+    this.motionManager.off("motion:frame-updated", this.onMotionFrameUpdated, this);
+
+    // Cleanup managers
     this.cameraManager.destroy();
     this.uiManager.destroy();
+    this.motionManager.destroy();
   }
 }

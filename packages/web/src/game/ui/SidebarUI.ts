@@ -95,21 +95,21 @@ export class SidebarUI extends BaseUI {
       this.container.add(placeholder);
     }
 
-    this.stateManager.on<"state:agents:updated", Map<number, AgentFullState>>(
-      "state:agents:updated",
-      (agents) => this.updateAgents(agents)
-    );
-    this.stateManager.on<"state:agent:selected", AgentFullState | null>(
-      "state:agent:selected",
-      (agent) => {
-        this.selectedAgentId = agent?.id ?? null;
-        this.updateSelection();
-      }
-    );
+    this.stateManager.on("state:agents:updated", this.onAgentsUpdate, this);
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
 
     this.updateAgents(this.stateManager.getAgents());
     const sel = this.stateManager.getSelectedAgent();
     if (sel) this.selectedAgentId = sel.id;
+  }
+
+  private onAgentsUpdate(agents: Map<number, AgentFullState>): void {
+    this.updateAgents(agents);
+  }
+
+  private onAgentSelected(agent: AgentFullState | null): void {
+    this.selectedAgentId = agent?.id ?? null;
+    this.updateSelection();
   }
 
   private updateAgents(agents: Map<number, AgentFullState>): void {
@@ -237,6 +237,9 @@ export class SidebarUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:agents:updated", this.onAgentsUpdate, this);
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }

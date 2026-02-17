@@ -96,13 +96,8 @@ export class VotePanelUI extends BaseUI {
       this.container.add(card);
     }
 
-    this.stateManager.on<"state:votes:updated", VoteState>("state:votes:updated", (votes) => {
-      this.currentVotes = votes;
-      this.updateDisplay();
-    });
-    this.stateManager.on<"state:agent:selected", AgentFullState | null>("state:agent:selected", (agent) => {
-      this.selectedAgent = agent?.id ?? null;
-    });
+    this.stateManager.on("state:votes:updated", this.onVotesUpdate, this);
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
 
     const initialVotes = this.stateManager.getVotes();
     if (initialVotes) {
@@ -111,6 +106,15 @@ export class VotePanelUI extends BaseUI {
     }
     const initialAgent = this.stateManager.getSelectedAgent();
     if (initialAgent) this.selectedAgent = initialAgent.id;
+  }
+
+  private onVotesUpdate(votes: VoteState): void {
+    this.currentVotes = votes;
+    this.updateDisplay();
+  }
+
+  private onAgentSelected(agent: AgentFullState | null): void {
+    this.selectedAgent = agent?.id ?? null;
   }
 
   private createVoteCard(x: number, y: number, width: number, height: number, action: string): Phaser.GameObjects.Container {
@@ -193,6 +197,9 @@ export class VotePanelUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:votes:updated", this.onVotesUpdate, this);
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }

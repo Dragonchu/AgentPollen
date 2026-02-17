@@ -4,9 +4,10 @@ import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
 import { CameraManager } from "../managers/CameraManager";
-import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
+import { AgentMotionManager } from "../managers/AgentMotionManager";
 import { CELL_SIZE } from "../scenes/gameConstants";
 import { THEME } from "./theme";
+import type { AgentDisplayState } from "../scenes/types";
 
 /**
  * AIThinkingUI displays AI thinking as a speech bubble above the selected agent's head.
@@ -16,12 +17,13 @@ export class AIThinkingUI extends BaseUI {
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
   private cameraManager: CameraManager;
-  private displayStateManager: AgentDisplayStateManager;
+  private motionManager: AgentMotionManager;
 
   private bubbleLabel?: Phaser.GameObjects.GameObject & { setText?: (text: string) => void; setVisible: (visible: boolean) => void };
   private textObj?: Phaser.GameObjects.Text;
   private thinkingHistory: ThinkingProcess[] = [];
   private selectedAgent: AgentFullState | null = null;
+  private motionStates = new Map<number, AgentDisplayState>();
 
   private static readonly BUBBLE_WIDTH = 260;
   private static readonly BUBBLE_HEIGHT = 70;
@@ -37,14 +39,14 @@ export class AIThinkingUI extends BaseUI {
     stateManager: GameStateManager,
     networkManager: NetworkManager,
     cameraManager: CameraManager,
-    displayStateManager: AgentDisplayStateManager,
+    motionManager: AgentMotionManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.stateManager = stateManager;
     this.networkManager = networkManager;
     this.cameraManager = cameraManager;
-    this.displayStateManager = displayStateManager;
+    this.motionManager = motionManager;
   }
 
   create(): void {
@@ -97,33 +99,35 @@ export class AIThinkingUI extends BaseUI {
     this.container.add(bubble);
     bubble.setVisible(false);
 
-    this.stateManager.on<"state:agent:selected", AgentFullState | null>(
-      "state:agent:selected",
-      (agent: AgentFullState | null) => {
-        this.selectedAgent = agent;
-        if (agent) {
-          this.networkManager.requestThinkingHistory(agent.id, 20);
-        } else {
-          this.thinkingHistory = [];
-        }
-        this.updateContent();
-      }
-    );
-
-    this.stateManager.on<"state:thinking:updated", Map<number, ThinkingProcess[]>>(
-      "state:thinking:updated",
-      (thinkingMap: Map<number, ThinkingProcess[]>) => {
-        if (this.selectedAgent) {
-          this.thinkingHistory = thinkingMap.get(this.selectedAgent.id) ?? [];
-          this.updateContent();
-        }
-      }
-    );
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    this.stateManager.on("state:thinking:updated", this.onThinkingUpdate, this);
+    this.motionManager.on("motion:frame-updated", this.onMotionFrameUpdated, this);
 
     const initialAgent = this.stateManager.getSelectedAgent();
     if (initialAgent) {
       this.selectedAgent = initialAgent;
       this.networkManager.requestThinkingHistory(initialAgent.id, 20);
+      this.updateContent();
+    }
+  }
+
+  private onMotionFrameUpdated(motionStates: Map<number, AgentDisplayState>): void {
+    this.motionStates = motionStates;
+  }
+
+  private onAgentSelected(agent: AgentFullState | null): void {
+    this.selectedAgent = agent;
+    if (agent) {
+      this.networkManager.requestThinkingHistory(agent.id, 20);
+    } else {
+      this.thinkingHistory = [];
+    }
+    this.updateContent();
+  }
+
+  private onThinkingUpdate(thinkingMap: Map<number, ThinkingProcess[]>): void {
+    if (this.selectedAgent) {
+      this.thinkingHistory = thinkingMap.get(this.selectedAgent.id) ?? [];
       this.updateContent();
     }
   }
@@ -155,8 +159,7 @@ export class AIThinkingUI extends BaseUI {
   update(_time: number, _delta: number): void {
     if (!this.selectedAgent || !this.bubbleLabel) return;
 
-    const displayStates = this.displayStateManager.getDisplayStates();
-    const displayState = displayStates.get(this.selectedAgent.id);
+    const displayState = this.motionStates.get(this.selectedAgent.id);
     const displayX = displayState ? displayState.displayX : this.selectedAgent.x;
     const displayY = displayState ? displayState.displayY : this.selectedAgent.y;
 
@@ -170,6 +173,10 @@ export class AIThinkingUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.stateManager.off("state:thinking:updated", this.onThinkingUpdate, this);
+    this.motionManager.off("motion:frame-updated", this.onMotionFrameUpdated, this);
     super.destroy();
   }
 }

@@ -1,3 +1,4 @@
+import * as Phaser from "phaser";
 import {
   AgentFullState,
   AgentSyncPayload,
@@ -23,17 +24,15 @@ export interface GameState {
   thinkingHistory: Map<number, ThinkingProcess[]>;
 }
 
-type EventCallback<T> = (data: T) => void;
-
 /**
  * GameStateManager manages all game state independently of React.
- * It emits events when state changes, allowing UI components to subscribe.
+ * Extends Phaser.Events.EventEmitter to leverage the framework's event system.
  */
-export class GameStateManager {
+export class GameStateManager extends Phaser.Events.EventEmitter {
   private state: GameState;
-  private listeners: Map<string, Set<EventCallback<unknown>>> = new Map();
 
   constructor() {
+    super();
     this.state = {
       connected: false,
       world: null,
@@ -46,33 +45,6 @@ export class GameStateManager {
       tileMap: null,
       thinkingHistory: new Map(),
     };
-  }
-
-  /**
-   * Subscribe to a state change event
-   */
-  on<E extends string, T>(event: E, callback: EventCallback<T>): () => void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(callback as EventCallback<unknown>);
-
-    // Return unsubscribe function
-    return () => {
-      this.listeners.get(event)?.delete(callback as EventCallback<unknown>);
-    };
-  }
-
-  /**
-   * Emit an event to all listeners
-   */
-  private emit<E extends string, T>(event: E, data: T): void {
-    const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      for (const callback of callbacks) {
-        (callback as EventCallback<T>)(data);
-      }
-    }
   }
 
   // ============ Getters ============
@@ -232,5 +204,12 @@ export class GameStateManager {
       tileMap: null,
       thinkingHistory: new Map(),
     };
+  }
+
+  /**
+   * Clean up all event listeners
+   */
+  destroy(): void {
+    this.removeAllListeners();
   }
 }

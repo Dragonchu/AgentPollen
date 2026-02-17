@@ -1,16 +1,25 @@
+import * as Phaser from "phaser";
 import type { AgentFullState, Waypoint } from "@battle-royale/shared";
 import { ASSETS } from "@/constants/Assets";
-import type { AgentDisplayState } from "./types";
+import type { AgentDisplayState } from "../scenes/types";
 
 /** 单步移动耗时（每格 1 秒） */
 const BASE_INTERPOLATION_DURATION_MS = 1000;
 
 /**
- * 管理代理的显示状态与移动插值
- * 负责从服务器数据同步目标位置，并按帧推进插值进度
+ * AgentMotionManager manages agent motion states and interpolation.
+ * Extends Phaser.Events.EventEmitter to emit motion update events.
+ *
+ * Events:
+ * - 'motion:updated': Emitted when server data updates motion targets
+ * - 'motion:frame-updated': Emitted each frame when interpolation progresses
  */
-export class AgentDisplayStateManager {
+export class AgentMotionManager extends Phaser.Events.EventEmitter {
   private displayStates = new Map<number, AgentDisplayState>();
+
+  constructor() {
+    super();
+  }
 
   /** 根据曼哈顿距离计算本段移动耗时（每格 1000ms） */
   private getMovementDuration(
@@ -93,12 +102,17 @@ export class AgentDisplayStateManager {
         this.displayStates.delete(id);
       }
     }
+
+    // Emit event when motion targets are updated
+    this.emit('motion:updated', this.displayStates);
   }
 
   /**
    * 推进一帧的插值进度，更新每个代理的 displayX/displayY
    */
   tick(delta: number, agents: Map<number, AgentFullState>): void {
+    let hasChanged = false;
+
     for (const [id, displayState] of this.displayStates) {
       const agent = agents.get(id);
       if (!agent?.alive) continue;
@@ -144,6 +158,8 @@ export class AgentDisplayStateManager {
             displayState.displayY = displayState.prevY + dy * yT;
           }
         }
+
+        hasChanged = true;
       } else {
         if (displayState.path?.length > 0) {
           displayState.pathIndex++;
@@ -154,6 +170,7 @@ export class AgentDisplayStateManager {
             displayState.targetX = nextWaypoint.x;
             displayState.targetY = nextWaypoint.y;
             displayState.progress = 0;
+            hasChanged = true;
           } else {
             displayState.displayX = displayState.targetX;
             displayState.displayY = displayState.targetY;
@@ -164,13 +181,18 @@ export class AgentDisplayStateManager {
         }
       }
     }
+
+    // Emit event only when there are changes (performance optimization)
+    if (hasChanged) {
+      this.emit('motion:frame-updated', this.displayStates);
+    }
   }
 
-  getDisplayState(id: number): AgentDisplayState | undefined {
-    return this.displayStates.get(id);
-  }
-
-  getDisplayStates(): Map<number, AgentDisplayState> {
-    return this.displayStates;
+  /**
+   * Clean up all event listeners
+   */
+  destroy(): void {
+    this.removeAllListeners();
+    this.displayStates.clear();
   }
 }

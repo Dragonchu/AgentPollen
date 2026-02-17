@@ -68,11 +68,12 @@ export class EventFeedUI extends BaseUI {
       this.container.add(placeholder);
     }
 
-    this.stateManager.on<"state:events:updated", GameEvent[]>(
-      "state:events:updated",
-      (events) => this.updateEvents(events)
-    );
+    this.stateManager.on("state:events:updated", this.onEventsUpdate, this);
     this.updateEvents(this.stateManager.getEvents());
+  }
+
+  private onEventsUpdate(events: GameEvent[]): void {
+    this.updateEvents(events);
   }
 
   private updateEvents(events: GameEvent[]): void {
@@ -145,6 +146,8 @@ export class EventFeedUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:events:updated", this.onEventsUpdate, this);
     super.destroy();
   }
 }

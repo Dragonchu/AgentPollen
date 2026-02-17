@@ -106,13 +106,7 @@ export class HeaderUI extends BaseUI {
     this.roundText.setOrigin(1, 0.5);
 
     // Subscribe to state changes
-    this.stateManager.on<"state:world:updated", WorldSyncState>(
-      "state:world:updated",
-      (world: WorldSyncState) => {
-        this.currentWorld = world;
-        this.updateWorldDisplay();
-      }
-    );
+    this.stateManager.on("state:world:updated", this.onWorldUpdate, this);
 
     // Initial state
     const initialWorld = this.stateManager.getWorld();
@@ -120,6 +114,11 @@ export class HeaderUI extends BaseUI {
       this.currentWorld = initialWorld;
       this.updateWorldDisplay();
     }
+  }
+
+  private onWorldUpdate(world: WorldSyncState): void {
+    this.currentWorld = world;
+    this.updateWorldDisplay();
   }
 
   private setupBreathingAnimation(): void {
@@ -179,6 +178,8 @@ export class HeaderUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:world:updated", this.onWorldUpdate, this);
     super.destroy();
   }
 }

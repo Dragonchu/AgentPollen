@@ -108,10 +108,7 @@ export class AgentStatsUI extends BaseUI {
       } as Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
     }
 
-    this.stateManager.on<"state:agent:selected", AgentFullState | null>("state:agent:selected", (agent) => {
-      this.selectedAgent = agent;
-      this.updateDisplay();
-    });
+    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
 
     const initialAgent = this.stateManager.getSelectedAgent();
     if (initialAgent) {
@@ -119,6 +116,11 @@ export class AgentStatsUI extends BaseUI {
       this.lastSelectedAgentId = initialAgent.id;
       this.updateDisplay();
     }
+  }
+
+  private onAgentSelected(agent: AgentFullState | null): void {
+    this.selectedAgent = agent;
+    this.updateDisplay();
   }
 
   private updateDisplay(): void {
@@ -186,6 +188,8 @@ export class AgentStatsUI extends BaseUI {
   }
 
   destroy(): void {
+    // Unsubscribe from state events
+    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }
