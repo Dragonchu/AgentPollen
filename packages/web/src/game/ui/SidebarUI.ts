@@ -43,7 +43,8 @@ export class SidebarUI extends BaseUI {
       0,
       0,
       this.width - 16,
-      this.height - 16
+      this.height - 16,
+      this.worldCamera
     );
     this.container.add(this.scrollContainer.getContainer());
 
@@ -96,11 +97,14 @@ export class SidebarUI extends BaseUI {
     this.agentBackgrounds.clear();
 
     // Sort agents: alive > killCount > hp
-    const sortedAgents = Array.from(agents.values()).sort((a, b) => {
-      if (a.alive !== b.alive) return a.alive ? -1 : 1; // alive first
-      if (a.killCount !== b.killCount) return b.killCount - a.killCount; // more kills first
-      return b.hp - a.hp; // more hp first
-    });
+    // Filter out any null/undefined values first
+    const sortedAgents = Array.from(agents.values())
+      .filter((a): a is NonNullable<typeof a> => a != null)
+      .sort((a, b) => {
+        if (a.alive !== b.alive) return a.alive ? -1 : 1; // alive first
+        if (a.killCount !== b.killCount) return b.killCount - a.killCount; // more kills first
+        return b.hp - a.hp; // more hp first
+      });
 
     // Create agent items
     let offsetY = 8;

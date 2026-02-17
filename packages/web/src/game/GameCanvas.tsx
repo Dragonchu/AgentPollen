@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { PreloadScene } from "@/game/scenes/PreloadScene";
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,7 +27,7 @@ export function GameCanvas() {
         height: window.innerHeight,
         parent: containerRef.current,
         backgroundColor: "#0a0a14",
-        scene: [PreloadScene, GameScene],
+        scene: [GameScene],
         scale: {
           mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.NO_CENTER,

@@ -10,36 +10,43 @@ import { AgentStatsUI } from "../ui/AgentStatsUI";
 import { VotePanelUI } from "../ui/VotePanelUI";
 import { AIThinkingUI } from "../ui/AIThinkingUI";
 import { CameraControlUI } from "../ui/CameraControlUI";
-import { ResponsiveScaler } from "../utils/ResponsiveScaler";
 
 /**
  * UIManager manages all UI components for the game.
  * It subscribes to state changes and updates UI components accordingly.
- * Supports responsive scaling based on canvas dimensions.
+ * Uses percentage-based layout for responsive sizing.
  */
 export class UIManager {
   private scene: Phaser.Scene;
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
   private cameraManager: CameraManager;
+  private worldCamera: Phaser.Cameras.Scene2D.Camera;
   private uiComponents: Map<string, BaseUI> = new Map();
   private unsubscribeFunctions: Array<() => void> = [];
-  private scaler: ResponsiveScaler | null = null;
 
   // Canvas dimensions (will be set in create)
   private canvasWidth = 1280;
   private canvasHeight = 720;
 
+  // Cached layout dimensions
+  private sidebarWidth = 180;
+  private headerHeight = 44;
+  private rightPanelWidth = 260;
+  private padding = 8;
+
   constructor(
     scene: Phaser.Scene,
     stateManager: GameStateManager,
     networkManager: NetworkManager,
-    cameraManager: CameraManager
+    cameraManager: CameraManager,
+    worldCamera: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
     this.stateManager = stateManager;
     this.networkManager = networkManager;
     this.cameraManager = cameraManager;
+    this.worldCamera = worldCamera;
   }
 
   /**
@@ -50,48 +57,49 @@ export class UIManager {
     this.canvasWidth = this.scene.scale.width;
     this.canvasHeight = this.scene.scale.height;
 
-    // Initialize responsive scaler
-    this.scaler = new ResponsiveScaler(this.canvasWidth, this.canvasHeight);
+    // Calculate responsive layout dimensions (percentage-based)
+    this.sidebarWidth = Math.max(180, Math.floor(this.canvasWidth * 0.15));
+    this.headerHeight = Math.max(44, Math.floor(this.canvasHeight * 0.06));
+    this.rightPanelWidth = Math.max(260, Math.floor(this.canvasWidth * 0.2));
+    this.padding = 8;
 
-    // Get scaled dimensions
-    const sidebarWidth = this.scaler.getSidebarWidth();
-    const headerHeight = this.scaler.getHeaderHeight();
-    const rightPanelWidth = this.scaler.getRightPanelWidth();
-    const padding = this.scaler.getPadding();
+    const wc = this.worldCamera;
 
     // Create header
     const headerUI = new HeaderUI(
       this.scene,
       this.canvasWidth / 2,
-      headerHeight / 2,
+      this.headerHeight / 2,
       this.canvasWidth,
-      headerHeight,
-      this.stateManager
+      this.headerHeight,
+      this.stateManager,
+      wc
     );
     headerUI.create();
     this.uiComponents.set("header", headerUI);
 
     // Create sidebar
-    const sidebarX = sidebarWidth / 2;
-    const sidebarY = headerHeight + (this.canvasHeight - headerHeight) / 2;
-    const sidebarHeight = this.canvasHeight - headerHeight;
+    const sidebarX = this.sidebarWidth / 2;
+    const sidebarY = this.headerHeight + (this.canvasHeight - this.headerHeight) / 2;
+    const sidebarHeight = this.canvasHeight - this.headerHeight;
 
     const sidebarUI = new SidebarUI(
       this.scene,
       sidebarX,
       sidebarY,
-      sidebarWidth,
+      this.sidebarWidth,
       sidebarHeight,
       this.stateManager,
-      this.networkManager
+      this.networkManager,
+      wc
     );
     sidebarUI.create();
     this.uiComponents.set("sidebar", sidebarUI);
 
     // Create right panel components
-    const rightPanelX = this.canvasWidth - rightPanelWidth / 2;
-    const rightPanelY = headerHeight;
-    const rightPanelHeight = this.canvasHeight - headerHeight;
+    const rightPanelX = this.canvasWidth - this.rightPanelWidth / 2;
+    const rightPanelY = this.headerHeight;
+    const rightPanelHeight = this.canvasHeight - this.headerHeight;
 
     // Vote panel (top right)
     const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
@@ -99,10 +107,11 @@ export class UIManager {
       this.scene,
       rightPanelX,
       rightPanelY + votePanelHeight / 2,
-      rightPanelWidth - padding,
-      votePanelHeight - padding,
+      this.rightPanelWidth - this.padding,
+      votePanelHeight - this.padding,
       this.stateManager,
-      this.networkManager
+      this.networkManager,
+      wc
     );
     votePanelUI.create();
     this.uiComponents.set("votePanel", votePanelUI);
@@ -114,9 +123,10 @@ export class UIManager {
       this.scene,
       rightPanelX,
       statsY,
-      rightPanelWidth - padding,
-      statsHeight - padding,
-      this.stateManager
+      this.rightPanelWidth - this.padding,
+      statsHeight - this.padding,
+      this.stateManager,
+      wc
     );
     agentStatsUI.create();
     this.uiComponents.set("agentStats", agentStatsUI);
@@ -128,19 +138,19 @@ export class UIManager {
       this.scene,
       rightPanelX,
       eventFeedY + eventFeedHeight / 2,
-      rightPanelWidth - padding,
-      eventFeedHeight - padding,
-      this.stateManager
+      this.rightPanelWidth - this.padding,
+      eventFeedHeight - this.padding,
+      this.stateManager,
+      wc
     );
     eventFeedUI.create();
     this.uiComponents.set("eventFeed", eventFeedUI);
 
     // AI Thinking (bottom center)
-    // Position at bottom with ~19.4% height (140/720 ≈ 0.194)
-    const thinkingHeight = this.scaler.getPercentageHeight(0.194);
-    const thinkingY = rightPanelY + rightPanelHeight - padding - thinkingHeight / 2;
-    const thinkingWidth = this.canvasWidth - sidebarWidth - rightPanelWidth - padding * 2;
-    const thinkingX = sidebarWidth + thinkingWidth / 2;
+    const thinkingHeight = Math.max(120, Math.floor(this.canvasHeight * 0.18));
+    const thinkingY = rightPanelY + rightPanelHeight - thinkingHeight;
+    const thinkingWidth = this.canvasWidth - this.sidebarWidth - this.rightPanelWidth - this.padding * 2;
+    const thinkingX = this.sidebarWidth + thinkingWidth / 2;
 
     const aiThinkingUI = new AIThinkingUI(
       this.scene,
@@ -149,7 +159,8 @@ export class UIManager {
       thinkingWidth,
       thinkingHeight,
       this.stateManager,
-      this.networkManager
+      this.networkManager,
+      wc
     );
     aiThinkingUI.create();
     this.uiComponents.set("aiThinking", aiThinkingUI);
@@ -157,8 +168,8 @@ export class UIManager {
     // Camera Control (top-left below header)
     const cameraControlWidth = 140;
     const cameraControlHeight = 32;
-    const cameraControlX = sidebarWidth + padding + cameraControlWidth / 2;
-    const cameraControlY = headerHeight + padding + cameraControlHeight / 2;
+    const cameraControlX = this.sidebarWidth + this.padding + cameraControlWidth / 2;
+    const cameraControlY = this.headerHeight + this.padding + cameraControlHeight / 2;
 
     const cameraControlUI = new CameraControlUI(
       this.scene,
@@ -166,7 +177,8 @@ export class UIManager {
       cameraControlY,
       cameraControlWidth,
       cameraControlHeight,
-      this.cameraManager
+      this.cameraManager,
+      wc
     );
     cameraControlUI.create();
     this.uiComponents.set("cameraControl", cameraControlUI);
@@ -181,6 +193,23 @@ export class UIManager {
     for (const component of this.uiComponents.values()) {
       component.update(time, delta);
     }
+  }
+
+  /**
+   * Check if a screen-space pointer position is over any UI region.
+   * Used by CameraManager to prevent zoom when scrolling UI.
+   */
+  isPointerOverUI(screenX: number, screenY: number): boolean {
+    // Header (full width, top)
+    if (screenY < this.headerHeight) return true;
+
+    // Sidebar (left)
+    if (screenX < this.sidebarWidth && screenY >= this.headerHeight) return true;
+
+    // Right panel
+    if (screenX > this.canvasWidth - this.rightPanelWidth && screenY >= this.headerHeight) return true;
+
+    return false;
   }
 
   /**
@@ -303,54 +332,14 @@ export class UIManager {
   }
 
   /**
-   * Calculate position for left sidebar
-   */
-  getLeftSidebarPosition(): { x: number; y: number } {
-    const sidebarWidth = this.scaler?.getSidebarWidth() || 220;
-    return {
-      x: sidebarWidth / 2,
-      y: this.scene.scale.height / 2,
-    };
-  }
-
-  /**
-   * Calculate position for header
-   */
-  getHeaderPosition(): { x: number; y: number } {
-    const headerHeight = this.scaler?.getHeaderHeight() || 56;
-    return {
-      x: this.scene.scale.width / 2,
-      y: headerHeight / 2,
-    };
-  }
-
-  /**
-   * Calculate position for right panel
-   */
-  getRightPanelPosition(): { x: number; y: number } {
-    const canvasWidth = this.scene.scale.width;
-    const rightPanelWidth = this.scaler?.getRightPanelWidth() || 340;
-    return {
-      x: canvasWidth - rightPanelWidth / 2,
-      y: this.scene.scale.height / 2,
-    };
-  }
-
-  /**
    * Get the playable area bounds (excluding UI)
    */
   getPlayableArea(): { x: number; y: number; width: number; height: number } {
-    const canvasWidth = this.scene.scale.width;
-    const canvasHeight = this.scene.scale.height;
-    const sidebarWidth = this.scaler?.getSidebarWidth() || 220;
-    const headerHeight = this.scaler?.getHeaderHeight() || 56;
-    const rightPanelWidth = this.scaler?.getRightPanelWidth() || 340;
-
     return {
-      x: sidebarWidth,
-      y: headerHeight,
-      width: canvasWidth - sidebarWidth - rightPanelWidth,
-      height: canvasHeight - headerHeight,
+      x: this.sidebarWidth,
+      y: this.headerHeight,
+      width: this.canvasWidth - this.sidebarWidth - this.rightPanelWidth,
+      height: this.canvasHeight - this.headerHeight,
     };
   }
 }

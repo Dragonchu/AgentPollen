@@ -36,7 +36,8 @@ export class EventFeedUI extends BaseUI {
       0,
       0,
       this.width - 16,
-      this.height - 16
+      this.height - 16,
+      this.worldCamera
     );
     this.container.add(this.scrollContainer.getContainer());
 
@@ -77,8 +78,10 @@ export class EventFeedUI extends BaseUI {
     let offsetY = 8;
     const contentHeight = maxEvents * 32 + 16;
 
-    for (let i = events.length - 1; i >= events.length - maxEvents; i--) {
+    // Fix: Prevent negative indices by using Math.max(0, ...)
+    for (let i = events.length - 1; i >= Math.max(0, events.length - maxEvents); i--) {
       const event = events[i];
+      if (!event) continue; // Guard against undefined
       const item = this.createEventItem(event, offsetY);
       this.scrollContainer.getContentContainer().add(item);
       this.eventItems.set(i, item);

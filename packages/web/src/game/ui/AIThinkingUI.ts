@@ -75,7 +75,8 @@ export class AIThinkingUI extends BaseUI {
       0,
       scrollStartY,
       this.width - padding * 2,
-      this.height - statusBarHeight - padding * 3
+      this.height - statusBarHeight - padding * 3,
+      this.worldCamera
     );
     this.container.add(this.scrollContainer.getContainer());
 
@@ -182,8 +183,10 @@ export class AIThinkingUI extends BaseUI {
 
     const now = Date.now();
 
-    for (let i = history.length - 1; i >= history.length - maxItems; i--) {
+    // Fix: Prevent negative indices by using Math.max(0, ...)
+    for (let i = history.length - 1; i >= Math.max(0, history.length - maxItems); i--) {
       const process = history[i];
+      if (!process) continue; // Guard against undefined
       const item = this.createThinkingItem(process, offsetY, now, i === history.length - 1);
       this.scrollContainer.getContentContainer().add(item);
       this.thinkingItems.set(i, item);
@@ -287,6 +290,7 @@ export class AIThinkingUI extends BaseUI {
       if (itemIndex >= items.length) break;
 
       const process = this.thinkingHistory[i];
+      if (!process) continue; // Guard against undefined
       const item = items[itemIndex] as Phaser.GameObjects.Container;
 
       if (item && item.list.length > 0) {

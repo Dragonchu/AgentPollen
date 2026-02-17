@@ -200,16 +200,16 @@ export class AgentStatsUI extends BaseUI {
   private updateDisplay(): void {
     if (!this.selectedAgent) {
       // Only update if selection actually changed
-      if (this.lastSelectedAgentId === null) return;
-      this.lastSelectedAgentId = null;
-
-      this.nameText?.setText("No Agent Selected");
-      this.healthBar?.setValue(0);
-      this.shieldBar?.setValue(0);
-      this.actionText?.setText("None");
-      this.allianceText?.setText("Allies: None");
-      this.enemyText?.setText("Enemies: None");
-      this.updateStatBoxes(0, 0, 0, "");
+      if (this.lastSelectedAgentId !== null) {
+        this.lastSelectedAgentId = null;
+        this.nameText?.setText("No Agent Selected");
+        this.healthBar?.setValue(0);
+        this.shieldBar?.setValue(0);
+        this.actionText?.setText("None");
+        this.allianceText?.setText("Allies: None");
+        this.enemyText?.setText("Enemies: None");
+        this.updateStatBoxes(0, 0, 0, "");
+      }
       return;
     }
 
