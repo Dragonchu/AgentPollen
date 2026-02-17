@@ -133,17 +133,6 @@ export class GameScene extends Phaser.Scene {
     // Make uiCamera ignore all game objects
     this.uiCamera.ignore([this.gridGraphics,this.zoneGraphics,this.connectionGraphics,this.allianceGraphics]);
 
-    // Note: Tile background will be created after tilemap is received
-    // This ensures the background size matches the actual game world size
-
-    // this.gameSceneRenderer = new GameSceneRenderer({
-    //   grid: this.gridGraphics,
-    //   zone: this.zoneGraphics,
-    //   connection: this.connectionGraphics,
-    //   alliance: this.allianceGraphics,
-    // });
-    //this.gameSceneRenderer.drawGrid();
-
     // 4. Setup input handling (but don't interfere with camera drag)
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       // Only handle clicks if not dragging camera (left button drag is reserved for camera)
@@ -354,15 +343,25 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Convert grid coordinates to world coordinates (center of cell)
-      const worldPos = CoordinateUtils.gridToWorld(
-        { gridX: displayState.displayX, gridY: displayState.displayY },
-        CELL_SIZE
-      );
+      const gridPos = { gridX: displayState.displayX, gridY: displayState.displayY };
+      const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
       sprite.setPosition(worldPos.worldX, worldPos.worldY);
 
       // Ensure sprite origin is centered (explicit for clarity)
       if (!sprite.originX || sprite.originX !== 0.5 || sprite.originY !== 0.5) {
         sprite.setOrigin(0.5, 0.5);
+      }
+
+      // Debug logging for first agent (to avoid spam)
+      if (id === Array.from(displayStates.keys())[0]) {
+        console.log('🎮 Agent Sprite Position Debug:', {
+          agentId: id,
+          gridPos,
+          worldPos,
+          CELL_SIZE,
+          spritePos: { x: sprite.x, y: sprite.y },
+          spriteOrigin: { x: sprite.originX, y: sprite.originY },
+        });
       }
     }
 

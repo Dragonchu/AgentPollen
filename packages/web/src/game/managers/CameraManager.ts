@@ -322,6 +322,9 @@ export class CameraManager {
     // Only drag with left mouse button
     if (pointer.button !== 0) return;
 
+    // Don't start drag or exit follow when clicking on UI (e.g. double-click agent in sidebar)
+    if (this.isPointerOverUI?.(pointer.x, pointer.y)) return;
+
     // Exit follow mode when user starts dragging
     if (this.followingAgentId !== null) {
       this.stopFollowing();
