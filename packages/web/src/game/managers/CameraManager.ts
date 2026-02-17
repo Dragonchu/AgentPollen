@@ -4,14 +4,26 @@ import { CELL_SIZE, GRID_SIZE } from "../scenes/gameConstants";
 /**
  * CameraManager handles camera movement, zooming, and viewport management
  * for the world camera. Supports mouse drag panning and mouse wheel zooming.
+ * Now supports dual camera mode with a secondary PiP (Picture-in-Picture) camera.
  */
 export class CameraManager {
   private scene: Phaser.Scene;
   private camera: Phaser.Cameras.Scene2D.Camera;
+  private pipCamera: Phaser.Cameras.Scene2D.Camera | null = null;
 
   // World dimensions
   private worldWidth: number = GRID_SIZE * CELL_SIZE;
   private worldHeight: number = GRID_SIZE * CELL_SIZE;
+
+  // Dual camera settings
+  private dualCameraEnabled: boolean = false;
+  private pipCameraWidth: number = 300;
+  private pipCameraHeight: number = 300;
+  private pipCameraPadding: number = 20;
+  private pipTargetX: number = 0;
+  private pipTargetY: number = 0;
+  private pipBorderGraphics: Phaser.GameObjects.Graphics | null = null;
+  private pipLabelText: Phaser.GameObjects.Text | null = null;
 
   // Zoom constraints (dynamically computed)
   private fitZoom: number = 1;
@@ -418,6 +430,177 @@ export class CameraManager {
     };
   }
 
+  // ============ Dual Camera Management ============
+
+  /**
+   * Enable or disable dual camera mode
+   */
+  setDualCameraEnabled(enabled: boolean): void {
+    this.dualCameraEnabled = enabled;
+
+    if (enabled && !this.pipCamera) {
+      this.createPipCamera();
+    } else if (!enabled && this.pipCamera) {
+      this.destroyPipCamera();
+    }
+  }
+
+  /**
+   * Check if dual camera mode is enabled
+   */
+  isDualCameraEnabled(): boolean {
+    return this.dualCameraEnabled;
+  }
+
+  /**
+   * Create the Picture-in-Picture camera
+   */
+  private createPipCamera(): void {
+    // Calculate PiP camera position (bottom-right corner by default)
+    const mainCameraWidth = this.camera.displayWidth;
+    const mainCameraHeight = this.camera.displayHeight;
+
+    const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
+    const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
+
+    // Create the PiP camera
+    this.pipCamera = this.scene.cameras.add(
+      pipX,
+      pipY,
+      this.pipCameraWidth,
+      this.pipCameraHeight
+    );
+
+    // Set up PiP camera properties
+    this.pipCamera.setZoom(2); // 2x zoom for close-up view
+    this.pipCamera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+    // Position at center initially
+    this.setPipCameraTarget(this.worldWidth / 2, this.worldHeight / 2);
+
+    // Create border graphics (rendered by main camera, not PiP camera)
+    this.pipBorderGraphics = this.scene.add.graphics();
+    this.pipBorderGraphics.setDepth(10000); // Ensure border is on top of everything
+    this.drawPipBorder(pipX, pipY);
+  }
+
+  /**
+   * Destroy the Picture-in-Picture camera
+   */
+  private destroyPipCamera(): void {
+    if (this.pipCamera) {
+      this.scene.cameras.remove(this.pipCamera);
+      this.pipCamera = null;
+    }
+
+    if (this.pipBorderGraphics) {
+      this.pipBorderGraphics.destroy();
+      this.pipBorderGraphics = null;
+    }
+
+    if (this.pipLabelText) {
+      this.pipLabelText.destroy();
+      this.pipLabelText = null;
+    }
+  }
+
+  /**
+   * Draw border around PiP camera
+   */
+  private drawPipBorder(x: number, y: number): void {
+    if (!this.pipBorderGraphics) return;
+
+    this.pipBorderGraphics.clear();
+
+    // Draw border
+    this.pipBorderGraphics.lineStyle(4, 0x00ff00, 1);
+    this.pipBorderGraphics.strokeRect(x, y, this.pipCameraWidth, this.pipCameraHeight);
+
+    // Draw label background
+    this.pipBorderGraphics.fillStyle(0x000000, 0.7);
+    this.pipBorderGraphics.fillRect(x, y, 100, 24);
+
+    // Destroy old label text if exists
+    if (this.pipLabelText) {
+      this.pipLabelText.destroy();
+    }
+
+    // Create new label text
+    this.pipLabelText = this.scene.add.text(x + 5, y + 5, "Close-Up", {
+      fontSize: "14px",
+      fontFamily: "Arial",
+      color: "#00ff00",
+      fontStyle: "bold",
+    });
+    this.pipLabelText.setDepth(10001);
+    
+    // Make main camera ignore the border and label
+    this.camera.ignore([this.pipBorderGraphics, this.pipLabelText]);
+  }
+
+  /**
+   * Set the target position for the PiP camera (in world coordinates)
+   */
+  setPipCameraTarget(worldX: number, worldY: number): void {
+    this.pipTargetX = worldX;
+    this.pipTargetY = worldY;
+
+    if (this.pipCamera) {
+      // Center the PiP camera on the target
+      const zoom = this.pipCamera.zoom;
+      const viewportWidth = this.pipCamera.displayWidth / zoom;
+      const viewportHeight = this.pipCamera.displayHeight / zoom;
+
+      const scrollX = Phaser.Math.Clamp(
+        worldX - viewportWidth / 2,
+        0,
+        this.worldWidth - viewportWidth
+      );
+      const scrollY = Phaser.Math.Clamp(
+        worldY - viewportHeight / 2,
+        0,
+        this.worldHeight - viewportHeight
+      );
+
+      this.pipCamera.setScroll(scrollX, scrollY);
+    }
+  }
+
+  /**
+   * Get the PiP camera (for testing/debugging)
+   */
+  getPipCamera(): Phaser.Cameras.Scene2D.Camera | null {
+    return this.pipCamera;
+  }
+
+  /**
+   * Set PiP camera zoom level
+   */
+  setPipCameraZoom(zoom: number): void {
+    if (this.pipCamera) {
+      const clampedZoom = Phaser.Math.Clamp(zoom, 1, 4);
+      this.pipCamera.setZoom(clampedZoom);
+      // Update target position to maintain center
+      this.setPipCameraTarget(this.pipTargetX, this.pipTargetY);
+    }
+  }
+
+  /**
+   * Update PiP camera position when main camera is resized
+   */
+  private updatePipCameraPosition(): void {
+    if (this.pipCamera && this.pipBorderGraphics) {
+      const mainCameraWidth = this.camera.displayWidth;
+      const mainCameraHeight = this.camera.displayHeight;
+
+      const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
+      const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
+
+      this.pipCamera.setPosition(pipX, pipY);
+      this.drawPipBorder(pipX, pipY);
+    }
+  }
+
   /**
    * Cleanup
    */
@@ -427,5 +610,7 @@ export class CameraManager {
     this.scene.input.off("pointermove", this.onPointerMove, this);
     this.scene.input.off("pointerup", this.onPointerUp, this);
     this.scene.input.off("pointerleave", this.onPointerUp, this);
+
+    this.destroyPipCamera();
   }
 }

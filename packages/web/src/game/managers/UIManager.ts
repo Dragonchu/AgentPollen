@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { GameStateManager } from "./GameStateManager";
 import { NetworkManager } from "./NetworkManager";
+import { CameraManager } from "./CameraManager";
 import { BaseUI } from "../ui/BaseUI";
 import { HeaderUI } from "../ui/HeaderUI";
 import { EventFeedUI } from "../ui/EventFeedUI";
@@ -8,6 +9,7 @@ import { SidebarUI } from "../ui/SidebarUI";
 import { AgentStatsUI } from "../ui/AgentStatsUI";
 import { VotePanelUI } from "../ui/VotePanelUI";
 import { AIThinkingUI } from "../ui/AIThinkingUI";
+import { CameraControlUI } from "../ui/CameraControlUI";
 import { ResponsiveScaler } from "../utils/ResponsiveScaler";
 
 /**
@@ -19,6 +21,7 @@ export class UIManager {
   private scene: Phaser.Scene;
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
+  private cameraManager: CameraManager;
   private uiComponents: Map<string, BaseUI> = new Map();
   private unsubscribeFunctions: Array<() => void> = [];
   private scaler: ResponsiveScaler | null = null;
@@ -30,11 +33,13 @@ export class UIManager {
   constructor(
     scene: Phaser.Scene,
     stateManager: GameStateManager,
-    networkManager: NetworkManager
+    networkManager: NetworkManager,
+    cameraManager: CameraManager
   ) {
     this.scene = scene;
     this.stateManager = stateManager;
     this.networkManager = networkManager;
+    this.cameraManager = cameraManager;
   }
 
   /**
@@ -148,6 +153,23 @@ export class UIManager {
     );
     aiThinkingUI.create();
     this.uiComponents.set("aiThinking", aiThinkingUI);
+
+    // Camera Control (top-left below header)
+    const cameraControlWidth = 140;
+    const cameraControlHeight = 32;
+    const cameraControlX = sidebarWidth + padding + cameraControlWidth / 2;
+    const cameraControlY = headerHeight + padding + cameraControlHeight / 2;
+
+    const cameraControlUI = new CameraControlUI(
+      this.scene,
+      cameraControlX,
+      cameraControlY,
+      cameraControlWidth,
+      cameraControlHeight,
+      this.cameraManager
+    );
+    cameraControlUI.create();
+    this.uiComponents.set("cameraControl", cameraControlUI);
 
     this.setupStateListeners();
   }
