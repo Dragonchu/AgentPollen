@@ -204,8 +204,6 @@ export class UIManager {
     this.headerHeight = Math.max(44, Math.floor(newHeight * 0.06));
     this.rightPanelWidth = Math.max(280, Math.floor(newWidth * 0.2));
 
-    const wc = this.worldCamera;
-
     // Header
     const header = this.uiComponents.get("header");
     if (header) {

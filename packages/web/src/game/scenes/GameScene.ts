@@ -88,16 +88,26 @@ export class GameScene extends Phaser.Scene {
     const canvasW = this.scale.width;
     const canvasH = this.scale.height;
 
+    // Ensure main camera has proper viewport dimensions
+    worldCamera.setViewport(0, 0, canvasW, canvasH);
+
     // uiCamera renders UI objects at fixed screen position (no pan/zoom)
     this.uiCamera = this.cameras.add(0, 0, canvasW, canvasH);
     this.uiCamera.setScroll(0, 0);
     this.uiCamera.setZoom(1);
     this.uiCamera.setName("uiCamera");
 
-    // 2. Initialize managers
+    // 2. Initialize managers (but don't initialize camera yet)
     this.stateManager = new GameStateManager();
     this.networkManager = new NetworkManager(this.stateManager);
     this.cameraManager = new CameraManager(this, worldCamera);
+
+    // IMPORTANT: Initialize camera AFTER scale system is ready
+    // Use time.delayedCall to ensure scale system has settled
+    this.time.delayedCall(0, () => {
+      this.cameraManager.initialize();
+    });
+
     this.uiManager = new UIManager(
       this,
       this.stateManager,
@@ -186,6 +196,26 @@ export class GameScene extends Phaser.Scene {
         this.redraw();
       }
     );
+  }
+
+  /**
+   * Handle browser window resize
+   * Called automatically by Phaser's scale manager
+   */
+  resize(gameSize: Phaser.Structs.Size): void {
+    const width = gameSize.width;
+    const height = gameSize.height;
+
+    // Update main camera viewport
+    this.cameras.main.setViewport(0, 0, width, height);
+
+    // Update UI camera viewport
+    if (this.uiCamera) {
+      this.uiCamera.setViewport(0, 0, width, height);
+    }
+
+    // CameraManager.onResize() will be called via scale.on("resize") listener
+    // UIManager components will also receive resize events
   }
 
   update(time: number, delta: number): void {

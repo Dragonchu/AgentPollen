@@ -18,7 +18,7 @@ export class AIThinkingUI extends BaseUI {
   private cameraManager: CameraManager;
   private displayStateManager: AgentDisplayStateManager;
 
-  private bubbleLabel?: Phaser.GameObjects.GameObject & { setText?: (text: string) => void };
+  private bubbleLabel?: Phaser.GameObjects.GameObject & { setText?: (text: string) => void; setVisible: (visible: boolean) => void };
   private textObj?: Phaser.GameObjects.Text;
   private thinkingHistory: ThinkingProcess[] = [];
   private selectedAgent: AgentFullState | null = null;
@@ -54,7 +54,7 @@ export class AIThinkingUI extends BaseUI {
 
     const rexScene = scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject; label: (config: object) => Phaser.GameObjects.GameObject } } };
 
-    let bubble: Phaser.GameObjects.GameObject;
+    let bubble: Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
     let text: Phaser.GameObjects.Text;
 
     if (rexScene.rexUI?.add?.roundRectangle) {
@@ -76,7 +76,7 @@ export class AIThinkingUI extends BaseUI {
         text,
         align: "center",
         space: { left: 8, right: 8, top: 8, bottom: 8 },
-      });
+      }) as Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
     } else {
       const bg = scene.add.graphics();
       bg.fillStyle(THEME.colors.card, 0.95);
@@ -89,7 +89,7 @@ export class AIThinkingUI extends BaseUI {
         align: "center",
       });
       text.setOrigin(0.5, 0.5);
-      bubble = scene.add.container(0, 0, [bg, text]);
+      bubble = scene.add.container(0, 0, [bg, text]) as Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
     }
 
     this.bubbleLabel = bubble;
@@ -149,8 +149,7 @@ export class AIThinkingUI extends BaseUI {
     }
 
     this.textObj.setText(content);
-    const go = this.bubbleLabel as Phaser.GameObjects.GameObject;
-    if (go) go.setVisible(!!this.selectedAgent);
+    if (this.bubbleLabel) this.bubbleLabel.setVisible(!!this.selectedAgent);
   }
 
   update(_time: number, _delta: number): void {

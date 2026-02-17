@@ -17,7 +17,7 @@ export class CameraControlUI extends BaseUI {
   private displayStateManager: AgentDisplayStateManager;
   private toggleButtonText?: Phaser.GameObjects.Text;
   private buttonBackground?: Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
-  private focusButton?: Phaser.GameObjects.GameObject;
+  private focusButton?: Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
   private focusIcon?: Phaser.GameObjects.Text;
   private isHovered = false;
 
@@ -62,7 +62,7 @@ export class CameraControlUI extends BaseUI {
       focusBg.on("pointerover", () => this.updateFocusButton());
       focusBg.on("pointerout", () => this.updateFocusButton());
       focusBg.on("pointerdown", () => this.focusOnSelectedAgent());
-      this.focusButton = focusBg;
+      this.focusButton = focusBg as Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
       this.container.add(focusBg);
 
       this.focusIcon = this.scene.add.text(focusX, 0, "◎", {
@@ -119,7 +119,7 @@ export class CameraControlUI extends BaseUI {
     this.toggleButtonText?.setText(isDualEnabled ? "Dual: ON" : "Dual Camera");
 
     if (!this.buttonBackground) return;
-    let bgColor = THEME.colors.secondary;
+    let bgColor: number = THEME.colors.secondary;
     let alpha = 0.9;
     if (isDualEnabled) {
       bgColor = THEME.colors.primary;

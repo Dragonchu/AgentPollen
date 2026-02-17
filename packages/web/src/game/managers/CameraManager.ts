@@ -55,7 +55,28 @@ export class CameraManager {
   constructor(scene: Phaser.Scene, camera: Phaser.Cameras.Scene2D.Camera) {
     this.scene = scene;
     this.camera = camera;
+    // Don't call init() here - camera dimensions not ready yet
+  }
+
+  /**
+   * Initialize camera after scale system is ready.
+   * MUST be called after scene.create() when camera dimensions are valid.
+   */
+  initialize(): void {
+    // Validate camera dimensions before proceeding
+    if (this.camera.displayWidth === 0 || this.camera.displayHeight === 0) {
+      console.warn(
+        `CameraManager.initialize() called but camera dimensions not ready: ` +
+        `${this.camera.displayWidth}x${this.camera.displayHeight}. Retrying...`
+      );
+
+      // Retry on next frame when scale system should be ready
+      this.scene.time.delayedCall(100, () => this.initialize());
+      return;
+    }
+
     this.init();
+    this.setupResizeListener();
   }
 
   /**
@@ -63,6 +84,13 @@ export class CameraManager {
    */
   setPointerOverUICheck(fn: (x: number, y: number) => boolean): void {
     this.isPointerOverUI = fn;
+  }
+
+  /**
+   * Setup listener for window/canvas resize events
+   */
+  private setupResizeListener(): void {
+    this.scene.scale.on("resize", this.onResize, this);
   }
 
   /**
@@ -574,14 +602,35 @@ export class CameraManager {
   }
 
   /**
-   * Handle canvas resize - recalculate fitZoom, minZoom, update PiP viewport
+   * Handle canvas resize - recalculate fitZoom, minZoom, update cameras
    */
   onResize(): void {
+    // Validate dimensions before recalculating
+    if (this.camera.displayWidth === 0 || this.camera.displayHeight === 0) {
+      console.warn("CameraManager.onResize() called with invalid camera dimensions");
+      return;
+    }
+
+    // Recalculate zoom constraints based on new dimensions
     this.fitZoom = Math.min(
       this.camera.displayWidth / this.worldWidth,
       this.camera.displayHeight / this.worldHeight
     );
     this.minZoom = this.fitZoom * 0.8;
+
+    // Clamp current zoom to new constraints
+    const currentZoom = this.camera.zoom;
+    if (currentZoom < this.minZoom || currentZoom > this.MAX_ZOOM) {
+      this.camera.setZoom(Phaser.Math.Clamp(currentZoom, this.minZoom, this.MAX_ZOOM));
+    }
+
+    // Update camera bounds (in case they changed)
+    this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+    // Re-center if needed to keep viewport within bounds
+    this.centerCamera();
+
+    // Update PiP camera position if enabled
     this.updatePipCameraPosition();
   }
 
@@ -629,6 +678,9 @@ export class CameraManager {
     this.scene.input.off("pointermove", this.onPointerMove, this);
     this.scene.input.off("pointerup", this.onPointerUp, this);
     this.scene.input.off("pointerleave", this.onPointerUp, this);
+
+    // Clean up resize listener
+    this.scene.scale.off("resize", this.onResize, this);
 
     this.destroyPipCamera();
   }

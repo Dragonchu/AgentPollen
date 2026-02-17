@@ -79,7 +79,7 @@ export class AgentStatsUI extends BaseUI {
           fill.setDisplaySize(w, barH);
           fill.setPosition(-this.width / 2 + padding + 40 + w / 2, healthY + 8 + barH / 2);
         },
-        setBarColor: (c: number) => fill.setFillStyle(c),
+        setBarColor: (c: number) => { fill.setFillStyle(c); },
       } as Phaser.GameObjects.GameObject & { setValue: (v: number) => void; setBarColor?: (c: number) => void };
     }
 
@@ -153,8 +153,10 @@ export class AgentStatsUI extends BaseUI {
       ease: "Power2",
       onUpdate: (tween) => {
         const v = tween.getValue();
-        this.healthBar?.setValue(v);
-        this.updateHealthBarColor(v);
+        if (v !== null) {
+          this.healthBar?.setValue(v);
+          this.updateHealthBarColor(v);
+        }
       },
       onComplete: () => { this.lastHealthValue = healthRatio; },
     });
@@ -167,14 +169,17 @@ export class AgentStatsUI extends BaseUI {
       to: shieldRatio,
       duration: 300,
       ease: "Power2",
-      onUpdate: (tween) => this.shieldBar?.setValue(tween.getValue()),
+      onUpdate: (tween) => {
+        const v = tween.getValue();
+        if (v !== null) this.shieldBar?.setValue(v);
+      },
       onComplete: () => { this.lastShieldValue = shieldRatio; },
     });
   }
 
   private updateHealthBarColor(ratio: number): void {
     if (!this.healthBar?.setBarColor) return;
-    let color = THEME.colors.primary;
+    let color: number = THEME.colors.primary;
     if (ratio <= 0.3) color = THEME.colors.destructive;
     else if (ratio <= 0.6) color = THEME.colors.accent;
     this.healthBar.setBarColor(color);

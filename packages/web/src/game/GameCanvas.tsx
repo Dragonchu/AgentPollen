@@ -44,8 +44,10 @@ export function GameCanvas() {
         scene: GameScene,
         scale: {
           mode: Phaser.Scale.RESIZE,
-          autoCenter: Phaser.Scale.NO_CENTER,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
           expandParent: false,
+          width: window.innerWidth,
+          height: window.innerHeight,
         },
         render: { antialias: true },
         audio: { noAudio: true },
