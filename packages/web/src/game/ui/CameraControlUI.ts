@@ -5,16 +5,12 @@ import { CameraManager } from "../managers/CameraManager";
 /**
  * CameraControlUI displays camera controls:
  * - Toggle dual camera mode button
- * - Camera zoom level indicator
  */
 export class CameraControlUI extends BaseUI {
   private cameraManager: CameraManager;
-
-  // UI Elements
-  private toggleButton?: Phaser.GameObjects.Graphics;
   private toggleButtonText?: Phaser.GameObjects.Text;
-  private buttonBackground?: Phaser.GameObjects.Graphics;
-  private isHovered: boolean = false;
+  private buttonBackground?: Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
+  private isHovered = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -32,142 +28,72 @@ export class CameraControlUI extends BaseUI {
   create(): void {
     const buttonWidth = 140;
     const buttonHeight = 32;
-    const buttonX = 0;
-    const buttonY = 0;
 
-    // Create button background
-    this.buttonBackground = this.createGraphics();
-    this.buttonBackground.setPosition(buttonX, buttonY);
-    this.drawButtonBackground(false);
+    const rexScene = this.scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject } } };
 
-    // Create button icon (camera icon)
-    this.toggleButton = this.createGraphics();
-    this.toggleButton.setPosition(buttonX - buttonWidth / 2 + 20, buttonY);
-    this.drawCameraIcon();
+    if (rexScene.rexUI?.add?.roundRectangle) {
+      const bg = rexScene.rexUI.add.roundRectangle(0, 0, buttonWidth, buttonHeight, 8, 0x333333, 0.9);
+      this.buttonBackground = bg as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
+      this.container.add(bg);
+      bg.setInteractive();
+      bg.on("pointerover", () => { this.isHovered = true; this.updateButtonState(); });
+      bg.on("pointerout", () => { this.isHovered = false; this.updateButtonState(); });
+      bg.on("pointerdown", () => this.toggleDualCamera());
+    } else {
+      const g = this.createGraphics();
+      g.setPosition(0, 0);
+      this.buttonBackground = g as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
+      this.container.add(g);
+      const hitArea = new Phaser.Geom.Rectangle(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight);
+      this.container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+      this.container.on("pointerover", () => { this.isHovered = true; this.updateButtonState(); });
+      this.container.on("pointerout", () => { this.isHovered = false; this.updateButtonState(); });
+      this.container.on("pointerdown", () => this.toggleDualCamera());
+    }
 
-    // Create button text
-    this.toggleButtonText = this.drawText(
-      buttonX + 10,
-      buttonY,
-      "Dual Camera",
-      {
-        fontSize: "13px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }
-    );
+    this.toggleButtonText = this.drawText(10, 0, "Dual Camera", {
+      fontSize: "13px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      fontStyle: "bold",
+    });
     this.toggleButtonText.setOrigin(0, 0.5);
 
-    // Set up interactive area
-    const hitArea = new Phaser.Geom.Rectangle(
-      buttonX - buttonWidth / 2,
-      buttonY - buttonHeight / 2,
-      buttonWidth,
-      buttonHeight
-    );
-
-    this.container.setInteractive(
-      hitArea,
-      Phaser.Geom.Rectangle.Contains
-    );
-
-    // Add pointer events
-    this.container.on("pointerover", () => {
-      this.isHovered = true;
-      this.drawButtonBackground(true);
-    });
-
-    this.container.on("pointerout", () => {
-      this.isHovered = false;
-      this.drawButtonBackground(false);
-    });
-
-    this.container.on("pointerdown", () => {
-      this.toggleDualCamera();
-    });
-
-    // Update button state based on current camera mode
-    this.updateButtonState();
-  }
-
-  private drawButtonBackground(hovered: boolean): void {
-    if (!this.buttonBackground) return;
-
-    const buttonWidth = 140;
-    const buttonHeight = 32;
-    const isDualEnabled = this.cameraManager.isDualCameraEnabled();
-
-    this.buttonBackground.clear();
-
-    // Background color
-    let bgColor = 0x333333;
-    let alpha = 0.9;
-
-    if (isDualEnabled) {
-      bgColor = 0x00aa00;
-      alpha = 0.95;
-    }
-
-    if (hovered) {
-      alpha = 1.0;
-    }
-
-    // Draw rounded rectangle
-    this.buttonBackground.fillStyle(bgColor, alpha);
-    this.buttonBackground.fillRoundedRect(
-      -buttonWidth / 2,
-      -buttonHeight / 2,
-      buttonWidth,
-      buttonHeight,
-      8
-    );
-
-    // Draw border
-    const borderColor = isDualEnabled ? 0x00ff00 : 0x666666;
-    this.buttonBackground.lineStyle(2, borderColor, 1);
-    this.buttonBackground.strokeRoundedRect(
-      -buttonWidth / 2,
-      -buttonHeight / 2,
-      buttonWidth,
-      buttonHeight,
-      8
-    );
-  }
-
-  private drawCameraIcon(): void {
-    if (!this.toggleButton) return;
-
-    this.toggleButton.clear();
-
-    // Simple camera icon
-    this.toggleButton.lineStyle(2, 0xffffff, 1);
-    
-    // Camera body
-    this.toggleButton.strokeRect(-6, -4, 12, 8);
-    
-    // Lens
-    this.toggleButton.fillStyle(0xffffff, 1);
-    this.toggleButton.fillCircle(0, 0, 3);
-  }
-
-  private toggleDualCamera(): void {
-    const currentState = this.cameraManager.isDualCameraEnabled();
-    this.cameraManager.setDualCameraEnabled(!currentState);
     this.updateButtonState();
   }
 
   private updateButtonState(): void {
-    this.drawButtonBackground(this.isHovered);
+    const isDualEnabled = this.cameraManager.isDualCameraEnabled();
+    this.toggleButtonText?.setText(isDualEnabled ? "Dual: ON" : "Dual Camera");
 
-    if (this.toggleButtonText) {
-      const isDualEnabled = this.cameraManager.isDualCameraEnabled();
-      this.toggleButtonText.setText(isDualEnabled ? "Dual: ON" : "Dual Camera");
+    if (!this.buttonBackground) return;
+    let bgColor = 0x333333;
+    let alpha = 0.9;
+    if (isDualEnabled) {
+      bgColor = 0x00aa00;
+      alpha = 0.95;
+    }
+    if (this.isHovered) alpha = 1;
+
+    const bg = this.buttonBackground as Phaser.GameObjects.GameObject & { setFillStyle?: (c: number, a?: number) => void };
+    if (bg.setFillStyle) {
+      bg.setFillStyle(bgColor, alpha);
+    } else {
+      const g = this.buttonBackground as Phaser.GameObjects.Graphics;
+      g.clear();
+      g.fillStyle(bgColor, alpha);
+      g.fillRoundedRect(-70, -16, 140, 32, 8);
+      g.lineStyle(2, isDualEnabled ? 0x00ff00 : 0x666666, 1);
+      g.strokeRoundedRect(-70, -16, 140, 32, 8);
     }
   }
 
-  update(_time: number, _delta: number): void {
-    // Update button state if camera mode changed externally
+  private toggleDualCamera(): void {
+    this.cameraManager.setDualCameraEnabled(!this.cameraManager.isDualCameraEnabled());
+    this.updateButtonState();
+  }
+
+  update(): void {
     this.updateButtonState();
   }
 

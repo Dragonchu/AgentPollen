@@ -1,18 +1,26 @@
 import * as Phaser from "phaser";
 import { GameEvent, GameEventType } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { ScrollableContainer } from "./components/ScrollableContainer";
 import { GameStateManager } from "../managers/GameStateManager";
+
+type RexScene = Phaser.Scene & {
+  rexUI?: {
+    add: {
+      sizer: (config: object) => Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
+      scrollablePanel: (config: object) => Phaser.GameObjects.GameObject & { layout: () => void };
+      roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject;
+    };
+  };
+};
 
 /**
  * EventFeedUI displays a scrollable list of recent game events.
- * - Shows up to 50 events
- * - Each event has an icon emoji and description
- * - Scrollable with mouse wheel
+ * Uses RexUI scrollablePanel when available.
  */
 export class EventFeedUI extends BaseUI {
   private stateManager: GameStateManager;
-  private scrollContainer?: ScrollableContainer;
+  private scrollPanel?: Phaser.GameObjects.GameObject & { layout: () => void };
+  private contentSizer?: Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
   private eventItems: Map<number, Phaser.GameObjects.Container> = new Map();
   private lastEventCount = 0;
 
@@ -30,72 +38,67 @@ export class EventFeedUI extends BaseUI {
   }
 
   create(): void {
-    // Create scrollable container
-    this.scrollContainer = new ScrollableContainer(
-      this.scene,
-      0,
-      0,
-      this.width - 16,
-      this.height - 16,
-      this.worldCamera
-    );
-    this.container.add(this.scrollContainer.getContainer());
+    const scene = this.scene as RexScene;
+    const panelW = this.width - 16;
+    const panelH = this.height - 16;
 
-    // Enable mouse wheel scrolling
-    this.scrollContainer.enableScroll();
+    if (scene.rexUI?.add?.scrollablePanel) {
+      const sizer = scene.rexUI.add.sizer({
+        orientation: 1,
+        width: panelW,
+        space: { item: 4 },
+      });
+      this.contentSizer = sizer as Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
 
-    // Subscribe to event updates
+      const panel = scene.rexUI.add.scrollablePanel({
+        x: 0,
+        y: 0,
+        width: panelW,
+        height: panelH,
+        panel: { child: sizer, mask: {} },
+        slider: false,
+        mouseWheelScroller: { focus: true, speed: 0.1 },
+        background: scene.rexUI.add.roundRectangle(0, 0, panelW, panelH, 8, 0x1a1a2e, 0.8),
+      });
+      this.scrollPanel = panel as Phaser.GameObjects.GameObject & { layout: () => void };
+      this.container.add(this.scrollPanel);
+    } else {
+      const placeholder = this.scene.add.text(0, 0, "RexUI required", { fontSize: "12px", fontFamily: "Arial", color: "#ff0000" });
+      this.container.add(placeholder);
+    }
+
     this.stateManager.on<"state:events:updated", GameEvent[]>(
       "state:events:updated",
-      (events: GameEvent[]) => {
-        this.updateEvents(events);
-      }
+      (events) => this.updateEvents(events)
     );
-
-    // Initial state
-    const initialEvents = this.stateManager.getEvents();
-    this.updateEvents(initialEvents);
+    this.updateEvents(this.stateManager.getEvents());
   }
 
   private updateEvents(events: GameEvent[]): void {
-    if (!this.scrollContainer) return;
+    if (!this.contentSizer || !this.scrollPanel) return;
 
-    // Optimization: Only update if event count changed
     const eventCount = events.length;
-    if (eventCount === this.lastEventCount && eventCount > 0) {
-      return; // No new events
-    }
+    if (eventCount === this.lastEventCount && eventCount > 0) return;
     this.lastEventCount = eventCount;
 
-    // Clear old items
-    for (const item of this.eventItems.values()) {
-      item.destroy();
-    }
+    for (const item of this.eventItems.values()) item.destroy();
     this.eventItems.clear();
+    this.contentSizer.removeAll(true);
 
-    // Create new event items (reverse order - newest first, max 50)
     const maxEvents = Math.min(50, events.length);
-    let offsetY = 8;
-    const contentHeight = maxEvents * 32 + 16;
-
-    // Fix: Prevent negative indices by using Math.max(0, ...)
     for (let i = events.length - 1; i >= Math.max(0, events.length - maxEvents); i--) {
-      const event = events[i];
-      if (!event) continue; // Guard against undefined
-      const item = this.createEventItem(event, offsetY);
-      this.scrollContainer.getContentContainer().add(item);
+      const ev = events[i];
+      if (!ev) continue;
+      const item = this.createEventItem(ev);
+      this.contentSizer.add(item, { padding: { top: 4, bottom: 4 }, expand: false });
       this.eventItems.set(i, item);
-      offsetY += 32;
     }
 
-    // Update content height for scrolling
-    this.scrollContainer.setContentHeight(contentHeight);
+    this.scrollPanel.layout();
   }
 
-  private createEventItem(event: GameEvent, offsetY: number): Phaser.GameObjects.Container {
-    const item = this.scene.add.container(0, offsetY);
-
-    // Event icon emoji
+  private createEventItem(event: GameEvent): Phaser.GameObjects.Container {
+    const item = this.scene.add.container(0, 0);
     const iconEmoji = this.getEventEmoji(event.type);
     const iconText = this.scene.add.text(0, 0, iconEmoji, {
       fontSize: "16px",
@@ -105,7 +108,6 @@ export class EventFeedUI extends BaseUI {
     iconText.setOrigin(0, 0.5);
     item.add(iconText);
 
-    // Event description (use message from event)
     const descText = this.scene.add.text(24, 0, event.message, {
       fontSize: "11px",
       fontFamily: "Arial",
@@ -115,45 +117,26 @@ export class EventFeedUI extends BaseUI {
     descText.setOrigin(0, 0.5);
     item.add(descText);
 
-    // Background highlight (subtle)
-    const bg = this.scene.add.rectangle(0, 0, this.width - 32, 28, 0x222222, 0);
-    bg.setOrigin(0, 0.5);
-    item.add(bg);
-
     return item;
   }
 
   private getEventEmoji(type: string): string {
-    const eventType = type as GameEventType;
-
-    switch (eventType) {
-      case GameEventType.Kill:
-        return "💀";
-      case GameEventType.Alliance:
-        return "🤝";
-      case GameEventType.Betrayal:
-        return "🔪";
-      case GameEventType.Combat:
-        return "⚔️";
-      case GameEventType.Loot:
-        return "📦";
-      case GameEventType.ZoneShrink:
-        return "🌪️";
-      case GameEventType.Vote:
-        return "🗳️";
-      case GameEventType.GameOver:
-        return "🏆";
-      case GameEventType.AgentSpawn:
-        return "🛬";
-      default:
-        return "📝";
+    const t = type as GameEventType;
+    switch (t) {
+      case GameEventType.Kill: return "💀";
+      case GameEventType.Alliance: return "🤝";
+      case GameEventType.Betrayal: return "🔪";
+      case GameEventType.Combat: return "⚔️";
+      case GameEventType.Loot: return "📦";
+      case GameEventType.ZoneShrink: return "🌪️";
+      case GameEventType.Vote: return "🗳️";
+      case GameEventType.GameOver: return "🏆";
+      case GameEventType.AgentSpawn: return "🛬";
+      default: return "📝";
     }
   }
 
   destroy(): void {
-    if (this.scrollContainer) {
-      this.scrollContainer.destroy();
-    }
     super.destroy();
   }
 }

@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { GameStateManager } from "./GameStateManager";
 import { NetworkManager } from "./NetworkManager";
 import { CameraManager } from "./CameraManager";
+import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
 import { BaseUI } from "../ui/BaseUI";
 import { HeaderUI } from "../ui/HeaderUI";
 import { EventFeedUI } from "../ui/EventFeedUI";
@@ -21,6 +22,7 @@ export class UIManager {
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
   private cameraManager: CameraManager;
+  private displayStateManager: AgentDisplayStateManager;
   private worldCamera: Phaser.Cameras.Scene2D.Camera;
   private uiComponents: Map<string, BaseUI> = new Map();
   private unsubscribeFunctions: Array<() => void> = [];
@@ -40,12 +42,14 @@ export class UIManager {
     stateManager: GameStateManager,
     networkManager: NetworkManager,
     cameraManager: CameraManager,
+    displayStateManager: AgentDisplayStateManager,
     worldCamera: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
     this.stateManager = stateManager;
     this.networkManager = networkManager;
     this.cameraManager = cameraManager;
+    this.displayStateManager = displayStateManager;
     this.worldCamera = worldCamera;
   }
 
@@ -146,20 +150,17 @@ export class UIManager {
     eventFeedUI.create();
     this.uiComponents.set("eventFeed", eventFeedUI);
 
-    // AI Thinking (bottom center)
-    const thinkingHeight = Math.max(120, Math.floor(this.canvasHeight * 0.18));
-    const thinkingY = rightPanelY + rightPanelHeight - thinkingHeight;
-    const thinkingWidth = this.canvasWidth - this.sidebarWidth - this.rightPanelWidth - this.padding * 2;
-    const thinkingX = this.sidebarWidth + thinkingWidth / 2;
-
+    // AI Thinking (bubble above selected agent - position passed as 0,0, size unused)
     const aiThinkingUI = new AIThinkingUI(
       this.scene,
-      thinkingX,
-      thinkingY,
-      thinkingWidth,
-      thinkingHeight,
+      0,
+      0,
+      260,
+      70,
       this.stateManager,
       this.networkManager,
+      this.cameraManager,
+      this.displayStateManager,
       wc
     );
     aiThinkingUI.create();

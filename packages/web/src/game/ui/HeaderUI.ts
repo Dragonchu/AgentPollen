@@ -40,6 +40,12 @@ export class HeaderUI extends BaseUI {
     const padding = 16;
     const leftX = -this.width / 2 + padding;
 
+    const rexScene = this.scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject } } };
+    if (rexScene.rexUI?.add?.roundRectangle) {
+      const bg = rexScene.rexUI.add.roundRectangle(0, 0, this.width, this.height, 0, 0x0a0a14, 0.9);
+      this.container.addAt(bg, 0);
+    }
+
     // Title/Logo
     const titleText = this.drawText(leftX, 0, "⚔ AI BATTLE ROYALE", {
       fontSize: "16px",

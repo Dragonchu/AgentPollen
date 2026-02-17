@@ -1,32 +1,31 @@
 import * as Phaser from "phaser";
 import { AgentFullState, ThinkingProcess } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { ScrollableContainer } from "./components/ScrollableContainer";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
+import { CameraManager } from "../managers/CameraManager";
+import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
+import { CELL_SIZE } from "../scenes/gameConstants";
 
 /**
- * AIThinkingUI displays AI thinking process and decision history for selected agent.
- * - Agent status indicator with breathing animation
- * - Scrollable thinking history (newest first)
- * - Relative timestamps ("just now", "5s ago")
- * - Reasoning display for each decision
+ * AIThinkingUI displays AI thinking as a speech bubble above the selected agent's head.
+ * Shows only the latest thinking (Decision + truncated Reason).
  */
 export class AIThinkingUI extends BaseUI {
   private stateManager: GameStateManager;
-  private networkManager: NetworkManager; // Used in requestThinkingHistory
+  private networkManager: NetworkManager;
+  private cameraManager: CameraManager;
+  private displayStateManager: AgentDisplayStateManager;
 
-  // UI Elements
-  private agentStatusIndicator?: Phaser.GameObjects.Graphics;
-  private statusText?: Phaser.GameObjects.Text;
-  private scrollContainer?: ScrollableContainer;
-  private thinkingItems: Map<number, Phaser.GameObjects.Container> = new Map();
-
-  // State
-  private selectedAgent: AgentFullState | null = null;
+  private bubbleLabel?: Phaser.GameObjects.GameObject & { setText?: (text: string) => void };
+  private textObj?: Phaser.GameObjects.Text;
   private thinkingHistory: ThinkingProcess[] = [];
-  private lastUpdateTime = 0;
-  private lastHistoryLength = 0;
+  private selectedAgent: AgentFullState | null = null;
+
+  private static readonly BUBBLE_WIDTH = 260;
+  private static readonly BUBBLE_HEIGHT = 70;
+  private static readonly BUBBLE_OFFSET_Y = -80;
+  private static readonly REASON_TRUNCATE = 40;
 
   constructor(
     scene: Phaser.Scene,
@@ -36,65 +35,77 @@ export class AIThinkingUI extends BaseUI {
     height: number,
     stateManager: GameStateManager,
     networkManager: NetworkManager,
+    cameraManager: CameraManager,
+    displayStateManager: AgentDisplayStateManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.stateManager = stateManager;
     this.networkManager = networkManager;
+    this.cameraManager = cameraManager;
+    this.displayStateManager = displayStateManager;
   }
 
   create(): void {
-    const padding = 12;
-    const startY = -this.height / 2 + padding;
+    const scene = this.scene;
+    const w = AIThinkingUI.BUBBLE_WIDTH;
+    const h = AIThinkingUI.BUBBLE_HEIGHT;
 
-    // Agent status bar
-    const statusBarHeight = 30;
+    const rexScene = scene as Phaser.Scene & { rexUI?: { add: { roundRectangle: (x: number, y: number, w: number, h: number, r: number, color: number, alpha?: number) => Phaser.GameObjects.GameObject; label: (config: object) => Phaser.GameObjects.GameObject } } };
 
-    // Status indicator (breathing circle)
-    this.agentStatusIndicator = this.createGraphics();
-    this.agentStatusIndicator.setPosition(-this.width / 2 + padding + 6, startY + 8);
-    this.agentStatusIndicator.fillStyle(0x00ff00, 1);
-    this.agentStatusIndicator.fillCircle(0, 0, 5);
+    let bubble: Phaser.GameObjects.GameObject;
+    let text: Phaser.GameObjects.Text;
 
-    // Add breathing animation
-    this.setupBreathingAnimation();
+    if (rexScene.rexUI?.add?.roundRectangle) {
+      const background = rexScene.rexUI.add.roundRectangle(0, 0, w, h, 8, 0x1a1a2e, 0.95);
+      text = scene.add.text(0, 0, "", {
+        fontSize: "11px",
+        fontFamily: "Arial",
+        color: "#00ffff",
+        wordWrap: { width: w - 16 },
+        align: "left",
+      });
+      text.setOrigin(0.5, 0.5);
+      bubble = rexScene.rexUI.add.label({
+        x: 0,
+        y: 0,
+        width: w,
+        height: h,
+        background,
+        text,
+        align: "center",
+        space: { left: 8, right: 8, top: 8, bottom: 8 },
+      });
+    } else {
+      const bg = scene.add.graphics();
+      bg.fillStyle(0x1a1a2e, 0.95);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+      text = scene.add.text(0, 0, "", {
+        fontSize: "11px",
+        fontFamily: "Arial",
+        color: "#00ffff",
+        wordWrap: { width: w - 16 },
+        align: "center",
+      });
+      text.setOrigin(0.5, 0.5);
+      bubble = scene.add.container(0, 0, [bg, text]);
+    }
 
-    // Status text
-    this.statusText = this.drawText(-this.width / 2 + padding + 20, startY, "No Agent Selected", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#00ffff",
-      fontStyle: "bold",
-    });
-    this.statusText.setOrigin(0, 0);
+    this.bubbleLabel = bubble;
+    this.textObj = text;
+    this.container.add(bubble);
+    bubble.setVisible(false);
 
-    // Scrollable thinking history
-    const scrollStartY = startY + statusBarHeight + 8;
-    this.scrollContainer = new ScrollableContainer(
-      this.scene,
-      0,
-      scrollStartY,
-      this.width - padding * 2,
-      this.height - statusBarHeight - padding * 3,
-      this.worldCamera
-    );
-    this.container.add(this.scrollContainer.getContainer());
-
-    // Enable mouse wheel scrolling
-    this.scrollContainer.enableScroll();
-
-    // Subscribe to state changes
     this.stateManager.on<"state:agent:selected", AgentFullState | null>(
       "state:agent:selected",
       (agent: AgentFullState | null) => {
         this.selectedAgent = agent;
-        this.updateAgentStatus();
         if (agent) {
-          this.requestThinkingHistory(agent.id);
+          this.networkManager.requestThinkingHistory(agent.id, 20);
         } else {
           this.thinkingHistory = [];
-          this.updateThinkingHistory([]);
         }
+        this.updateContent();
       }
     );
 
@@ -102,214 +113,63 @@ export class AIThinkingUI extends BaseUI {
       "state:thinking:updated",
       (thinkingMap: Map<number, ThinkingProcess[]>) => {
         if (this.selectedAgent) {
-          const history = thinkingMap.get(this.selectedAgent.id) ?? [];
-          this.thinkingHistory = history;
-          this.updateThinkingHistory(history);
+          this.thinkingHistory = thinkingMap.get(this.selectedAgent.id) ?? [];
+          this.updateContent();
         }
       }
     );
 
-    // Initial state
     const initialAgent = this.stateManager.getSelectedAgent();
     if (initialAgent) {
       this.selectedAgent = initialAgent;
-      this.updateAgentStatus();
-      this.requestThinkingHistory(initialAgent.id);
+      this.networkManager.requestThinkingHistory(initialAgent.id, 20);
+      this.updateContent();
     }
   }
 
-  private setupBreathingAnimation(): void {
-    if (!this.agentStatusIndicator) return;
+  private updateContent(): void {
+    if (!this.textObj) return;
 
-    this.scene.tweens.add({
-      targets: this.agentStatusIndicator,
-      alpha: { from: 0.3, to: 1 },
-      duration: 2000,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
-  }
+    const latest = this.thinkingHistory.length > 0
+      ? this.thinkingHistory[this.thinkingHistory.length - 1]
+      : null;
 
-  private updateAgentStatus(): void {
+    let content: string;
     if (!this.selectedAgent) {
-      this.statusText?.setText("No Agent Selected");
-      if (this.agentStatusIndicator) {
-        this.agentStatusIndicator.clear();
-        this.agentStatusIndicator.fillStyle(0x999999, 0.3);
-        this.agentStatusIndicator.fillCircle(0, 0, 5);
-      }
-      return;
+      content = "";
+    } else if (!latest) {
+      content = "Thinking...";
+    } else {
+      const reasonShort =
+        latest.reasoning.length > AIThinkingUI.REASON_TRUNCATE
+          ? latest.reasoning.substring(0, AIThinkingUI.REASON_TRUNCATE) + "..."
+          : latest.reasoning;
+      content = `Decision: ${latest.action}\nReason: ${reasonShort}`;
     }
 
-    const agent = this.selectedAgent;
-    const status = agent.alive ? "🟢 Active" : "🔴 Eliminated";
-    this.statusText?.setText(`${agent.name} - ${status}`);
-
-    // Update indicator color
-    if (this.agentStatusIndicator) {
-      const color = agent.alive ? 0x00ff00 : 0xff0000;
-      this.agentStatusIndicator.clear();
-      this.agentStatusIndicator.fillStyle(color, 1);
-      this.agentStatusIndicator.fillCircle(0, 0, 5);
-    }
+    this.textObj.setText(content);
+    const go = this.bubbleLabel as Phaser.GameObjects.GameObject;
+    if (go) go.setVisible(!!this.selectedAgent);
   }
 
-  private requestThinkingHistory(agentId: number): void {
-    // Request more thinking history (up to 20 entries)
-    this.networkManager.requestThinkingHistory(agentId, 20);
-  }
+  update(_time: number, _delta: number): void {
+    if (!this.selectedAgent || !this.bubbleLabel) return;
 
-  private updateThinkingHistory(history: ThinkingProcess[]): void {
-    if (!this.scrollContainer) return;
+    const displayStates = this.displayStateManager.getDisplayStates();
+    const displayState = displayStates.get(this.selectedAgent.id);
+    const displayX = displayState ? displayState.displayX : this.selectedAgent.x;
+    const displayY = displayState ? displayState.displayY : this.selectedAgent.y;
 
-    // Optimization: Skip update if history length hasn't changed (except for timestamp refresh)
-    const historyLength = history.length;
-    if (historyLength === this.lastHistoryLength && historyLength > 0) {
-      return; // No new thinking entries, timestamps will be refreshed in update()
-    }
-    this.lastHistoryLength = historyLength;
+    const worldX = displayX * CELL_SIZE + CELL_SIZE / 2;
+    const worldY = displayY * CELL_SIZE + CELL_SIZE / 2;
 
-    // Clear old items
-    for (const item of this.thinkingItems.values()) {
-      item.destroy();
-    }
-    this.thinkingItems.clear();
+    const { x: screenX, y: screenY } = this.cameraManager.worldToScreen(worldX, worldY);
+    const bubbleY = screenY + AIThinkingUI.BUBBLE_OFFSET_Y;
 
-    // Create items in reverse order (newest first, max 20)
-    const maxItems = Math.min(20, history.length);
-    let offsetY = 8;
-    const contentHeight = maxItems * 60 + 16;
-
-    const now = Date.now();
-
-    // Fix: Prevent negative indices by using Math.max(0, ...)
-    for (let i = history.length - 1; i >= Math.max(0, history.length - maxItems); i--) {
-      const process = history[i];
-      if (!process) continue; // Guard against undefined
-      const item = this.createThinkingItem(process, offsetY, now, i === history.length - 1);
-      this.scrollContainer.getContentContainer().add(item);
-      this.thinkingItems.set(i, item);
-      offsetY += 60;
-    }
-
-    // Update content height
-    this.scrollContainer.setContentHeight(contentHeight);
-  }
-
-  private createThinkingItem(
-    process: ThinkingProcess,
-    offsetY: number,
-    now: number,
-    isLatest: boolean
-  ): Phaser.GameObjects.Container {
-    const item = this.scene.add.container(0, offsetY);
-
-    // Background (highlight latest)
-    const bgColor = isLatest ? 0x2a3a4a : 0x1a1a2e;
-    const bg = this.scene.add.rectangle(
-      0,
-      0,
-      this.width - 32,
-      56,
-      bgColor,
-      isLatest ? 0.8 : 0.5
-    );
-    bg.setOrigin(0, 0);
-    if (isLatest) {
-      bg.setStrokeStyle(1, 0x00ffff);
-    }
-    item.add(bg);
-
-    // Timestamp (relative)
-    const timeDiff = now - process.timestamp;
-    const timeStr = this.getRelativeTime(timeDiff);
-    const timeText = this.scene.add.text(4, 4, timeStr, {
-      fontSize: "9px",
-      fontFamily: "Arial",
-      color: "#aaaaaa",
-    });
-    timeText.setOrigin(0, 0);
-    item.add(timeText);
-
-    // Action/Decision
-    const actionText = this.scene.add.text(4, 16, `Decision: ${process.action}`, {
-      fontSize: "11px",
-      fontFamily: "Arial",
-      color: isLatest ? "#ffff00" : "#00ffff",
-      fontStyle: "bold",
-    });
-    actionText.setOrigin(0, 0);
-    item.add(actionText);
-
-    // Reasoning (truncate to 2 lines)
-    const maxReasoningLength = 60;
-    const reasoningShort = process.reasoning.substring(0, maxReasoningLength) +
-      (process.reasoning.length > maxReasoningLength ? "..." : "");
-    const reasoningText = this.scene.add.text(4, 28, `Reason: ${reasoningShort}`, {
-      fontSize: "9px",
-      fontFamily: "Arial",
-      color: "#cccccc",
-      wordWrap: { width: this.width - 40 },
-    });
-    reasoningText.setOrigin(0, 0);
-    item.add(reasoningText);
-
-    return item;
-  }
-
-  private getRelativeTime(diffMs: number): string {
-    const seconds = Math.floor(diffMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (seconds < 5) return "just now";
-    if (seconds < 60) return `${seconds}s ago`;
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  }
-
-  update(time: number, _delta: number): void {
-    // Refresh relative timestamps every 5 seconds
-    if (time - this.lastUpdateTime > 5000 && this.thinkingHistory.length > 0) {
-      this.refreshTimestamps();
-      this.lastUpdateTime = time;
-    }
-  }
-
-  private refreshTimestamps(): void {
-    if (!this.scrollContainer) return;
-    const now = Date.now();
-
-    const items = this.scrollContainer.getContentContainer().list;
-    let itemIndex = 0;
-
-    for (let i = this.thinkingHistory.length - 1; i >= Math.max(0, this.thinkingHistory.length - 20); i--) {
-      if (itemIndex >= items.length) break;
-
-      const process = this.thinkingHistory[i];
-      if (!process) continue; // Guard against undefined
-      const item = items[itemIndex] as Phaser.GameObjects.Container;
-
-      if (item && item.list.length > 0) {
-        // Update timestamp text (first child after bg)
-        const timeStr = this.getRelativeTime(now - process.timestamp);
-        const timeText = item.list[1] as Phaser.GameObjects.Text;
-        if (timeText && timeText.setText) {
-          timeText.setText(timeStr);
-        }
-      }
-
-      itemIndex++;
-    }
+    this.container.setPosition(screenX, bubbleY);
   }
 
   destroy(): void {
-    if (this.scrollContainer) {
-      this.scrollContainer.destroy();
-    }
     super.destroy();
   }
 }
