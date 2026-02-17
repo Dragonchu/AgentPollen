@@ -136,8 +136,15 @@ async function main() {
   const thinkingStorage = createThinkingStorage();
 
   // 5. Create and initialize world
+  const GRID_SIZE = parseInt(process.env.GRID_SIZE ?? "100", 10);
+  console.log(`Grid Size: ${GRID_SIZE}x${GRID_SIZE}`);
+
   const world = new World(
-    { agentCount: AGENT_COUNT, tickIntervalMs: TICK_INTERVAL },
+    {
+      agentCount: AGENT_COUNT,
+      tickIntervalMs: TICK_INTERVAL,
+      gridSize: GRID_SIZE,
+    },
     engine,
     pathfinder,
     thinkingStorage,

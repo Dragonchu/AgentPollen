@@ -33,6 +33,12 @@ export const ASSETS = {
             WIDTH: 192,
             HEIGHT: 192,
             DEFAULT_DIRECTION: SpriteDirection.Right,  // 待机动画默认朝向右
+        },
+        Tile: {
+            KEY: 'tile',
+            PATH: '/assets/Terrain/Tileset/Shadow.png',
+            WIDTH: 192,
+            HEIGHT: 192,
         }
     },
     SPRITES: {

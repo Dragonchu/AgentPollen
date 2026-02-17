@@ -129,6 +129,16 @@ export class GameStateManager {
     return this.state.thinkingHistory.get(id) ?? [];
   }
 
+  /**
+   * Get grid dimensions from the tilemap (width and height in grid cells)
+   * Returns null if tilemap hasn't been loaded yet
+   */
+  getGridSize(): { width: number; height: number } | null {
+    const tileMap = this.state.tileMap;
+    if (!tileMap) return null;
+    return { width: tileMap.width, height: tileMap.height };
+  }
+
   // ============ Setters with events ============
 
   setConnected(connected: boolean): void {

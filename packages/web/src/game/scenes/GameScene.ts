@@ -9,19 +9,18 @@ import * as Phaser from "phaser";
 import { SpriteDirection } from "@/constants/Assets";
 import { ASSETS } from "@/constants/Assets";
 import { AgentDisplayStateManager } from "./AgentDisplayStateManager";
-import { CELL_SIZE, GRID_SIZE } from "./gameConstants";
+import { CELL_SIZE } from "./gameConstants";
 import type {Direction} from "./types";
 import {
   type GameSceneRenderState,
-  GameSceneRenderer,
 } from "./GameSceneRenderer";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
 import { UIManager } from "../managers/UIManager";
 import { CameraManager } from "../managers/CameraManager";
 
-// 对外保持原有导出，便于 GameCanvas 等调用方使用
-export { CELL_SIZE, GRID_SIZE, CANVAS_SIZE } from "./gameConstants";
+// Export CELL_SIZE for external use (GRID_SIZE is now dynamic from backend)
+export { CELL_SIZE } from "./gameConstants";
 
 export class GameScene extends Phaser.Scene {
   private stateManager!: GameStateManager;
@@ -41,9 +40,9 @@ export class GameScene extends Phaser.Scene {
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
 
   private readonly displayStateManager = new AgentDisplayStateManager();
-  private gameSceneRenderer!: GameSceneRenderer;
 
   private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private tileBackground: Phaser.GameObjects.TileSprite | null = null;
   private animCreated = false;
 
   constructor() {
@@ -80,6 +79,7 @@ export class GameScene extends Phaser.Scene {
           frameHeight: ASSETS.IMAGES.WARRIOR_IDLE.HEIGHT,
         }
     );
+    this.load.image(ASSETS.IMAGES.Tile.KEY, ASSETS.IMAGES.Tile.PATH);
   }
 
   create(): void {
@@ -126,13 +126,16 @@ export class GameScene extends Phaser.Scene {
     // Make uiCamera ignore all game objects
     this.uiCamera.ignore([this.gridGraphics,this.zoneGraphics,this.connectionGraphics,this.allianceGraphics]);
 
-    this.gameSceneRenderer = new GameSceneRenderer({
-      grid: this.gridGraphics,
-      zone: this.zoneGraphics,
-      connection: this.connectionGraphics,
-      alliance: this.allianceGraphics,
-    });
-    this.gameSceneRenderer.drawGrid();
+    // Note: Tile background will be created after tilemap is received
+    // This ensures the background size matches the actual game world size
+
+    // this.gameSceneRenderer = new GameSceneRenderer({
+    //   grid: this.gridGraphics,
+    //   zone: this.zoneGraphics,
+    //   connection: this.connectionGraphics,
+    //   alliance: this.allianceGraphics,
+    // });
+    //this.gameSceneRenderer.drawGrid();
 
     // 4. Setup input handling (but don't interfere with camera drag)
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -173,10 +176,27 @@ export class GameScene extends Phaser.Scene {
       }
     );
 
-    // Listen to tilemap updates to draw obstacles
+    // Listen to tilemap updates to draw obstacles and update world dimensions
     this.stateManager.on<"state:tilemap:updated", TileMap>(
       "state:tilemap:updated",
       (tileMap) => {
+        // Update camera world dimensions based on tilemap size
+        this.cameraManager.setWorldDimensions(tileMap.width, tileMap.height);
+
+        // Create tile background if not already created
+        if (!this.tileBackground) {
+          const worldWidth = tileMap.width * CELL_SIZE;
+          const worldHeight = tileMap.height * CELL_SIZE;
+          this.tileBackground = this.add.tileSprite(
+            0, 0,
+            worldWidth, worldHeight,
+            ASSETS.IMAGES.Tile.KEY,
+          ).setOrigin(0, 0);
+          // Make uiCamera ignore the tile background so it's only rendered by worldCamera
+          this.registerGameObject(this.tileBackground);
+        }
+
+        // Draw obstacles
         this.drawObstacles(tileMap);
       }
     );
@@ -243,10 +263,10 @@ export class GameScene extends Phaser.Scene {
     // Draw items
     this.drawItems(items);
 
-    // Draw connections and alliances
-    const state = this.getRenderState(agents, selectedAgent);
-    this.gameSceneRenderer.drawConnections(state);
-    this.gameSceneRenderer.drawAlliances(state);
+    // Draw connections and alliances (currently disabled)
+    // const state = this.getRenderState(agents, selectedAgent);
+    // this.gameSceneRenderer.drawConnections(state);
+    // this.gameSceneRenderer.drawAlliances(state);
 
     // Update UI manager
     this.uiManager.update(time, delta);
@@ -390,13 +410,16 @@ export class GameScene extends Phaser.Scene {
     selectedAgent: AgentFullState | null
   ): GameSceneRenderState {
     const world = this.stateManager.getWorld();
+    const gridSize = this.stateManager.getGridSize();
+    const defaultGridSize = gridSize?.width ?? 100; // Fallback to 100 if not loaded yet
+
     return {
       agents,
       agentDisplayStates: this.displayStateManager.getDisplayStates(),
       selectedAgentId: selectedAgent?.id ?? null,
-      shrinkBorder: world?.shrinkBorder ?? GRID_SIZE,
-      zoneCenterX: world?.zoneCenterX ?? GRID_SIZE / 2,
-      zoneCenterY: world?.zoneCenterY ?? GRID_SIZE / 2,
+      shrinkBorder: world?.shrinkBorder ?? defaultGridSize,
+      zoneCenterX: world?.zoneCenterX ?? defaultGridSize / 2,
+      zoneCenterY: world?.zoneCenterY ?? defaultGridSize / 2,
     };
   }
 
@@ -447,12 +470,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private redraw(): void {
-    const agents = this.stateManager.getAgents();
-    const selectedAgent = this.stateManager.getSelectedAgent();
-    const state = this.getRenderState(agents, selectedAgent);
-    this.gameSceneRenderer.drawZone(state);
-    this.gameSceneRenderer.drawConnections(state);
-    this.gameSceneRenderer.drawAlliances(state);
+    // Redraw game elements (currently disabled)
+    // const agents = this.stateManager.getAgents();
+    // const selectedAgent = this.stateManager.getSelectedAgent();
+    // const state = this.getRenderState(agents, selectedAgent);
+    // this.gameSceneRenderer.drawZone(state);
+    // this.gameSceneRenderer.drawConnections(state);
+    // this.gameSceneRenderer.drawAlliances(state);
   }
 
   private handleClick(screenX: number, screenY: number): void {

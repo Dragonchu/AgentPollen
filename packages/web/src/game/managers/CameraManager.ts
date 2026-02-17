@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CELL_SIZE, GRID_SIZE } from "../scenes/gameConstants";
+import { CELL_SIZE } from "../scenes/gameConstants";
 
 /**
  * CameraManager handles camera movement, zooming, and viewport management
@@ -11,9 +11,9 @@ export class CameraManager {
   private camera: Phaser.Cameras.Scene2D.Camera;
   private pipCamera: Phaser.Cameras.Scene2D.Camera | null = null;
 
-  // World dimensions
-  private worldWidth: number = GRID_SIZE * CELL_SIZE;
-  private worldHeight: number = GRID_SIZE * CELL_SIZE;
+  // World dimensions (will be set dynamically from backend gridSize)
+  private worldWidth: number = 0;
+  private worldHeight: number = 0;
 
   // Dual camera settings
   private dualCameraEnabled: boolean = false;
@@ -59,6 +59,60 @@ export class CameraManager {
   }
 
   /**
+   * Set world dimensions based on backend grid size.
+   * This should be called when tilemap is received from server.
+   * @param gridWidth - Grid width in cells
+   * @param gridHeight - Grid height in cells
+   */
+  setWorldDimensions(gridWidth: number, gridHeight: number): void {
+    this.worldWidth = gridWidth * CELL_SIZE;
+    this.worldHeight = gridHeight * CELL_SIZE;
+
+    // If already initialized, update camera bounds and recalculate zoom
+    if (this.camera.displayWidth > 0) {
+      this.updateCameraBoundsAndZoom();
+    }
+  }
+
+  /**
+   * Update camera bounds and zoom constraints based on current world dimensions
+   */
+  private updateCameraBoundsAndZoom(): void {
+    // Set physics world bounds (if physics is enabled)
+    if (this.scene.physics?.world) {
+      this.scene.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    }
+
+    // Set camera bounds
+    this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+
+    // Recalculate fitZoom using Math.max to ensure viewport never exceeds map bounds
+    // This means on non-square viewports, one dimension will be fully visible
+    // and the other will require panning (standard MOBA/RTS behavior)
+    this.fitZoom = Math.max(
+      this.camera.displayWidth / this.worldWidth,
+      this.camera.displayHeight / this.worldHeight
+    );
+
+    // Set minZoom = fitZoom to prevent zooming out beyond map bounds
+    this.minZoom = this.fitZoom;
+
+    // Clamp current zoom to new constraints
+    const currentZoom = this.camera.zoom;
+    if (currentZoom < this.minZoom || currentZoom > this.MAX_ZOOM) {
+      this.camera.setZoom(Phaser.Math.Clamp(currentZoom, this.minZoom, this.MAX_ZOOM));
+    }
+
+    // Re-center camera
+    this.centerCamera();
+
+    // Update PiP camera bounds if it exists
+    if (this.pipCamera) {
+      this.pipCamera.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    }
+  }
+
+  /**
    * Initialize camera after scale system is ready.
    * MUST be called after scene.create() when camera dimensions are valid.
    */
@@ -97,26 +151,14 @@ export class CameraManager {
    * Initialize camera and input handlers
    */
   private init(): void {
-    // Set physics world bounds (if physics is enabled)
-    if (this.scene.physics?.world) {
-      this.scene.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    // If world dimensions are already set (tilemap received), configure camera
+    if (this.worldWidth > 0 && this.worldHeight > 0) {
+      this.updateCameraBoundsAndZoom();
+    } else {
+      // Otherwise, set a default zoom and wait for tilemap
+      this.camera.setZoom(1);
+      console.warn("CameraManager initialized before world dimensions were set. Camera will be configured when tilemap is received.");
     }
-
-    // Set camera bounds
-    this.camera.setBounds(0, 0, this.worldWidth, this.worldHeight);
-
-    // Calculate fitZoom so entire map is visible
-    this.fitZoom = Math.min(
-      this.camera.displayWidth / this.worldWidth,
-      this.camera.displayHeight / this.worldHeight
-    );
-    this.minZoom = this.fitZoom * 0.8;
-
-    // Set initial zoom to fitZoom
-    this.camera.setZoom(this.fitZoom);
-
-    // Center camera on map
-    this.centerCamera();
 
     // Setup input handling
     this.setupInputHandlers();
@@ -612,11 +654,12 @@ export class CameraManager {
     }
 
     // Recalculate zoom constraints based on new dimensions
-    this.fitZoom = Math.min(
+    // Use Math.max to ensure viewport never exceeds map bounds
+    this.fitZoom = Math.max(
       this.camera.displayWidth / this.worldWidth,
       this.camera.displayHeight / this.worldHeight
     );
-    this.minZoom = this.fitZoom * 0.8;
+    this.minZoom = this.fitZoom;
 
     // Clamp current zoom to new constraints
     const currentZoom = this.camera.zoom;
