@@ -49,6 +49,13 @@ export class CameraManager {
     right: false,
   };
 
+  // Follow mode state
+  private followingAgentId: number | null = null;
+  private followZoom: number = 1.5; // Default zoom when following agent
+
+  // Callback to get agent position (set by GameScene)
+  private getAgentPosition?: (agentId: number) => { x: number; y: number } | null;
+
   // UI overlap check callback
   private isPointerOverUI?: (x: number, y: number) => boolean;
 
@@ -141,6 +148,13 @@ export class CameraManager {
   }
 
   /**
+   * Set callback to get agent position for follow mode
+   */
+  setAgentPositionCallback(fn: (agentId: number) => { x: number; y: number } | null): void {
+    this.getAgentPosition = fn;
+  }
+
+  /**
    * Setup listener for window/canvas resize events
    */
   private setupResizeListener(): void {
@@ -188,6 +202,19 @@ export class CameraManager {
     if (rKey) {
       rKey.on("down", () => this.resetCamera());
     }
+
+    // P key to toggle PiP camera
+    const pKey = this.scene.input.keyboard?.addKey("P");
+    if (pKey) {
+      pKey.on("down", () => this.toggleDualCamera());
+    }
+  }
+
+  /**
+   * Toggle dual camera (PiP) mode
+   */
+  toggleDualCamera(): void {
+    this.setDualCameraEnabled(!this.dualCameraEnabled);
   }
 
   /**
@@ -251,6 +278,11 @@ export class CameraManager {
     // Don't zoom if pointer is over UI
     if (this.isPointerOverUI?.(pointer.x, pointer.y)) return;
 
+    // Exit follow mode when user manually zooms
+    if (this.followingAgentId !== null) {
+      this.stopFollowing();
+    }
+
     const oldZoom = this.camera.zoom;
 
     // 1. Get mouse screen coordinates
@@ -286,6 +318,11 @@ export class CameraManager {
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     // Only drag with left mouse button
     if (pointer.button !== 0) return;
+
+    // Exit follow mode when user starts dragging
+    if (this.followingAgentId !== null) {
+      this.stopFollowing();
+    }
 
     this.isDragging = true;
     this.dragStartX = pointer.x;
@@ -326,8 +363,13 @@ export class CameraManager {
    * Update called every frame
    */
   update(): void {
-    // Handle keyboard panning
+    // Handle keyboard panning (also exits follow mode)
     if (this.panKeys.up || this.panKeys.down || this.panKeys.left || this.panKeys.right) {
+      // Exit follow mode when user manually pans
+      if (this.followingAgentId !== null) {
+        this.stopFollowing();
+      }
+
       let panX = 0;
       let panY = 0;
 
@@ -339,6 +381,38 @@ export class CameraManager {
       // Account for zoom
       this.camera.scrollX -= panX / this.camera.zoom;
       this.camera.scrollY -= panY / this.camera.zoom;
+    }
+
+    // Update camera position if following an agent
+    if (this.followingAgentId !== null && this.getAgentPosition) {
+      const position = this.getAgentPosition(this.followingAgentId);
+
+      if (position) {
+        // Convert grid position to world coordinates
+        const targetWorldX = position.x * CELL_SIZE + CELL_SIZE / 2;
+        const targetWorldY = position.y * CELL_SIZE + CELL_SIZE / 2;
+
+        // Smoothly follow agent (without animation, just direct update)
+        const zoom = this.camera.zoom;
+        const viewportWidth = this.camera.displayWidth / zoom;
+        const viewportHeight = this.camera.displayHeight / zoom;
+
+        const scrollX = Phaser.Math.Clamp(
+          targetWorldX - viewportWidth / 2,
+          0,
+          this.worldWidth - viewportWidth
+        );
+        const scrollY = Phaser.Math.Clamp(
+          targetWorldY - viewportHeight / 2,
+          0,
+          this.worldHeight - viewportHeight
+        );
+
+        this.camera.setScroll(scrollX, scrollY);
+      } else {
+        // Agent not found (dead or removed), stop following
+        this.stopFollowing();
+      }
     }
   }
 
@@ -422,12 +496,90 @@ export class CameraManager {
    * Reset camera to initial state (centered, fitZoom)
    */
   resetCamera(): void {
+    this.stopFollowing(); // Stop following when resetting
     this.camera.setZoom(this.fitZoom);
     this.centerCamera();
   }
 
+  // ============ Follow Mode ============
+
+  /**
+   * Start following an agent
+   * @param agentId - Agent ID to follow
+   * @param zoom - Optional zoom level (defaults to 1.5)
+   * @param duration - Animation duration in ms (defaults to 400)
+   */
+  followAgent(agentId: number, zoom?: number, duration: number = 400): void {
+    if (!this.getAgentPosition) {
+      console.warn("Cannot follow agent: getAgentPosition callback not set");
+      return;
+    }
+
+    const position = this.getAgentPosition(agentId);
+    if (!position) {
+      console.warn(`Cannot follow agent ${agentId}: position not found`);
+      return;
+    }
+
+    this.followingAgentId = agentId;
+    this.followZoom = zoom ?? 1.5;
+
+    // Animate to target position and zoom
+    const targetWorldX = position.x * CELL_SIZE + CELL_SIZE / 2;
+    const targetWorldY = position.y * CELL_SIZE + CELL_SIZE / 2;
+
+    // Calculate target scroll position using TARGET zoom (not current zoom)
+    // This ensures agent stays centered after zoom animation completes
+    const targetZoom = this.followZoom;
+    const viewportWidth = this.camera.displayWidth / targetZoom;
+    const viewportHeight = this.camera.displayHeight / targetZoom;
+
+    const scrollX = Phaser.Math.Clamp(
+      targetWorldX - viewportWidth / 2,
+      0,
+      this.worldWidth - viewportWidth
+    );
+    const scrollY = Phaser.Math.Clamp(
+      targetWorldY - viewportHeight / 2,
+      0,
+      this.worldHeight - viewportHeight
+    );
+
+    // Animate zoom and position simultaneously
+    this.scene.tweens.add({
+      targets: this.camera,
+      zoom: this.followZoom,
+      scrollX,
+      scrollY,
+      duration,
+      ease: "Power2",
+    });
+  }
+
+  /**
+   * Stop following the current agent
+   */
+  stopFollowing(): void {
+    this.followingAgentId = null;
+  }
+
+  /**
+   * Check if currently following an agent
+   */
+  isFollowing(): boolean {
+    return this.followingAgentId !== null;
+  }
+
+  /**
+   * Get the ID of the agent being followed (if any)
+   */
+  getFollowingAgentId(): number | null {
+    return this.followingAgentId;
+  }
+
   /**
    * Focus camera on a world position (smooth pan to center agent)
+   * @deprecated Use followAgent() for continuous following
    */
   focusOnAgent(worldX: number, worldY: number, duration: number = 400): void {
     this.panToPosition(worldX, worldY, duration);

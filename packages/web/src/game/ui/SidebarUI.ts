@@ -3,6 +3,7 @@ import { AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
 import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
+import { CameraManager } from "../managers/CameraManager";
 import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
@@ -22,6 +23,7 @@ type RexScene = Phaser.Scene & {
 export class SidebarUI extends BaseUI {
   private stateManager: GameStateManager;
   private networkManager: NetworkManager;
+  private cameraManager: CameraManager;
   private scrollPanel?: Phaser.GameObjects.GameObject & { layout: () => void };
   private contentSizer?: Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
   private agentItems: Map<number, Phaser.GameObjects.Container> = new Map();
@@ -29,6 +31,11 @@ export class SidebarUI extends BaseUI {
   private agentLeftBars: Map<number, Phaser.GameObjects.Rectangle> = new Map();
   private selectedAgentId: number | null = null;
   private lastAgentCount = 0;
+
+  // Double-click detection
+  private lastClickTime = 0;
+  private lastClickedAgentId: number | null = null;
+  private readonly DOUBLE_CLICK_DELAY = 300; // ms
 
   constructor(
     scene: Phaser.Scene,
@@ -38,11 +45,13 @@ export class SidebarUI extends BaseUI {
     height: number,
     stateManager: GameStateManager,
     networkManager: NetworkManager,
+    cameraManager: CameraManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.stateManager = stateManager;
     this.networkManager = networkManager;
+    this.cameraManager = cameraManager;
   }
 
   create(): void {
@@ -153,7 +162,24 @@ export class SidebarUI extends BaseUI {
     bg.setOrigin(0, 0.5);
     bg.setInteractive();
     bg.on("pointerdown", () => {
-      this.networkManager.inspectAgent(agent.id);
+      const now = Date.now();
+      const isDoubleClick =
+        this.lastClickedAgentId === agent.id &&
+        now - this.lastClickTime < this.DOUBLE_CLICK_DELAY;
+
+      if (isDoubleClick) {
+        // Double-click: Follow agent with camera
+        this.cameraManager.followAgent(agent.id, 1.5);
+        this.lastClickTime = 0;
+        this.lastClickedAgentId = null;
+      } else {
+        // Single-click: Select agent
+        this.networkManager.inspectAgent(agent.id);
+        this.lastClickTime = now;
+        this.lastClickedAgentId = agent.id;
+      }
+
+      // Visual feedback
       this.scene.tweens.add({
         targets: bg,
         scaleX: 0.98,

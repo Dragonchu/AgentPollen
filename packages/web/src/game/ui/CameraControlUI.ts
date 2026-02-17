@@ -3,7 +3,6 @@ import { BaseUI } from "./BaseUI";
 import { CameraManager } from "../managers/CameraManager";
 import { GameStateManager } from "../managers/GameStateManager";
 import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
-import { CELL_SIZE } from "../scenes/gameConstants";
 import { THEME } from "./theme";
 
 /**
@@ -20,6 +19,10 @@ export class CameraControlUI extends BaseUI {
   private focusButton?: Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
   private focusIcon?: Phaser.GameObjects.Text;
   private isHovered = false;
+
+  // Follow status indicator
+  private followStatusText?: Phaser.GameObjects.Text;
+  private followStatusBackground?: Phaser.GameObjects.Graphics;
 
   constructor(
     scene: Phaser.Scene,
@@ -92,19 +95,28 @@ export class CameraControlUI extends BaseUI {
     });
     this.toggleButtonText.setOrigin(0, 0.5);
 
+    // Create follow status indicator (positioned below buttons)
+    this.followStatusBackground = this.createGraphics();
+    this.container.add(this.followStatusBackground);
+
+    this.followStatusText = this.drawText(0, buttonHeight / 2 + 24, "", {
+      fontSize: "14px",
+      fontFamily: "Arial",
+      color: THEME.css.accent,
+      fontStyle: "bold",
+    });
+    this.followStatusText.setOrigin(0.5, 0.5);
+
     this.updateButtonState();
     this.updateFocusButton();
+    this.updateFollowStatus();
   }
 
   private focusOnSelectedAgent(): void {
     const agent = this.stateManager.getSelectedAgent();
     if (!agent?.alive) return;
-    const displayState = this.displayStateManager.getDisplayStates().get(agent.id);
-    const displayX = displayState ? displayState.displayX : agent.x;
-    const displayY = displayState ? displayState.displayY : agent.y;
-    const worldX = displayX * CELL_SIZE + CELL_SIZE / 2;
-    const worldY = displayY * CELL_SIZE + CELL_SIZE / 2;
-    this.cameraManager.focusOnAgent(worldX, worldY);
+    // Use followAgent instead of deprecated focusOnAgent
+    this.cameraManager.followAgent(agent.id, 1.5);
   }
 
   private updateFocusButton(): void {
@@ -147,9 +159,44 @@ export class CameraControlUI extends BaseUI {
     this.updateButtonState();
   }
 
+  private updateFollowStatus(): void {
+    if (!this.followStatusText || !this.followStatusBackground) return;
+
+    const followingId = this.cameraManager.getFollowingAgentId();
+
+    if (followingId !== null) {
+      const agent = this.stateManager.getAgents().get(followingId);
+      if (agent) {
+        const text = `📍 Following: ${agent.name}`;
+        this.followStatusText.setText(text);
+        this.followStatusText.setVisible(true);
+
+        // Draw background
+        const textBounds = this.followStatusText.getBounds();
+        const padding = 8;
+        this.followStatusBackground.clear();
+        this.followStatusBackground.fillStyle(0x000000, 0.7);
+        this.followStatusBackground.fillRoundedRect(
+          textBounds.x - padding,
+          textBounds.y - padding,
+          textBounds.width + padding * 2,
+          textBounds.height + padding * 2,
+          4
+        );
+        this.followStatusBackground.setVisible(true);
+        return;
+      }
+    }
+
+    // Not following, hide the indicator
+    this.followStatusText.setVisible(false);
+    this.followStatusBackground.setVisible(false);
+  }
+
   update(): void {
     this.updateButtonState();
     this.updateFocusButton();
+    this.updateFollowStatus();
   }
 
   destroy(): void {

@@ -95,6 +95,7 @@ export class UIManager {
       sidebarHeight,
       this.stateManager,
       this.networkManager,
+      this.cameraManager,
       wc
     );
     sidebarUI.create();

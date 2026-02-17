@@ -45,6 +45,11 @@ export class GameScene extends Phaser.Scene {
   private tileBackground: Phaser.GameObjects.TileSprite | null = null;
   private animCreated = false;
 
+  // Double-click detection
+  private lastClickTime = 0;
+  private lastClickedAgentId: number | null = null;
+  private readonly DOUBLE_CLICK_DELAY = 300; // ms
+
   constructor() {
     super({ key: "GameScene" });
   }
@@ -148,8 +153,19 @@ export class GameScene extends Phaser.Scene {
     // 5. Initialize UI manager (creates all UI components, which auto-ignore from worldCamera)
     this.uiManager.create();
 
-    // 6. Wire up isPointerOverUI check to CameraManager
+    // 6. Wire up callbacks to CameraManager
     this.cameraManager.setPointerOverUICheck((x, y) => this.uiManager.isPointerOverUI(x, y));
+    this.cameraManager.setAgentPositionCallback((agentId) => {
+      const displayState = this.displayStateManager.getDisplayStates().get(agentId);
+      if (displayState) {
+        return { x: displayState.displayX, y: displayState.displayY };
+      }
+      const agent = this.stateManager.getAgents().get(agentId);
+      if (agent) {
+        return { x: agent.x, y: agent.y };
+      }
+      return null;
+    });
 
     // 7. Connect to server and start receiving data
     this.networkManager.connect();
@@ -496,8 +512,26 @@ export class GameScene extends Phaser.Scene {
         closest = { id: agent.id, dist };
       }
     }
+
     if (closest) {
-      this.networkManager.inspectAgent(closest.id);
+      const now = Date.now();
+      const isDoubleClick =
+        this.lastClickedAgentId === closest.id &&
+        now - this.lastClickTime < this.DOUBLE_CLICK_DELAY;
+
+      if (isDoubleClick) {
+        // Double-click: Follow agent with camera zoom
+        this.cameraManager.followAgent(closest.id, 1.5);
+        // Reset double-click tracking
+        this.lastClickTime = 0;
+        this.lastClickedAgentId = null;
+      } else {
+        // Single-click: Just select agent
+        this.networkManager.inspectAgent(closest.id);
+        // Track for potential double-click
+        this.lastClickTime = now;
+        this.lastClickedAgentId = closest.id;
+      }
     }
   }
 
