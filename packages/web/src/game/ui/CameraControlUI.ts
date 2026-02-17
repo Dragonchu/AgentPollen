@@ -3,6 +3,7 @@ import { BaseUI } from "./BaseUI";
 import { CameraManager } from "../managers/CameraManager";
 import { GameStateManager } from "../managers/GameStateManager";
 import { THEME } from "./theme";
+import {PointerEvents} from "@/game/events/GameEvents";
 
 /**
  * CameraControlUI displays camera controls:
@@ -11,10 +12,8 @@ import { THEME } from "./theme";
  */
 export class CameraControlUI extends BaseUI {
   private cameraManager: CameraManager;
-  private stateManager: GameStateManager;
   private toggleButtonText?: Phaser.GameObjects.Text;
   private buttonBackground?: Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
-  private focusButton?: Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
   private focusIcon?: Phaser.GameObjects.Text;
   private isHovered = false;
 
@@ -34,7 +33,6 @@ export class CameraControlUI extends BaseUI {
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.cameraManager = cameraManager;
-    this.stateManager = stateManager;
   }
 
   create(): void {
@@ -52,17 +50,9 @@ export class CameraControlUI extends BaseUI {
       bg.setInteractive();
       bg.on("pointerover", () => { this.isHovered = true; this.updateButtonState(); });
       bg.on("pointerout", () => { this.isHovered = false; this.updateButtonState(); });
-      bg.on("pointerdown", () => this.toggleDualCamera());
+      bg.on(PointerEvents.POINTER_DOWN, () => this.toggleDualCamera());
       this.buttonBackground = bg as Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void };
       this.container.add(bg);
-
-      const focusBg = rexScene.rexUI.add.roundRectangle(focusX, 0, focusSize, focusSize, THEME.spacing.radius, THEME.colors.secondary, 0.9);
-      focusBg.setInteractive();
-      focusBg.on("pointerover", () => this.updateFocusButton());
-      focusBg.on("pointerout", () => this.updateFocusButton());
-      focusBg.on("pointerdown", () => this.focusOnSelectedAgent());
-      this.focusButton = focusBg as Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
-      this.container.add(focusBg);
 
       this.focusIcon = this.scene.add.text(focusX, 0, "◎", {
         fontSize: "18px",
@@ -104,22 +94,6 @@ export class CameraControlUI extends BaseUI {
     this.followStatusText.setOrigin(0.5, 0.5);
 
     this.updateButtonState();
-    this.updateFocusButton();
-    this.updateFollowStatus();
-  }
-
-  private focusOnSelectedAgent(): void {
-    const agent = this.stateManager.getSelectedAgent();
-    if (!agent?.alive) return;
-    // Use followAgent instead of deprecated focusOnAgent
-    this.cameraManager.followAgent(agent.id, 1.5);
-  }
-
-  private updateFocusButton(): void {
-    const agent = this.stateManager.getSelectedAgent();
-    const visible = !!agent?.alive;
-    this.focusButton?.setVisible(visible);
-    this.focusIcon?.setVisible(visible);
   }
 
   private updateButtonState(): void {
@@ -154,45 +128,8 @@ export class CameraControlUI extends BaseUI {
     this.cameraManager.setDualCameraEnabled(!this.cameraManager.isDualCameraEnabled());
     this.updateButtonState();
   }
-
-  private updateFollowStatus(): void {
-    if (!this.followStatusText || !this.followStatusBackground) return;
-
-    const followingId = this.cameraManager.getFollowingAgentId();
-
-    if (followingId !== null) {
-      const agent = this.stateManager.getAgents().get(followingId);
-      if (agent) {
-        const text = `📍 Following: ${agent.name}`;
-        this.followStatusText.setText(text);
-        this.followStatusText.setVisible(true);
-
-        // Draw background
-        const textBounds = this.followStatusText.getBounds();
-        const padding = 8;
-        this.followStatusBackground.clear();
-        this.followStatusBackground.fillStyle(0x000000, 0.7);
-        this.followStatusBackground.fillRoundedRect(
-          textBounds.x - padding,
-          textBounds.y - padding,
-          textBounds.width + padding * 2,
-          textBounds.height + padding * 2,
-          4
-        );
-        this.followStatusBackground.setVisible(true);
-        return;
-      }
-    }
-
-    // Not following, hide the indicator
-    this.followStatusText.setVisible(false);
-    this.followStatusBackground.setVisible(false);
-  }
-
   update(): void {
     this.updateButtonState();
-    this.updateFocusButton();
-    this.updateFollowStatus();
   }
 
   destroy(): void {

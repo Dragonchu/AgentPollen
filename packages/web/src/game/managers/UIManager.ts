@@ -167,25 +167,6 @@ export class UIManager {
     aiThinkingUI.create();
     this.uiComponents.set("aiThinking", aiThinkingUI);
 
-    // Camera Control (top-left below header, with focus button)
-    const cameraControlWidth = 200;
-    const cameraControlHeight = 40;
-    const cameraControlX = this.sidebarWidth + this.padding + cameraControlWidth / 2;
-    const cameraControlY = this.headerHeight + this.padding + cameraControlHeight / 2;
-
-    const cameraControlUI = new CameraControlUI(
-      this.scene,
-      cameraControlX,
-      cameraControlY,
-      cameraControlWidth,
-      cameraControlHeight,
-      this.cameraManager,
-      this.stateManager,
-      wc
-    );
-    cameraControlUI.create();
-    this.uiComponents.set("cameraControl", cameraControlUI);
-
     this.setupStateListeners();
     this.setupResizeListener();
   }
