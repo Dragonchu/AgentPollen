@@ -101,10 +101,12 @@ export class VotePanelUI extends BaseUI {
     });
     inputLabel.setOrigin(0, 0);
 
-    // Create DOMElement for text input
+    // Create DOMElement for text input - do NOT add to container (Phaser DOMElement+Container causes willRender crash)
+    const domRelX = -this.width / 2 + padding + (this.width - padding * 2) / 2;
+    const domRelY = customInputY + 20;
     this.customInputField = this.scene.add.dom(
-      -this.width / 2 + padding + (this.width - padding * 2) / 2,
-      customInputY + 20,
+      this.x + domRelX,
+      this.y + domRelY,
       "input",
       `
         style="
@@ -122,7 +124,10 @@ export class VotePanelUI extends BaseUI {
         placeholder="Enter custom action..."
       `
     ) as Phaser.GameObjects.DOMElement;
-    this.container.add(this.customInputField);
+    this.customInputField.setDepth(1000);
+    if (this.worldCamera) {
+      this.worldCamera.ignore(this.customInputField);
+    }
 
     // Vote stats (show current vote counts)
     const statsY = customInputY + 36;

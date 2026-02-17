@@ -9,3 +9,4 @@ eslint-results.sarif
 maps/
 *.map
 .idea/
+**/debug.log
