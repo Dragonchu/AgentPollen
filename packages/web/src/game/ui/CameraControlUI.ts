@@ -2,7 +2,6 @@ import * as Phaser from "phaser";
 import { BaseUI } from "./BaseUI";
 import { CameraManager } from "../managers/CameraManager";
 import { GameStateManager } from "../managers/GameStateManager";
-import { AgentDisplayStateManager } from "../scenes/AgentDisplayStateManager";
 import { THEME } from "./theme";
 
 /**
@@ -13,7 +12,6 @@ import { THEME } from "./theme";
 export class CameraControlUI extends BaseUI {
   private cameraManager: CameraManager;
   private stateManager: GameStateManager;
-  private displayStateManager: AgentDisplayStateManager;
   private toggleButtonText?: Phaser.GameObjects.Text;
   private buttonBackground?: Phaser.GameObjects.GameObject & { setFillStyle?: (color: number, alpha?: number) => void; setStrokeStyle?: (width: number, color: number, alpha?: number) => void };
   private focusButton?: Phaser.GameObjects.GameObject & { setVisible: (visible: boolean) => void };
@@ -32,13 +30,11 @@ export class CameraControlUI extends BaseUI {
     height: number,
     cameraManager: CameraManager,
     stateManager: GameStateManager,
-    displayStateManager: AgentDisplayStateManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
     this.cameraManager = cameraManager;
     this.stateManager = stateManager;
-    this.displayStateManager = displayStateManager;
   }
 
   create(): void {

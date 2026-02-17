@@ -33,11 +33,6 @@ export class GameScene extends Phaser.Scene {
   // Dual camera system
   private uiCamera!: Phaser.Cameras.Scene2D.Camera;
 
-  private gridGraphics!: Phaser.GameObjects.Graphics;
-  private zoneGraphics!: Phaser.GameObjects.Graphics;
-  private connectionGraphics!: Phaser.GameObjects.Graphics;
-  private allianceGraphics!: Phaser.GameObjects.Graphics;
-
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
 
@@ -90,63 +85,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    // 1. Setup dual camera system
-    const worldCamera = this.cameras.main;
-    const canvasW = this.scale.width;
-    const canvasH = this.scale.height;
-
-    // Ensure main camera has proper viewport dimensions
-    worldCamera.setViewport(0, 0, canvasW, canvasH);
-
-    // uiCamera renders UI objects at fixed screen position (no pan/zoom)
-    this.uiCamera = this.cameras.add(0, 0, canvasW, canvasH);
-    this.uiCamera.setScroll(0, 0);
-    this.uiCamera.setZoom(1);
-    this.uiCamera.setName("uiCamera");
-
-    // 2. Initialize managers (but don't initialize camera yet)
-    this.stateManager = new GameStateManager();
-    this.networkManager = new NetworkManager(this.stateManager);
-    this.cameraManager = new CameraManager(this, worldCamera);
-
-    // IMPORTANT: Initialize camera AFTER scale system is ready
-    // Use time.delayedCall to ensure scale system has settled
-    this.time.delayedCall(0, () => {
-      this.cameraManager.initialize();
-    });
-
-    this.uiManager = new UIManager(
-      this,
-      this.stateManager,
-      this.networkManager,
-      this.cameraManager,
-      this.displayStateManager,
-      worldCamera
-    );
-
-    // 3. Create graphics objects for game scene (world objects)
-    this.gridGraphics = this.add.graphics();
-    this.zoneGraphics = this.add.graphics();
-    this.connectionGraphics = this.add.graphics();
-    this.allianceGraphics = this.add.graphics();
-
-    // Make uiCamera ignore all game objects
-    this.uiCamera.ignore([this.gridGraphics,this.zoneGraphics,this.connectionGraphics,this.allianceGraphics]);
-
-    // 4. Setup input handling (but don't interfere with camera drag)
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      // Only handle clicks if not dragging camera (left button drag is reserved for camera)
-      if (pointer.button === 2) {
-        this.handleClick(pointer.x, pointer.y);
-      }
-    });
-
-    // 5. Initialize UI manager (creates all UI components, which auto-ignore from worldCamera)
-    this.uiManager.create();
-
-    // 6. Wire up callbacks to CameraManager
-    this.cameraManager.setPointerOverUICheck((x, y) => this.uiManager.isPointerOverUI(x, y));
-
+    this.cameras.main.setViewport(0, 0, this.scale.width, this.scale.height);
+    this.cameraManager = new CameraManager(this);
+    this.cameraManager.initialize();
     // Set agent position callback - returns GRID coordinates
     this.cameraManager.setAgentGridPositionCallback((agentId: number): GridCoord | null => {
       const displayState = this.displayStateManager.getDisplayStates().get(agentId);
@@ -162,11 +103,53 @@ export class GameScene extends Phaser.Scene {
       return null;
     });
 
+    this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
+    this.uiCamera.setName("uiCamera");
+
+    this.stateManager = new GameStateManager();
+    this.networkManager = new NetworkManager(this.stateManager);
+
+    this.uiManager = new UIManager(
+      this,
+      this.stateManager,
+      this.networkManager,
+      this.cameraManager,
+      this.displayStateManager,
+      this.cameras.main,
+    );
+    this.uiManager.create();
+
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      // Only handle clicks if not dragging camera (left button drag is reserved for camera)
+      if (pointer.button === 2) {
+        this.handleClick(pointer.x, pointer.y);
+      }
+    });
+
     // 7. Connect to server and start receiving data
     this.networkManager.connect();
 
     // 8. Setup state listeners for game rendering
     this.setupStateListeners();
+  }
+
+  private getAgentGridPosition(agentId: number | null): GridCoord | null {
+    if (!agentId) {
+      return null;
+    }
+    const displayState = this.displayStateManager.getDisplayStates().get(agentId);
+    if (displayState) {
+      // displayX/displayY are in GRID coordinates
+      return { gridX: displayState.displayX, gridY: displayState.displayY };
+    }
+    const agent = this.stateManager.getAgents().get(agentId);
+    if (agent) {
+      // agent.x/y are in GRID coordinates
+      return { gridX: agent.x, gridY: agent.y };
+    }
+    return null;
   }
 
   /**
@@ -255,7 +238,8 @@ export class GameScene extends Phaser.Scene {
     const selectedAgent = this.stateManager.getSelectedAgent();
 
     // Update camera (handles keyboard panning)
-    this.cameraManager.update();
+    const gridPos = this.getAgentGridPosition(this.cameraManager.getFollowingAgentId());
+    this.cameraManager.update(gridPos);
 
     // Update PiP camera to follow selected agent
     if (this.cameraManager.isDualCameraEnabled() && selectedAgent && selectedAgent.alive) {

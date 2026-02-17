@@ -181,7 +181,6 @@ export class UIManager {
       cameraControlHeight,
       this.cameraManager,
       this.stateManager,
-      this.displayStateManager,
       wc
     );
     cameraControlUI.create();

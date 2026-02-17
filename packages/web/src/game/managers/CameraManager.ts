@@ -58,13 +58,22 @@ export class CameraManager {
   // Callback to get agent position in GRID coordinates (set by GameScene)
   private getAgentGridPosition?: (agentId: number) => GridCoord | null;
 
-  // UI overlap check callback
-  private isPointerOverUI?: (x: number, y: number) => boolean;
-
-  constructor(scene: Phaser.Scene, camera: Phaser.Cameras.Scene2D.Camera) {
+  constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.camera = camera;
+    this.camera = scene.cameras.main;
     // Don't call init() here - camera dimensions not ready yet
+  }
+
+  /**
+   * Get main camera viewport size in pixels.
+   * Uses scene.scale to avoid camera.displayWidth/displayHeight returning
+   * incorrect values in multi-camera or zoomed setups (see followAgent bug).
+   */
+  private getViewportPixelSize(): { width: number; height: number } {
+    return {
+      width: this.scene.scale.width,
+      height: this.scene.scale.height,
+    };
   }
 
   /**
@@ -78,7 +87,7 @@ export class CameraManager {
     this.worldHeight = gridHeight * CELL_SIZE;
 
     // If already initialized, update camera bounds and recalculate zoom
-    if (this.camera.displayWidth > 0) {
+    if (this.scene.scale.width > 0) {
       this.updateCameraBoundsAndZoom();
     }
   }
@@ -98,10 +107,8 @@ export class CameraManager {
     // Recalculate fitZoom using Math.max to ensure viewport never exceeds map bounds
     // This means on non-square viewports, one dimension will be fully visible
     // and the other will require panning (standard MOBA/RTS behavior)
-    this.fitZoom = Math.max(
-      this.camera.displayWidth / this.worldWidth,
-      this.camera.displayHeight / this.worldHeight
-    );
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    this.fitZoom = Math.max(vw / this.worldWidth, vh / this.worldHeight);
 
     // Set minZoom = fitZoom to prevent zooming out beyond map bounds
     this.minZoom = this.fitZoom;
@@ -127,26 +134,11 @@ export class CameraManager {
    */
   initialize(): void {
     // Validate camera dimensions before proceeding
-    if (this.camera.displayWidth === 0 || this.camera.displayHeight === 0) {
-      console.warn(
-        `CameraManager.initialize() called but camera dimensions not ready: ` +
-        `${this.camera.displayWidth}x${this.camera.displayHeight}. Retrying...`
-      );
-
-      // Retry on next frame when scale system should be ready
-      this.scene.time.delayedCall(100, () => this.initialize());
+    if (this.scene.scale.width === 0 || this.scene.scale.height === 0) {
       return;
     }
-
     this.init();
     this.setupResizeListener();
-  }
-
-  /**
-   * Set callback to check if pointer is over UI (to block zoom when scrolling UI)
-   */
-  setPointerOverUICheck(fn: (x: number, y: number) => boolean): void {
-    this.isPointerOverUI = fn;
   }
 
   /**
@@ -278,8 +270,6 @@ export class CameraManager {
     _deltaX: number,
     deltaY: number
   ): void {
-    // Don't zoom if pointer is over UI
-    if (this.isPointerOverUI?.(pointer.x, pointer.y)) return;
 
     // Exit follow mode when user manually zooms
     if (this.followingAgentId !== null) {
@@ -321,9 +311,6 @@ export class CameraManager {
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     // Only drag with left mouse button
     if (pointer.button !== 0) return;
-
-    // Don't start drag or exit follow when clicking on UI (e.g. double-click agent in sidebar)
-    if (this.isPointerOverUI?.(pointer.x, pointer.y)) return;
 
     // Exit follow mode when user starts dragging
     if (this.followingAgentId !== null) {
@@ -368,7 +355,7 @@ export class CameraManager {
   /**
    * Update called every frame
    */
-  update(): void {
+  update(gridPos: GridCoord | null): void {
     // Handle keyboard panning (also exits follow mode)
     if (this.panKeys.up || this.panKeys.down || this.panKeys.left || this.panKeys.right) {
       // Exit follow mode when user manually pans
@@ -390,17 +377,16 @@ export class CameraManager {
     }
 
     // Update camera position if following an agent
-    if (this.followingAgentId !== null && this.getAgentGridPosition) {
-      const gridPos = this.getAgentGridPosition(this.followingAgentId);
-
+    if (this.followingAgentId !== null) {
       if (gridPos) {
         // Convert grid position to world coordinates (center of cell)
         const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
 
         // Smoothly follow agent (without animation, just direct update)
         const zoom = this.camera.zoom;
-        const viewportWidth = this.camera.displayWidth / zoom;
-        const viewportHeight = this.camera.displayHeight / zoom;
+        const { width: vw, height: vh } = this.getViewportPixelSize();
+        const viewportWidth = vw / zoom;
+        const viewportHeight = vh / zoom;
 
         const scrollX = Phaser.Math.Clamp(
           worldPos.worldX - viewportWidth / 2,
@@ -427,8 +413,9 @@ export class CameraManager {
   private setCameraPosition(x: number, y: number): void {
     const camera = this.camera;
     const zoom = camera.zoom;
-    const viewportWidth = camera.displayWidth / zoom;
-    const viewportHeight = camera.displayHeight / zoom;
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const viewportWidth = vw / zoom;
+    const viewportHeight = vh / zoom;
 
     // Clamp to world bounds
     const clampedX = Phaser.Math.Clamp(
@@ -490,8 +477,9 @@ export class CameraManager {
     const centerY = this.worldHeight / 2;
 
     const camera = this.camera;
-    const viewportWidth = camera.displayWidth / camera.zoom;
-    const viewportHeight = camera.displayHeight / camera.zoom;
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const viewportWidth = vw / camera.zoom;
+    const viewportHeight = vh / camera.zoom;
 
     this.setCameraPosition(
       centerX - viewportWidth / 2,
@@ -537,8 +525,9 @@ export class CameraManager {
     // Calculate target scroll position using TARGET zoom (not current zoom)
     // This ensures agent stays centered after zoom animation completes
     const targetZoom = this.followZoom;
-    const viewportWidth = this.camera.displayWidth / targetZoom;
-    const viewportHeight = this.camera.displayHeight / targetZoom;
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const viewportWidth = vw / targetZoom;
+    const viewportHeight = vh / targetZoom;
 
     const scrollX = Phaser.Math.Clamp(
       worldPos.worldX - viewportWidth / 2,
@@ -597,8 +586,9 @@ export class CameraManager {
   panToPosition(targetX: number, targetY: number, duration: number = 500): void {
     const camera = this.camera;
     const zoom = camera.zoom;
-    const viewportWidth = camera.displayWidth / zoom;
-    const viewportHeight = camera.displayHeight / zoom;
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const viewportWidth = vw / zoom;
+    const viewportHeight = vh / zoom;
 
     const scrollX = Phaser.Math.Clamp(
       targetX - viewportWidth / 2,
@@ -649,9 +639,11 @@ export class CameraManager {
    * Get viewport dimensions in world coordinates
    */
   getViewportDimensions(): { width: number; height: number } {
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const zoom = this.camera.zoom;
     return {
-      width: this.camera.displayWidth / this.camera.zoom,
-      height: this.camera.displayHeight / this.camera.zoom,
+      width: vw / zoom,
+      height: vh / zoom,
     };
   }
 
@@ -692,8 +684,8 @@ export class CameraManager {
    */
   private createPipCamera(): void {
     // Calculate PiP camera position (bottom-right corner by default)
-    const mainCameraWidth = this.camera.displayWidth;
-    const mainCameraHeight = this.camera.displayHeight;
+    const { width: mainCameraWidth, height: mainCameraHeight } =
+      this.getViewportPixelSize();
 
     const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
     const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
@@ -806,17 +798,15 @@ export class CameraManager {
    */
   onResize(): void {
     // Validate dimensions before recalculating
-    if (this.camera.displayWidth === 0 || this.camera.displayHeight === 0) {
+    if (this.scene.scale.width === 0 || this.scene.scale.height === 0) {
       console.warn("CameraManager.onResize() called with invalid camera dimensions");
       return;
     }
 
     // Recalculate zoom constraints based on new dimensions
     // Use Math.max to ensure viewport never exceeds map bounds
-    this.fitZoom = Math.max(
-      this.camera.displayWidth / this.worldWidth,
-      this.camera.displayHeight / this.worldHeight
-    );
+    const { width: vw, height: vh } = this.getViewportPixelSize();
+    this.fitZoom = Math.max(vw / this.worldWidth, vh / this.worldHeight);
     this.minZoom = this.fitZoom;
 
     // Clamp current zoom to new constraints
@@ -859,8 +849,8 @@ export class CameraManager {
    */
   private updatePipCameraPosition(): void {
     if (this.pipCamera && this.pipBorderGraphics) {
-      const mainCameraWidth = this.camera.displayWidth;
-      const mainCameraHeight = this.camera.displayHeight;
+      const { width: mainCameraWidth, height: mainCameraHeight } =
+        this.getViewportPixelSize();
 
       const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
       const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
