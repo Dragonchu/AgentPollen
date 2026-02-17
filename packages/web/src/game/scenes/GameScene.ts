@@ -18,6 +18,8 @@ import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
 import { UIManager } from "../managers/UIManager";
 import { CameraManager } from "../managers/CameraManager";
+import { CoordinateUtils } from "../utils/CoordinateUtils";
+import type { GridCoord } from "../types/coordinates";
 
 // Export CELL_SIZE for external use (GRID_SIZE is now dynamic from backend)
 export { CELL_SIZE } from "./gameConstants";
@@ -155,14 +157,18 @@ export class GameScene extends Phaser.Scene {
 
     // 6. Wire up callbacks to CameraManager
     this.cameraManager.setPointerOverUICheck((x, y) => this.uiManager.isPointerOverUI(x, y));
-    this.cameraManager.setAgentPositionCallback((agentId) => {
+
+    // Set agent position callback - returns GRID coordinates
+    this.cameraManager.setAgentGridPositionCallback((agentId: number): GridCoord | null => {
       const displayState = this.displayStateManager.getDisplayStates().get(agentId);
       if (displayState) {
-        return { x: displayState.displayX, y: displayState.displayY };
+        // displayX/displayY are in GRID coordinates
+        return { gridX: displayState.displayX, gridY: displayState.displayY };
       }
       const agent = this.stateManager.getAgents().get(agentId);
       if (agent) {
-        return { x: agent.x, y: agent.y };
+        // agent.x/y are in GRID coordinates
+        return { gridX: agent.x, gridY: agent.y };
       }
       return null;
     });
@@ -265,9 +271,14 @@ export class GameScene extends Phaser.Scene {
     // Update PiP camera to follow selected agent
     if (this.cameraManager.isDualCameraEnabled() && selectedAgent && selectedAgent.alive) {
       const displayState = this.displayStateManager.getDisplayStates().get(selectedAgent.id);
-      const targetX = displayState ? displayState.displayX * CELL_SIZE + CELL_SIZE / 2 : selectedAgent.x * CELL_SIZE + CELL_SIZE / 2;
-      const targetY = displayState ? displayState.displayY * CELL_SIZE + CELL_SIZE / 2 : selectedAgent.y * CELL_SIZE + CELL_SIZE / 2;
-      this.cameraManager.setPipCameraTarget(targetX, targetY);
+      // Get agent grid position (displayX/displayY or agent.x/y are both GRID coordinates)
+      const gridPos: GridCoord = displayState
+        ? { gridX: displayState.displayX, gridY: displayState.displayY }
+        : { gridX: selectedAgent.x, gridY: selectedAgent.y };
+
+      // Convert to world coordinates
+      const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
+      this.cameraManager.setPipCameraTarget(worldPos.worldX, worldPos.worldY);
     }
 
     // Update display state
@@ -342,9 +353,17 @@ export class GameScene extends Phaser.Scene {
         sprite.setFlipX(newFacing === SpriteDirection.Left);
       }
 
-      const px = displayState.displayX * CELL_SIZE + CELL_SIZE / 2;
-      const py = displayState.displayY * CELL_SIZE + CELL_SIZE / 2;
-      sprite.setPosition(px, py);
+      // Convert grid coordinates to world coordinates (center of cell)
+      const worldPos = CoordinateUtils.gridToWorld(
+        { gridX: displayState.displayX, gridY: displayState.displayY },
+        CELL_SIZE
+      );
+      sprite.setPosition(worldPos.worldX, worldPos.worldY);
+
+      // Ensure sprite origin is centered (explicit for clarity)
+      if (!sprite.originX || sprite.originX !== 0.5 || sprite.originY !== 0.5) {
+        sprite.setOrigin(0.5, 0.5);
+      }
     }
 
     for (const id of this.agentSprites.keys()) {
@@ -447,15 +466,16 @@ export class GameScene extends Phaser.Scene {
     this.obstacleSprites.clear();
 
     // Draw new obstacles
-    for (let y = 0; y < tileMap.height; y++) {
-      for (let x = 0; x < tileMap.width; x++) {
-        const tile = tileMap.tiles[y][x];
+    for (let gridY = 0; gridY < tileMap.height; gridY++) {
+      for (let gridX = 0; gridX < tileMap.width; gridX++) {
+        const tile = tileMap.tiles[gridY][gridX];
         if (tile.type === TileType.Blocked) {
-          const px = x * CELL_SIZE + CELL_SIZE / 2;
-          const py = y * CELL_SIZE + CELL_SIZE / 2;
-          const sprite = this.add.sprite(px, py, ASSETS.IMAGES.ROCK2);
+          // Convert grid coordinates to world coordinates
+          const worldPos = CoordinateUtils.gridToWorld({ gridX, gridY }, CELL_SIZE);
+          const sprite = this.add.sprite(worldPos.worldX, worldPos.worldY, ASSETS.IMAGES.ROCK2);
+          sprite.setOrigin(0.5, 0.5); // Explicit origin
           this.registerGameObject(sprite);
-          this.obstacleSprites.set(`${x},${y}`, sprite);
+          this.obstacleSprites.set(`${gridX},${gridY}`, sprite);
         }
       }
     }
@@ -466,15 +486,19 @@ export class GameScene extends Phaser.Scene {
     const validItems = items.filter((item): item is NonNullable<typeof item> => item != null);
     const currentItemIds = new Set(validItems.map((item) => item.id));
     for (const item of validItems) {
-      const cx = item.x * CELL_SIZE + CELL_SIZE / 2;
-      const cy = item.y * CELL_SIZE + CELL_SIZE / 2;
+      // item.x and item.y are in GRID coordinates
+      const worldPos = CoordinateUtils.gridToWorld(
+        { gridX: item.x, gridY: item.y },
+        CELL_SIZE
+      );
       let sprite = this.itemSprites.get(item.id);
       if (!sprite) {
-        sprite = this.add.image(cx, cy, ASSETS.IMAGES.GOLD_RESOURCE);
+        sprite = this.add.image(worldPos.worldX, worldPos.worldY, ASSETS.IMAGES.GOLD_RESOURCE);
+        sprite.setOrigin(0.5, 0.5); // Explicit origin
         this.registerGameObject(sprite);
         this.itemSprites.set(item.id, sprite);
       } else {
-        sprite.setPosition(cx, cy);
+        sprite.setPosition(worldPos.worldX, worldPos.worldY);
       }
     }
     for (const itemId of this.itemSprites.keys()) {
@@ -497,7 +521,7 @@ export class GameScene extends Phaser.Scene {
 
   private handleClick(screenX: number, screenY: number): void {
     // Convert screen coordinates to grid coordinates using CameraManager
-    const { gx, gy } = this.cameraManager.screenToGrid(screenX, screenY);
+    const clickGridPos = this.cameraManager.screenToGrid(screenX, screenY);
     const displayStates = this.displayStateManager.getDisplayStates();
     const agents = this.stateManager.getAgents();
 
@@ -505,9 +529,13 @@ export class GameScene extends Phaser.Scene {
     for (const [, agent] of agents) {
       if (!agent.alive) continue;
       const displayState = displayStates.get(agent.id);
-      const renderX = displayState ? displayState.displayX : agent.x;
-      const renderY = displayState ? displayState.displayY : agent.y;
-      const dist = Math.abs(renderX - gx) + Math.abs(renderY - gy);
+      // displayX/displayY and agent.x/y are all in GRID coordinates
+      const agentGridPos: GridCoord = displayState
+        ? { gridX: displayState.displayX, gridY: displayState.displayY }
+        : { gridX: agent.x, gridY: agent.y };
+
+      // Calculate Manhattan distance
+      const dist = CoordinateUtils.gridDistance(clickGridPos, agentGridPos);
       if (dist <= 1 && (!closest || dist < closest.dist)) {
         closest = { id: agent.id, dist };
       }

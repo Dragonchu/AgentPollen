@@ -1,5 +1,7 @@
 import * as Phaser from "phaser";
 import { CELL_SIZE } from "../scenes/gameConstants";
+import { CoordinateUtils } from "../utils/CoordinateUtils";
+import type { GridCoord, WorldCoord } from "../types/coordinates";
 
 /**
  * CameraManager handles camera movement, zooming, and viewport management
@@ -53,8 +55,8 @@ export class CameraManager {
   private followingAgentId: number | null = null;
   private followZoom: number = 1.5; // Default zoom when following agent
 
-  // Callback to get agent position (set by GameScene)
-  private getAgentPosition?: (agentId: number) => { x: number; y: number } | null;
+  // Callback to get agent position in GRID coordinates (set by GameScene)
+  private getAgentGridPosition?: (agentId: number) => GridCoord | null;
 
   // UI overlap check callback
   private isPointerOverUI?: (x: number, y: number) => boolean;
@@ -149,9 +151,10 @@ export class CameraManager {
 
   /**
    * Set callback to get agent position for follow mode
+   * @param fn - Callback that returns agent position in GRID coordinates
    */
-  setAgentPositionCallback(fn: (agentId: number) => { x: number; y: number } | null): void {
-    this.getAgentPosition = fn;
+  setAgentGridPositionCallback(fn: (agentId: number) => GridCoord | null): void {
+    this.getAgentGridPosition = fn;
   }
 
   /**
@@ -384,13 +387,12 @@ export class CameraManager {
     }
 
     // Update camera position if following an agent
-    if (this.followingAgentId !== null && this.getAgentPosition) {
-      const position = this.getAgentPosition(this.followingAgentId);
+    if (this.followingAgentId !== null && this.getAgentGridPosition) {
+      const gridPos = this.getAgentGridPosition(this.followingAgentId);
 
-      if (position) {
-        // Convert grid position to world coordinates
-        const targetWorldX = position.x * CELL_SIZE + CELL_SIZE / 2;
-        const targetWorldY = position.y * CELL_SIZE + CELL_SIZE / 2;
+      if (gridPos) {
+        // Convert grid position to world coordinates (center of cell)
+        const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
 
         // Smoothly follow agent (without animation, just direct update)
         const zoom = this.camera.zoom;
@@ -398,12 +400,12 @@ export class CameraManager {
         const viewportHeight = this.camera.displayHeight / zoom;
 
         const scrollX = Phaser.Math.Clamp(
-          targetWorldX - viewportWidth / 2,
+          worldPos.worldX - viewportWidth / 2,
           0,
           this.worldWidth - viewportWidth
         );
         const scrollY = Phaser.Math.Clamp(
-          targetWorldY - viewportHeight / 2,
+          worldPos.worldY - viewportHeight / 2,
           0,
           this.worldHeight - viewportHeight
         );
@@ -441,36 +443,38 @@ export class CameraManager {
   }
 
   // ============ Coordinate Conversion ============
+  // These methods delegate to CoordinateUtils for consistency
 
   /**
    * Convert screen coordinates to world coordinates
    */
-  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-    return {
-      x: this.camera.scrollX + screenX / this.camera.zoom,
-      y: this.camera.scrollY + screenY / this.camera.zoom,
-    };
+  screenToWorld(screenX: number, screenY: number): WorldCoord {
+    return CoordinateUtils.screenToWorld(
+      { screenX, screenY },
+      this.camera
+    );
   }
 
   /**
    * Convert world coordinates to screen coordinates
    */
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-    return {
-      x: (worldX - this.camera.scrollX) * this.camera.zoom,
-      y: (worldY - this.camera.scrollY) * this.camera.zoom,
-    };
+    const screen = CoordinateUtils.worldToScreen(
+      { worldX, worldY },
+      this.camera
+    );
+    return { x: screen.screenX, y: screen.screenY };
   }
 
   /**
    * Convert screen coordinates to grid coordinates
    */
-  screenToGrid(screenX: number, screenY: number): { gx: number; gy: number } {
-    const world = this.screenToWorld(screenX, screenY);
-    return {
-      gx: Math.floor(world.x / CELL_SIZE),
-      gy: Math.floor(world.y / CELL_SIZE),
-    };
+  screenToGrid(screenX: number, screenY: number): GridCoord {
+    return CoordinateUtils.screenToGrid(
+      { screenX, screenY },
+      this.camera,
+      CELL_SIZE
+    );
   }
 
   // ============ Camera Control ============
@@ -510,13 +514,13 @@ export class CameraManager {
    * @param duration - Animation duration in ms (defaults to 400)
    */
   followAgent(agentId: number, zoom?: number, duration: number = 400): void {
-    if (!this.getAgentPosition) {
-      console.warn("Cannot follow agent: getAgentPosition callback not set");
+    if (!this.getAgentGridPosition) {
+      console.warn("Cannot follow agent: getAgentGridPosition callback not set");
       return;
     }
 
-    const position = this.getAgentPosition(agentId);
-    if (!position) {
+    const gridPos = this.getAgentGridPosition(agentId);
+    if (!gridPos) {
       console.warn(`Cannot follow agent ${agentId}: position not found`);
       return;
     }
@@ -524,9 +528,8 @@ export class CameraManager {
     this.followingAgentId = agentId;
     this.followZoom = zoom ?? 1.5;
 
-    // Animate to target position and zoom
-    const targetWorldX = position.x * CELL_SIZE + CELL_SIZE / 2;
-    const targetWorldY = position.y * CELL_SIZE + CELL_SIZE / 2;
+    // Convert grid position to world coordinates (center of cell)
+    const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
 
     // Calculate target scroll position using TARGET zoom (not current zoom)
     // This ensures agent stays centered after zoom animation completes
@@ -535,12 +538,12 @@ export class CameraManager {
     const viewportHeight = this.camera.displayHeight / targetZoom;
 
     const scrollX = Phaser.Math.Clamp(
-      targetWorldX - viewportWidth / 2,
+      worldPos.worldX - viewportWidth / 2,
       0,
       this.worldWidth - viewportWidth
     );
     const scrollY = Phaser.Math.Clamp(
-      targetWorldY - viewportHeight / 2,
+      worldPos.worldY - viewportHeight / 2,
       0,
       this.worldHeight - viewportHeight
     );
