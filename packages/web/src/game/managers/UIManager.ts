@@ -43,9 +43,9 @@ export class UIManager {
   }
 
   /**
-   * Create all UI components
+   * Initialize all UI components
    */
-  create(): void {
+  initialize(): void {
     // Get canvas dimensions
     this.canvasWidth = this.scene.scale.width;
     this.canvasHeight = this.scene.scale.height;

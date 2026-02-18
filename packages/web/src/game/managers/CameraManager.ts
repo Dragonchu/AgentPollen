@@ -55,7 +55,6 @@ export class CameraManager {
   constructor(scene: Phaser.Scene, camera: Phaser.Cameras.Scene2D.Camera) {
     this.scene = scene;
     this.camera = camera;
-    this.init();
   }
 
   /**
@@ -68,7 +67,7 @@ export class CameraManager {
   /**
    * Initialize camera and input handlers
    */
-  private init(): void {
+  initialize(): void {
     // Set physics world bounds (if physics is enabled)
     if (this.scene.physics?.world) {
       this.scene.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
