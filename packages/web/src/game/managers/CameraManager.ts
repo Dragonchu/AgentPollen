@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { CELL_SIZE } from "../scenes/gameConstants";
 import { CoordinateUtils } from "../utils/CoordinateUtils";
 import type { GridCoord, WorldCoord } from "../types/coordinates";
+import type { MotionState } from "./MotionState";
 
 /**
  * CameraManager handles camera movement, zooming, and viewport management
@@ -12,6 +13,7 @@ export class CameraManager {
   private scene: Phaser.Scene;
   private camera: Phaser.Cameras.Scene2D.Camera;
   private pipCamera: Phaser.Cameras.Scene2D.Camera | null = null;
+  private motionState: MotionState | null = null;
 
   // World dimensions (will be set dynamically from backend gridSize)
   private worldWidth: number = 0;
@@ -55,12 +57,12 @@ export class CameraManager {
   private followingAgentId: number | null = null;
   private followZoom: number = 1.5; // Default zoom when following agent
 
-  // Callback to get agent position in GRID coordinates (set by GameScene)
-  private getAgentGridPosition?: (agentId: number) => GridCoord | null;
-
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, motionState?: MotionState) {
     this.scene = scene;
     this.camera = scene.cameras.main;
+    if (motionState) {
+      this.motionState = motionState;
+    }
     // Don't call init() here - camera dimensions not ready yet
   }
 
@@ -142,11 +144,11 @@ export class CameraManager {
   }
 
   /**
-   * Set callback to get agent position for follow mode
-   * @param fn - Callback that returns agent position in GRID coordinates
+   * Set motion state manager for follow mode
+   * @param motionState - MotionState manager instance
    */
-  setAgentGridPositionCallback(fn: (agentId: number) => GridCoord | null): void {
-    this.getAgentGridPosition = fn;
+  setMotionState(motionState: MotionState): void {
+    this.motionState = motionState;
   }
 
   /**
@@ -505,16 +507,23 @@ export class CameraManager {
    * @param duration - Animation duration in ms (defaults to 400)
    */
   followAgent(agentId: number, zoom?: number, duration: number = 400): void {
-    if (!this.getAgentGridPosition) {
-      console.warn("Cannot follow agent: getAgentGridPosition callback not set");
+    if (!this.motionState) {
+      console.warn("Cannot follow agent: MotionState not set");
       return;
     }
 
-    const gridPos = this.getAgentGridPosition(agentId);
-    if (!gridPos) {
+    // Get agent display state from MotionState
+    const displayState = this.motionState.getDisplayState(agentId);
+
+    if (!displayState) {
       console.warn(`Cannot follow agent ${agentId}: position not found`);
       return;
     }
+
+    const gridPos: GridCoord = {
+      gridX: displayState.displayX,
+      gridY: displayState.displayY,
+    };
 
     this.followingAgentId = agentId;
     this.followZoom = zoom ?? 1.5;

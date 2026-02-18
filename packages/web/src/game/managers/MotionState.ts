@@ -190,6 +190,13 @@ export class MotionState extends Phaser.Events.EventEmitter {
   }
 
   /**
+   * Get display state for a specific agent
+   */
+  getDisplayState(agentId: number): AgentDisplayState | undefined {
+    return this.displayStates.get(agentId);
+  }
+
+  /**
    * Clean up all event listeners
    */
   destroy(): void {

@@ -89,22 +89,8 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setViewport(0, 0, this.scale.width, this.scale.height);
-    this.cameraManager = new CameraManager(this);
+    this.cameraManager = new CameraManager(this, this.motionState);
     this.cameraManager.initialize();
-    // Set agent position callback - returns GRID coordinates
-    this.cameraManager.setAgentGridPositionCallback((agentId: number): GridCoord | null => {
-      const displayState = this.motionStates.get(agentId);
-      if (displayState) {
-        // displayX/displayY are in GRID coordinates
-        return { gridX: displayState.displayX, gridY: displayState.displayY };
-      }
-      const agent = this.gameState.getAgents().get(agentId);
-      if (agent) {
-        // agent.x/y are in GRID coordinates
-        return { gridX: agent.x, gridY: agent.y };
-      }
-      return null;
-    });
 
     this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCamera.setScroll(0, 0);
