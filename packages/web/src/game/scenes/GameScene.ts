@@ -25,8 +25,8 @@ import type { GridCoord } from "../types/coordinates";
 export { CELL_SIZE } from "./gameConstants";
 
 export class GameScene extends Phaser.Scene {
-  private stateManager!: GameStateManager;
   private networkManager!: NetworkManager;
+  private stateManager!: GameStateManager;
   private uiManager!: UIManager;
   private cameraManager!: CameraManager;
 
@@ -109,9 +109,14 @@ export class GameScene extends Phaser.Scene {
     this.uiCamera.setZoom(1);
     this.uiCamera.setName("uiCamera");
 
-    this.stateManager = new GameStateManager();
-    this.networkManager = new NetworkManager(this.stateManager);
+    // Initialize managers in correct dependency order:
+    // 1. NetworkManager (no dependencies)
+    this.networkManager = new NetworkManager();
 
+    // 2. GameStateManager (depends on NetworkManager)
+    this.stateManager = new GameStateManager(this.networkManager);
+
+    // 3. UIManager (depends on all managers)
     this.uiManager = new UIManager(
       this,
       this.stateManager,

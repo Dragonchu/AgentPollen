@@ -9,7 +9,11 @@ import {
   VoteState,
   Waypoint,
   WorldSyncState,
+  FullSyncPayload,
+  PathSyncPayload,
+  ThinkingHistoryPayload,
 } from "@battle-royale/shared";
+import { NetworkManager } from "./NetworkManager";
 
 export interface GameState {
   connected: boolean;
@@ -27,12 +31,15 @@ export interface GameState {
 /**
  * GameStateManager manages all game state independently of React.
  * Extends Phaser.Events.EventEmitter to leverage the framework's event system.
+ * Listens to NetworkManager events to update state.
  */
 export class GameStateManager extends Phaser.Events.EventEmitter {
   private state: GameState;
+  private networkManager: NetworkManager;
 
-  constructor() {
+  constructor(networkManager: NetworkManager) {
     super();
+    this.networkManager = networkManager;
     this.state = {
       connected: false,
       world: null,
@@ -45,6 +52,97 @@ export class GameStateManager extends Phaser.Events.EventEmitter {
       tileMap: null,
       thinkingHistory: new Map(),
     };
+
+    // Setup network event listeners
+    this.setupNetworkListeners();
+  }
+
+  /**
+   * Setup listeners for network events
+   */
+  private setupNetworkListeners(): void {
+    this.networkManager.on("network:connected", this.handleConnected, this);
+    this.networkManager.on("network:disconnected", this.handleDisconnected, this);
+    this.networkManager.on("network:sync:full", this.handleFullSync, this);
+    this.networkManager.on("network:sync:world", this.handleWorldSync, this);
+    this.networkManager.on("network:sync:agents", this.handleAgentsSync, this);
+    this.networkManager.on("network:sync:events", this.handleEventsSync, this);
+    this.networkManager.on("network:sync:paths", this.handlePathsSync, this);
+    this.networkManager.on("network:vote:state", this.handleVoteState, this);
+    this.networkManager.on("network:agent:detail", this.handleAgentDetail, this);
+    this.networkManager.on("network:thinking:history", this.handleThinkingHistory, this);
+    this.networkManager.on("network:agent:inspect", this.handleAgentInspect, this);
+    this.networkManager.on("network:agent:clear-selection", this.handleClearSelection, this);
+  }
+
+  // ============ Network Event Handlers ============
+
+  private handleConnected(): void {
+    this.setConnected(true);
+  }
+
+  private handleDisconnected(): void {
+    this.setConnected(false);
+    // Clear paths on disconnect to avoid stale data
+    this.setAgentPaths({});
+  }
+
+  private handleFullSync(data: FullSyncPayload): void {
+    const agentMap = new Map<number, AgentFullState>();
+    for (const a of data.agents) {
+      agentMap.set(a.id, a);
+    }
+    this.setWorld(data.world);
+    this.setAgents(agentMap);
+    this.setItems(data.items);
+    this.setVotes(data.votes);
+    this.setEvents(data.events);
+    this.setTileMap(data.tileMap);
+  }
+
+  private handleWorldSync(world: WorldSyncState): void {
+    this.setWorld(world);
+  }
+
+  private handleAgentsSync(payload: AgentSyncPayload): void {
+    this.updateAgents(payload);
+  }
+
+  private handleEventsSync(events: GameEvent[]): void {
+    this.addEvents(events);
+  }
+
+  private handlePathsSync(data: PathSyncPayload): void {
+    this.setAgentPaths(data.paths);
+  }
+
+  private handleVoteState(votes: VoteState): void {
+    this.setVotes(votes);
+  }
+
+  private handleAgentDetail(detail: AgentFullState): void {
+    const agents = new Map(this.state.agents);
+    agents.set(detail.id, detail);
+    this.setAgents(agents);
+    // If this agent is currently selected, update it
+    if (this.state.selectedAgent?.id === detail.id) {
+      this.selectAgent(detail);
+    }
+  }
+
+  private handleThinkingHistory(data: ThinkingHistoryPayload): void {
+    this.setThinkingHistory(data.agentId, data.history);
+  }
+
+  private handleAgentInspect(agentId: number): void {
+    const agent = this.getAgent(agentId);
+    if (agent) {
+      this.selectAgent(agent);
+    }
+  }
+
+  private handleClearSelection(): void {
+    this.selectAgent(null);
   }
 
   // ============ Getters ============
@@ -210,6 +308,20 @@ export class GameStateManager extends Phaser.Events.EventEmitter {
    * Clean up all event listeners
    */
   destroy(): void {
+    // Unsubscribe from network events
+    this.networkManager.off("network:connected", this.handleConnected, this);
+    this.networkManager.off("network:disconnected", this.handleDisconnected, this);
+    this.networkManager.off("network:sync:full", this.handleFullSync, this);
+    this.networkManager.off("network:sync:world", this.handleWorldSync, this);
+    this.networkManager.off("network:sync:agents", this.handleAgentsSync, this);
+    this.networkManager.off("network:sync:events", this.handleEventsSync, this);
+    this.networkManager.off("network:sync:paths", this.handlePathsSync, this);
+    this.networkManager.off("network:vote:state", this.handleVoteState, this);
+    this.networkManager.off("network:agent:detail", this.handleAgentDetail, this);
+    this.networkManager.off("network:thinking:history", this.handleThinkingHistory, this);
+    this.networkManager.off("network:agent:inspect", this.handleAgentInspect, this);
+    this.networkManager.off("network:agent:clear-selection", this.handleClearSelection, this);
+
     this.removeAllListeners();
   }
 }
