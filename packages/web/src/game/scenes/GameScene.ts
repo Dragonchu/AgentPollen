@@ -1,16 +1,11 @@
 import type {
   AgentFullState,
-  ItemState,
   TileMap,
   Waypoint,
 } from "@battle-royale/shared";
-import { AgentActionState, TileType } from "@battle-royale/shared";
 import * as Phaser from "phaser";
-import { SpriteDirection } from "@/constants/Assets";
-import { ASSETS } from "@/constants/Assets";
 import { AgentDisplayStateManager } from "./AgentDisplayStateManager";
 import { CELL_SIZE, GRID_SIZE } from "./gameConstants";
-import type {Direction} from "./types";
 import {
   type GameSceneRenderState,
   GameSceneRenderer,
@@ -19,6 +14,7 @@ import { GameStateManager } from "../managers/GameStateManager";
 import { NetworkManager } from "../managers/NetworkManager";
 import { UIManager } from "../managers/UIManager";
 import { CameraManager } from "../managers/CameraManager";
+import { WorldRenderer } from "../managers/WorldRenderer";
 
 // 对外保持原有导出，便于 GameCanvas 等调用方使用
 export { CELL_SIZE, GRID_SIZE, CANVAS_SIZE } from "./gameConstants";
@@ -28,20 +24,15 @@ export class GameScene extends Phaser.Scene {
   private networkManager!: NetworkManager;
   private uiManager!: UIManager;
   private cameraManager!: CameraManager;
+  private worldRenderer!: WorldRenderer;
 
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private zoneGraphics!: Phaser.GameObjects.Graphics;
   private connectionGraphics!: Phaser.GameObjects.Graphics;
   private allianceGraphics!: Phaser.GameObjects.Graphics;
 
-  private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
-  private itemSprites = new Map<number, Phaser.GameObjects.Image>();
-
   private readonly displayStateManager = new AgentDisplayStateManager();
   private gameSceneRenderer!: GameSceneRenderer;
-
-  private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
-  private animCreated = false;
 
   constructor() {
     super({ key: "GameScene" });
@@ -52,9 +43,14 @@ export class GameScene extends Phaser.Scene {
     this.stateManager = new GameStateManager();
     this.networkManager = new NetworkManager(this.stateManager);
     this.cameraManager = new CameraManager(this, this.cameras.main);
+    this.worldRenderer = new WorldRenderer(this);
     this.uiManager = new UIManager(this, this.stateManager, this.networkManager, this.cameraManager);
 
-    // 2. Create graphics objects for game scene
+    // 2. Initialize all managers
+    this.worldRenderer.initialize();
+    this.uiManager.create();
+
+    // 3. Create graphics objects for game scene
     this.gridGraphics = this.add.graphics();
     this.zoneGraphics = this.add.graphics();
     this.connectionGraphics = this.add.graphics();
@@ -68,16 +64,13 @@ export class GameScene extends Phaser.Scene {
     });
     this.gameSceneRenderer.drawGrid();
 
-    // 3. Setup input handling (but don't interfere with camera drag)
+    // 4. Setup input handling (but don't interfere with camera drag)
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       // Only handle clicks if not dragging camera (left button drag is reserved for camera)
       if (pointer.button === 2) {
         this.handleClick(pointer.x, pointer.y);
       }
     });
-
-    // 4. Initialize UI manager
-    this.uiManager.create();
 
     // 5. Connect to server and start receiving data
     this.networkManager.connect();
@@ -100,7 +93,7 @@ export class GameScene extends Phaser.Scene {
     this.stateManager.on<"state:tilemap:updated", TileMap>(
       "state:tilemap:updated",
       (tileMap) => {
-        this.drawObstacles(tileMap);
+        this.worldRenderer.drawObstacles(tileMap);
       }
     );
 
@@ -140,11 +133,10 @@ export class GameScene extends Phaser.Scene {
     // Update display state
     this.displayStateManager.tick(delta, agents);
 
-    // Update agent sprites and animations
-    this.updateAgentSprites(agents);
-
-    // Draw items
-    this.drawItems(items);
+    // Update world rendering (agents, items)
+    const displayStates = this.displayStateManager.getDisplayStates();
+    this.worldRenderer.updateAgentSprites(agents, displayStates);
+    this.worldRenderer.drawItems(items);
 
     // Draw connections and alliances
     const state = this.getRenderState(agents, selectedAgent);
@@ -153,138 +145,6 @@ export class GameScene extends Phaser.Scene {
 
     // Update UI manager
     this.uiManager.update(time, delta);
-  }
-
-  private updateAgentSprites(agents: Map<number, AgentFullState>): void {
-    const displayStates = this.displayStateManager.getDisplayStates();
-
-    for (const [id, displayState] of displayStates) {
-      const agent = agents.get(id);
-      if (!agent?.alive) {
-        const sprite = this.agentSprites.get(id);
-        if (sprite) {
-          sprite.destroy();
-          this.agentSprites.delete(id);
-        }
-        continue;
-      }
-
-      let sprite = this.agentSprites.get(id);
-      if (!sprite) {
-        if (!this.animCreated) {
-          this.createAnimations();
-          this.animCreated = true;
-        }
-        sprite = this.add.sprite(0, 0, ASSETS.IMAGES.WARRIOR_RUN.KEY);
-        const isMoving =
-          displayState.path.length > 0 && displayState.pathIndex < displayState.path.length;
-        const initialAnim = this.getAnimationForState(agent.actionState, isMoving);
-        this.safePlayAnimation(sprite, initialAnim);
-        displayState.currentAnimation = agent.actionState;
-        this.agentSprites.set(id, sprite);
-      } else {
-        const isMoving =
-          displayState.path.length > 0 && displayState.pathIndex < displayState.path.length;
-        const newAnim = this.getAnimationForState(agent.actionState, isMoving);
-        if (
-          displayState.currentAnimation !== agent.actionState ||
-          newAnim !== sprite.anims.currentAnim?.key
-        ) {
-          this.safePlayAnimation(sprite, newAnim);
-          displayState.currentAnimation = agent.actionState;
-          if (agent.actionState === AgentActionState.Fighting) {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_ATTACK.KEY);
-          } else if (!isMoving) {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_IDLE.KEY);
-          } else {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_RUN.KEY);
-          }
-        }
-      }
-
-      const newFacing = this.getDirectionFromMovement(displayState.prevX, displayState.targetX);
-      if (newFacing !== displayState.facing) {
-        displayState.facing = newFacing;
-        sprite.setFlipX(newFacing === SpriteDirection.Left);
-      }
-
-      const px = displayState.displayX * CELL_SIZE + CELL_SIZE / 2;
-      const py = displayState.displayY * CELL_SIZE + CELL_SIZE / 2;
-      sprite.setPosition(px, py);
-    }
-
-    for (const id of this.agentSprites.keys()) {
-      const hasDisplay = displayStates.has(id);
-      const alive = agents.get(id)?.alive;
-      if (!hasDisplay || !alive) {
-        this.agentSprites.get(id)?.destroy();
-        this.agentSprites.delete(id);
-      }
-    }
-  }
-
-  private createAnimations(): void {
-    this.anims.create({
-      key: "walk-anim",
-      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_RUN.KEY, {
-        start: 0,
-        end: 5,
-      }),
-      frameRate: 6,
-      repeat: -1,
-    });
-    this.anims.create({
-      key: "attack-anim",
-      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_ATTACK.KEY, {
-        start: 0,
-        end: 5,
-      }),
-      frameRate: 6,
-      repeat: -1,
-    });
-    this.anims.create({
-      key: "idle-anim",
-      frames: this.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_IDLE.KEY, {
-        start: 0,
-        end: 3,
-      }),
-      frameRate: 4,
-      repeat: -1,
-    });
-  }
-
-  private getAnimationForState(actionState: AgentActionState, isMoving: boolean): string {
-    if (actionState === AgentActionState.Fighting) return "attack-anim";
-    if (isMoving) return "walk-anim";
-    return "idle-anim";
-  }
-
-  private safePlayAnimation(sprite: Phaser.GameObjects.Sprite | undefined, animKey: string): void {
-    // Guard: ensure sprite exists and is not destroyed
-    if (!sprite || sprite.scene !== this) {
-      return;
-    }
-
-    // Only attempt to play animation if it exists
-    if (!this.anims.exists(animKey)) {
-      return;
-    }
-
-    // Don't replay if already playing
-    if (sprite.anims.currentAnim?.key === animKey) {
-      return;
-    }
-
-    try {
-      sprite.play(animKey);
-    } catch (e) {
-      // Silently fail - animation may not be fully loaded yet
-      console.debug(`Failed to play animation ${animKey}:`, e);
-    }
-  }
-
-  private getDirectionFromMovement(fromX: number, toX: number): Direction {
-    return toX < fromX ? SpriteDirection.Left : SpriteDirection.Right;
   }
 
   private getRenderState(
@@ -300,48 +160,6 @@ export class GameScene extends Phaser.Scene {
       zoneCenterX: world?.zoneCenterX ?? GRID_SIZE / 2,
       zoneCenterY: world?.zoneCenterY ?? GRID_SIZE / 2,
     };
-  }
-
-  private drawObstacles(tileMap: TileMap): void {
-    // Clear old obstacles
-    for (const sprite of this.obstacleSprites.values()) {
-      sprite.destroy();
-    }
-    this.obstacleSprites.clear();
-
-    // Draw new obstacles
-    for (let y = 0; y < tileMap.height; y++) {
-      for (let x = 0; x < tileMap.width; x++) {
-        const tile = tileMap.tiles[y][x];
-        if (tile.type === TileType.Blocked) {
-          const px = x * CELL_SIZE + CELL_SIZE / 2;
-          const py = y * CELL_SIZE + CELL_SIZE / 2;
-          const sprite = this.add.sprite(px, py, ASSETS.IMAGES.ROCK2);
-          this.obstacleSprites.set(`${x},${y}`, sprite);
-        }
-      }
-    }
-  }
-
-  private drawItems(items: ItemState[]): void {
-    const currentItemIds = new Set(items.map((item) => item.id));
-    for (const item of items) {
-      const cx = item.x * CELL_SIZE + CELL_SIZE / 2;
-      const cy = item.y * CELL_SIZE + CELL_SIZE / 2;
-      let sprite = this.itemSprites.get(item.id);
-      if (!sprite) {
-        sprite = this.add.image(cx, cy, ASSETS.IMAGES.GOLD_RESOURCE);
-        this.itemSprites.set(item.id, sprite);
-      } else {
-        sprite.setPosition(cx, cy);
-      }
-    }
-    for (const itemId of this.itemSprites.keys()) {
-      if (!currentItemIds.has(itemId)) {
-        this.itemSprites.get(itemId)?.destroy();
-        this.itemSprites.delete(itemId);
-      }
-    }
   }
 
   private redraw(): void {
@@ -408,6 +226,7 @@ export class GameScene extends Phaser.Scene {
    */
   shutdown(): void {
     this.cameraManager.destroy();
+    this.worldRenderer.destroy();
     this.uiManager.destroy();
   }
 }
