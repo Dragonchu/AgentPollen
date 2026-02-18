@@ -1,8 +1,7 @@
 import * as Phaser from "phaser";
-import { GameStateManager } from "./GameStateManager";
-import { NetworkManager } from "./NetworkManager";
+import { GameController } from "./GameController";
 import { CameraManager } from "./CameraManager";
-import { AgentMotionManager } from "./AgentMotionManager";
+import { MotionState } from "./MotionState";
 import { BaseUI } from "../ui/BaseUI";
 import { HeaderUI } from "../ui/HeaderUI";
 import { EventFeedUI } from "../ui/EventFeedUI";
@@ -12,16 +11,16 @@ import { VotePanelUI } from "../ui/VotePanelUI";
 import { AIThinkingUI } from "../ui/AIThinkingUI";
 
 /**
- * UIManager manages all UI components for the game.
+ * UICoordinator manages all UI components for the game.
+ * Presentation layer - coordinates UI components and their interactions.
  * It subscribes to state changes and updates UI components accordingly.
  * Uses percentage-based layout for responsive sizing.
  */
-export class UIManager {
+export class UICoordinator {
   private scene: Phaser.Scene;
-  private stateManager: GameStateManager;
-  private networkManager: NetworkManager;
+  private gameController: GameController;
   private cameraManager: CameraManager;
-  private motionManager: AgentMotionManager;
+  private motionState: MotionState;
   private worldCamera: Phaser.Cameras.Scene2D.Camera;
   private uiComponents: Map<string, BaseUI> = new Map();
 
@@ -37,17 +36,15 @@ export class UIManager {
 
   constructor(
     scene: Phaser.Scene,
-    stateManager: GameStateManager,
-    networkManager: NetworkManager,
+    gameController: GameController,
     cameraManager: CameraManager,
-    motionManager: AgentMotionManager,
+    motionState: MotionState,
     worldCamera: Phaser.Cameras.Scene2D.Camera
   ) {
     this.scene = scene;
-    this.stateManager = stateManager;
-    this.networkManager = networkManager;
+    this.gameController = gameController;
     this.cameraManager = cameraManager;
-    this.motionManager = motionManager;
+    this.motionState = motionState;
     this.worldCamera = worldCamera;
   }
 
@@ -74,7 +71,7 @@ export class UIManager {
       this.headerHeight / 2,
       this.canvasWidth,
       this.headerHeight,
-      this.stateManager,
+      this.gameController,
       wc
     );
     headerUI.create();
@@ -91,8 +88,7 @@ export class UIManager {
       sidebarY,
       this.sidebarWidth,
       sidebarHeight,
-      this.stateManager,
-      this.networkManager,
+      this.gameController,
       this.cameraManager,
       wc
     );
@@ -112,8 +108,7 @@ export class UIManager {
       rightPanelY + votePanelHeight / 2,
       this.rightPanelWidth - this.padding,
       votePanelHeight - this.padding,
-      this.stateManager,
-      this.networkManager,
+      this.gameController,
       wc
     );
     votePanelUI.create();
@@ -128,7 +123,7 @@ export class UIManager {
       statsY,
       this.rightPanelWidth - this.padding,
       statsHeight - this.padding,
-      this.stateManager,
+      this.gameController,
       wc
     );
     agentStatsUI.create();
@@ -143,7 +138,7 @@ export class UIManager {
       eventFeedY + eventFeedHeight / 2,
       this.rightPanelWidth - this.padding,
       eventFeedHeight - this.padding,
-      this.stateManager,
+      this.gameController,
       wc
     );
     eventFeedUI.create();
@@ -156,10 +151,9 @@ export class UIManager {
       0,
       260,
       70,
-      this.stateManager,
-      this.networkManager,
+      this.gameController,
       this.cameraManager,
-      this.motionManager,
+      this.motionState,
       wc
     );
     aiThinkingUI.create();
@@ -272,23 +266,25 @@ export class UIManager {
    * Setup listeners for state changes
    */
   private setupStateListeners(): void {
+    const gameState = this.gameController.getGameState();
+
     // Listen to world updates
-    this.stateManager.on("state:world:updated", this.onWorldUpdated, this);
+    gameState.on("state:world:updated", this.onWorldUpdated, this);
 
     // Listen to agent updates
-    this.stateManager.on("state:agents:updated", this.onAgentsUpdated, this);
+    gameState.on("state:agents:updated", this.onAgentsUpdated, this);
 
     // Listen to event updates
-    this.stateManager.on("state:events:updated", this.onEventsUpdated, this);
+    gameState.on("state:events:updated", this.onEventsUpdated, this);
 
     // Listen to vote updates
-    this.stateManager.on("state:votes:updated", this.onVotesUpdated, this);
+    gameState.on("state:votes:updated", this.onVotesUpdated, this);
 
     // Listen to agent selection
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    gameState.on("state:agent:selected", this.onAgentSelected, this);
 
     // Listen to thinking history updates
-    this.stateManager.on("state:thinking:updated", this.onThinkingUpdated, this);
+    gameState.on("state:thinking:updated", this.onThinkingUpdated, this);
   }
 
   /**
@@ -322,13 +318,15 @@ export class UIManager {
   destroy(): void {
     this.scene.scale.off("resize", this.onResize, this);
 
+    const gameState = this.gameController.getGameState();
+
     // Unsubscribe from all state events
-    this.stateManager.off("state:world:updated", this.onWorldUpdated, this);
-    this.stateManager.off("state:agents:updated", this.onAgentsUpdated, this);
-    this.stateManager.off("state:events:updated", this.onEventsUpdated, this);
-    this.stateManager.off("state:votes:updated", this.onVotesUpdated, this);
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
-    this.stateManager.off("state:thinking:updated", this.onThinkingUpdated, this);
+    gameState.off("state:world:updated", this.onWorldUpdated, this);
+    gameState.off("state:agents:updated", this.onAgentsUpdated, this);
+    gameState.off("state:events:updated", this.onEventsUpdated, this);
+    gameState.off("state:votes:updated", this.onVotesUpdated, this);
+    gameState.off("state:agent:selected", this.onAgentSelected, this);
+    gameState.off("state:thinking:updated", this.onThinkingUpdated, this);
 
     // Destroy all UI components
     for (const component of this.uiComponents.values()) {

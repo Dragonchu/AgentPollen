@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { WorldSyncState, GamePhase } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
+import { GameController } from "../managers/GameController";
 import { THEME } from "./theme";
 
 /**
@@ -13,7 +13,7 @@ import { THEME } from "./theme";
  * - Alive agent count
  */
 export class HeaderUI extends BaseUI {
-  private stateManager: GameStateManager;
+  private gameController: GameController;
 
   // UI Elements
   private liveIndicator?: Phaser.GameObjects.Graphics;
@@ -30,11 +30,11 @@ export class HeaderUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
+    gameController: GameController,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
+    this.gameController = gameController;
   }
 
   create(): void {
@@ -106,10 +106,10 @@ export class HeaderUI extends BaseUI {
     this.roundText.setOrigin(1, 0.5);
 
     // Subscribe to state changes
-    this.stateManager.on("state:world:updated", this.onWorldUpdate, this);
+    this.gameController.getGameState().on("state:world:updated", this.onWorldUpdate, this);
 
     // Initial state
-    const initialWorld = this.stateManager.getWorld();
+    const initialWorld = this.gameController.getGameState().getWorld();
     if (initialWorld) {
       this.currentWorld = initialWorld;
       this.updateWorldDisplay();
@@ -179,7 +179,7 @@ export class HeaderUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:world:updated", this.onWorldUpdate, this);
+    this.gameController.getGameState().off("state:world:updated", this.onWorldUpdate, this);
     super.destroy();
   }
 }

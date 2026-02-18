@@ -1,8 +1,7 @@
 import * as Phaser from "phaser";
 import { AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
-import { NetworkManager } from "../managers/NetworkManager";
+import { GameController } from "../managers/GameController";
 import { CameraManager } from "../managers/CameraManager";
 import { THEME } from "./theme";
 
@@ -21,8 +20,7 @@ type RexScene = Phaser.Scene & {
  * Uses RexUI scrollablePanel when available.
  */
 export class SidebarUI extends BaseUI {
-  private stateManager: GameStateManager;
-  private networkManager: NetworkManager;
+  private gameController: GameController;
   private cameraManager: CameraManager;
   private scrollPanel?: Phaser.GameObjects.GameObject & { layout: () => void };
   private contentSizer?: Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
@@ -43,14 +41,12 @@ export class SidebarUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
-    networkManager: NetworkManager,
+    gameController: GameController,
     cameraManager: CameraManager,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
-    this.networkManager = networkManager;
+    this.gameController = gameController;
     this.cameraManager = cameraManager;
   }
 
@@ -95,11 +91,11 @@ export class SidebarUI extends BaseUI {
       this.container.add(placeholder);
     }
 
-    this.stateManager.on("state:agents:updated", this.onAgentsUpdate, this);
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().on("state:agents:updated", this.onAgentsUpdate, this);
+    this.gameController.getGameState().on("state:agent:selected", this.onAgentSelected, this);
 
-    this.updateAgents(this.stateManager.getAgents());
-    const sel = this.stateManager.getSelectedAgent();
+    this.updateAgents(this.gameController.getAgents());
+    const sel = this.gameController.getSelectedAgent();
     if (sel) this.selectedAgentId = sel.id;
   }
 
@@ -174,7 +170,7 @@ export class SidebarUI extends BaseUI {
         this.lastClickedAgentId = null;
       } else {
         // Single-click: Select agent
-        this.networkManager.inspectAgent(agent.id);
+        this.gameController.selectAgent(agent.id);
         this.lastClickTime = now;
         this.lastClickedAgentId = agent.id;
       }
@@ -238,8 +234,8 @@ export class SidebarUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:agents:updated", this.onAgentsUpdate, this);
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().off("state:agents:updated", this.onAgentsUpdate, this);
+    this.gameController.getGameState().off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }

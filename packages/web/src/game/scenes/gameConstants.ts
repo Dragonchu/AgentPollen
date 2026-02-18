@@ -9,4 +9,4 @@ export const CELL_SIZE = 64;
 // 注意：网格大小（gridSize）不再硬编码，而是从后端 tilemap 动态获取
 // - MVP 阶段可能是 20×20
 // - 生产环境可能是 100×100
-// 前端通过 GameStateManager.getGridSize() 获取实际值
+// 前端通过 GameState.getGridSize() 获取实际值

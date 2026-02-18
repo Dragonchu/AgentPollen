@@ -17,8 +17,9 @@ type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001";
 
 /**
- * NetworkManager handles Socket.IO communication with the server.
- * Extends EventEmitter to emit network events for other managers to handle.
+ * NetworkService handles Socket.IO communication with the server.
+ * Infrastructure layer - only responsible for network I/O.
+ * Extends EventEmitter to emit network events for other layers to handle.
  *
  * Events emitted:
  * - 'network:connected': When connected to server
@@ -32,7 +33,7 @@ const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001"
  * - 'network:agent:detail': Agent detail (AgentFullState)
  * - 'network:thinking:history': Thinking history (ThinkingHistoryPayload)
  */
-export class NetworkManager extends Phaser.Events.EventEmitter {
+export class NetworkService extends Phaser.Events.EventEmitter {
   private socket: GameSocket | null = null;
   private serverUrl: string;
 

@@ -7,14 +7,15 @@ import type { AgentDisplayState } from "../scenes/types";
 const BASE_INTERPOLATION_DURATION_MS = 1000;
 
 /**
- * AgentMotionManager manages agent motion states and interpolation.
+ * MotionState manages agent motion states and interpolation.
+ * Domain/State layer - manages motion state with smooth interpolation.
  * Extends Phaser.Events.EventEmitter to emit motion update events.
  *
  * Events:
  * - 'motion:updated': Emitted when server data updates motion targets
  * - 'motion:frame-updated': Emitted each frame when interpolation progresses
  */
-export class AgentMotionManager extends Phaser.Events.EventEmitter {
+export class MotionState extends Phaser.Events.EventEmitter {
   private displayStates = new Map<number, AgentDisplayState>();
 
   constructor() {

@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { GameEvent, GameEventType } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
+import { GameController } from "../managers/GameController";
 import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
@@ -19,7 +19,7 @@ type RexScene = Phaser.Scene & {
  * Uses RexUI scrollablePanel when available.
  */
 export class EventFeedUI extends BaseUI {
-  private stateManager: GameStateManager;
+  private gameController: GameController;
   private scrollPanel?: Phaser.GameObjects.GameObject & { layout: () => void };
   private contentSizer?: Phaser.GameObjects.GameObject & { add: (child: Phaser.GameObjects.GameObject, config?: object) => void; removeAll: (destroy?: boolean) => void };
   private eventItems: Map<number, Phaser.GameObjects.Container> = new Map();
@@ -31,11 +31,11 @@ export class EventFeedUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
+    gameController: GameController,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
+    this.gameController = gameController;
   }
 
   create(): void {
@@ -68,8 +68,8 @@ export class EventFeedUI extends BaseUI {
       this.container.add(placeholder);
     }
 
-    this.stateManager.on("state:events:updated", this.onEventsUpdate, this);
-    this.updateEvents(this.stateManager.getEvents());
+    this.gameController.getGameState().on("state:events:updated", this.onEventsUpdate, this);
+    this.updateEvents(this.gameController.getGameState().getEvents());
   }
 
   private onEventsUpdate(events: GameEvent[]): void {
@@ -147,7 +147,7 @@ export class EventFeedUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:events:updated", this.onEventsUpdate, this);
+    this.gameController.getGameState().off("state:events:updated", this.onEventsUpdate, this);
     super.destroy();
   }
 }

@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
+import { GameController } from "../managers/GameController";
 import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
@@ -17,7 +17,7 @@ type RexScene = Phaser.Scene & {
  * Simplified: name + health bar + shield bar only.
  */
 export class AgentStatsUI extends BaseUI {
-  private stateManager: GameStateManager;
+  private gameController: GameController;
   private selectedAgent: AgentFullState | null = null;
   private healthBar?: Phaser.GameObjects.GameObject & { setValue: (v: number) => void; setBarColor?: (c: number) => void };
   private shieldBar?: Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
@@ -34,11 +34,11 @@ export class AgentStatsUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
+    gameController: GameController,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
+    this.gameController = gameController;
   }
 
   create(): void {
@@ -108,9 +108,9 @@ export class AgentStatsUI extends BaseUI {
       } as Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
     }
 
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().on("state:agent:selected", this.onAgentSelected, this);
 
-    const initialAgent = this.stateManager.getSelectedAgent();
+    const initialAgent = this.gameController.getSelectedAgent();
     if (initialAgent) {
       this.selectedAgent = initialAgent;
       this.lastSelectedAgentId = initialAgent.id;
@@ -189,7 +189,7 @@ export class AgentStatsUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }

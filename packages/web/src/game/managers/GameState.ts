@@ -13,9 +13,9 @@ import {
   PathSyncPayload,
   ThinkingHistoryPayload,
 } from "@battle-royale/shared";
-import { NetworkManager } from "./NetworkManager";
+import { NetworkService } from "./NetworkService";
 
-export interface GameState {
+export interface GameStateData {
   connected: boolean;
   world: WorldSyncState | null;
   agents: Map<number, AgentFullState>;
@@ -29,17 +29,18 @@ export interface GameState {
 }
 
 /**
- * GameStateManager manages all game state independently of React.
+ * GameState manages all game state independently of React.
+ * Domain/State layer - only responsible for state storage and emission.
  * Extends Phaser.Events.EventEmitter to leverage the framework's event system.
- * Listens to NetworkManager events to update state.
+ * Listens to NetworkService events to update state.
  */
-export class GameStateManager extends Phaser.Events.EventEmitter {
-  private state: GameState;
-  private networkManager: NetworkManager;
+export class GameState extends Phaser.Events.EventEmitter {
+  private state: GameStateData;
+  private networkService: NetworkService;
 
-  constructor(networkManager: NetworkManager) {
+  constructor(networkService: NetworkService) {
     super();
-    this.networkManager = networkManager;
+    this.networkService = networkService;
     this.state = {
       connected: false,
       world: null,
@@ -61,18 +62,18 @@ export class GameStateManager extends Phaser.Events.EventEmitter {
    * Setup listeners for network events
    */
   private setupNetworkListeners(): void {
-    this.networkManager.on("network:connected", this.handleConnected, this);
-    this.networkManager.on("network:disconnected", this.handleDisconnected, this);
-    this.networkManager.on("network:sync:full", this.handleFullSync, this);
-    this.networkManager.on("network:sync:world", this.handleWorldSync, this);
-    this.networkManager.on("network:sync:agents", this.handleAgentsSync, this);
-    this.networkManager.on("network:sync:events", this.handleEventsSync, this);
-    this.networkManager.on("network:sync:paths", this.handlePathsSync, this);
-    this.networkManager.on("network:vote:state", this.handleVoteState, this);
-    this.networkManager.on("network:agent:detail", this.handleAgentDetail, this);
-    this.networkManager.on("network:thinking:history", this.handleThinkingHistory, this);
-    this.networkManager.on("network:agent:inspect", this.handleAgentInspect, this);
-    this.networkManager.on("network:agent:clear-selection", this.handleClearSelection, this);
+    this.networkService.on("network:connected", this.handleConnected, this);
+    this.networkService.on("network:disconnected", this.handleDisconnected, this);
+    this.networkService.on("network:sync:full", this.handleFullSync, this);
+    this.networkService.on("network:sync:world", this.handleWorldSync, this);
+    this.networkService.on("network:sync:agents", this.handleAgentsSync, this);
+    this.networkService.on("network:sync:events", this.handleEventsSync, this);
+    this.networkService.on("network:sync:paths", this.handlePathsSync, this);
+    this.networkService.on("network:vote:state", this.handleVoteState, this);
+    this.networkService.on("network:agent:detail", this.handleAgentDetail, this);
+    this.networkService.on("network:thinking:history", this.handleThinkingHistory, this);
+    this.networkService.on("network:agent:inspect", this.handleAgentInspect, this);
+    this.networkService.on("network:agent:clear-selection", this.handleClearSelection, this);
   }
 
   // ============ Network Event Handlers ============
@@ -147,7 +148,7 @@ export class GameStateManager extends Phaser.Events.EventEmitter {
 
   // ============ Getters ============
 
-  getState(): GameState {
+  getState(): GameStateData {
     return this.state;
   }
 
@@ -309,18 +310,18 @@ export class GameStateManager extends Phaser.Events.EventEmitter {
    */
   destroy(): void {
     // Unsubscribe from network events
-    this.networkManager.off("network:connected", this.handleConnected, this);
-    this.networkManager.off("network:disconnected", this.handleDisconnected, this);
-    this.networkManager.off("network:sync:full", this.handleFullSync, this);
-    this.networkManager.off("network:sync:world", this.handleWorldSync, this);
-    this.networkManager.off("network:sync:agents", this.handleAgentsSync, this);
-    this.networkManager.off("network:sync:events", this.handleEventsSync, this);
-    this.networkManager.off("network:sync:paths", this.handlePathsSync, this);
-    this.networkManager.off("network:vote:state", this.handleVoteState, this);
-    this.networkManager.off("network:agent:detail", this.handleAgentDetail, this);
-    this.networkManager.off("network:thinking:history", this.handleThinkingHistory, this);
-    this.networkManager.off("network:agent:inspect", this.handleAgentInspect, this);
-    this.networkManager.off("network:agent:clear-selection", this.handleClearSelection, this);
+    this.networkService.off("network:connected", this.handleConnected, this);
+    this.networkService.off("network:disconnected", this.handleDisconnected, this);
+    this.networkService.off("network:sync:full", this.handleFullSync, this);
+    this.networkService.off("network:sync:world", this.handleWorldSync, this);
+    this.networkService.off("network:sync:agents", this.handleAgentsSync, this);
+    this.networkService.off("network:sync:events", this.handleEventsSync, this);
+    this.networkService.off("network:sync:paths", this.handlePathsSync, this);
+    this.networkService.off("network:vote:state", this.handleVoteState, this);
+    this.networkService.off("network:agent:detail", this.handleAgentDetail, this);
+    this.networkService.off("network:thinking:history", this.handleThinkingHistory, this);
+    this.networkService.off("network:agent:inspect", this.handleAgentInspect, this);
+    this.networkService.off("network:agent:clear-selection", this.handleClearSelection, this);
 
     this.removeAllListeners();
   }

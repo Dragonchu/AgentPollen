@@ -1,10 +1,9 @@
 import * as Phaser from "phaser";
 import { AgentFullState, ThinkingProcess } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
-import { NetworkManager } from "../managers/NetworkManager";
+import { GameController } from "../managers/GameController";
 import { CameraManager } from "../managers/CameraManager";
-import { AgentMotionManager } from "../managers/AgentMotionManager";
+import { MotionState } from "../managers/MotionState";
 import { CELL_SIZE } from "../scenes/gameConstants";
 import { THEME } from "./theme";
 import type { AgentDisplayState } from "../scenes/types";
@@ -14,10 +13,9 @@ import type { AgentDisplayState } from "../scenes/types";
  * Shows only the latest thinking (Decision + truncated Reason).
  */
 export class AIThinkingUI extends BaseUI {
-  private stateManager: GameStateManager;
-  private networkManager: NetworkManager;
+  private gameController: GameController;
   private cameraManager: CameraManager;
-  private motionManager: AgentMotionManager;
+  private motionState: MotionState;
 
   private bubbleLabel?: Phaser.GameObjects.GameObject & { setText?: (text: string) => void; setVisible: (visible: boolean) => void };
   private textObj?: Phaser.GameObjects.Text;
@@ -36,17 +34,15 @@ export class AIThinkingUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
-    networkManager: NetworkManager,
+    gameController: GameController,
     cameraManager: CameraManager,
-    motionManager: AgentMotionManager,
+    motionState: MotionState,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
-    this.networkManager = networkManager;
+    this.gameController = gameController;
     this.cameraManager = cameraManager;
-    this.motionManager = motionManager;
+    this.motionState = motionState;
   }
 
   create(): void {
@@ -99,14 +95,14 @@ export class AIThinkingUI extends BaseUI {
     this.container.add(bubble);
     bubble.setVisible(false);
 
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
-    this.stateManager.on("state:thinking:updated", this.onThinkingUpdate, this);
-    this.motionManager.on("motion:frame-updated", this.onMotionFrameUpdated, this);
+    this.gameController.getGameState().on("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().on("state:thinking:updated", this.onThinkingUpdate, this);
+    this.motionState.on("motion:frame-updated", this.onMotionFrameUpdated, this);
 
-    const initialAgent = this.stateManager.getSelectedAgent();
+    const initialAgent = this.gameController.getSelectedAgent();
     if (initialAgent) {
       this.selectedAgent = initialAgent;
-      this.networkManager.requestThinkingHistory(initialAgent.id, 20);
+      this.gameController.requestThinkingHistory(initialAgent.id, 20);
       this.updateContent();
     }
   }
@@ -118,7 +114,7 @@ export class AIThinkingUI extends BaseUI {
   private onAgentSelected(agent: AgentFullState | null): void {
     this.selectedAgent = agent;
     if (agent) {
-      this.networkManager.requestThinkingHistory(agent.id, 20);
+      this.gameController.requestThinkingHistory(agent.id, 20);
     } else {
       this.thinkingHistory = [];
     }
@@ -174,9 +170,9 @@ export class AIThinkingUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
-    this.stateManager.off("state:thinking:updated", this.onThinkingUpdate, this);
-    this.motionManager.off("motion:frame-updated", this.onMotionFrameUpdated, this);
+    this.gameController.getGameState().off("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().off("state:thinking:updated", this.onThinkingUpdate, this);
+    this.motionState.off("motion:frame-updated", this.onMotionFrameUpdated, this);
     super.destroy();
   }
 }

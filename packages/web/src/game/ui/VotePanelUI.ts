@@ -1,8 +1,7 @@
 import * as Phaser from "phaser";
 import { VoteState, AgentFullState } from "@battle-royale/shared";
 import { BaseUI } from "./BaseUI";
-import { GameStateManager } from "../managers/GameStateManager";
-import { NetworkManager } from "../managers/NetworkManager";
+import { GameController } from "../managers/GameController";
 import { THEME } from "./theme";
 
 type RexScene = Phaser.Scene & {
@@ -18,8 +17,7 @@ type RexScene = Phaser.Scene & {
  * Simplified: countdown bar + 3 vote buttons (custom input and stats removed).
  */
 export class VotePanelUI extends BaseUI {
-  private stateManager: GameStateManager;
-  private networkManager: NetworkManager;
+  private gameController: GameController;
 
   private countdownText?: Phaser.GameObjects.Text;
   private countdownBar?: Phaser.GameObjects.GameObject & { setValue: (v: number) => void };
@@ -34,13 +32,11 @@ export class VotePanelUI extends BaseUI {
     y: number,
     width: number,
     height: number,
-    stateManager: GameStateManager,
-    networkManager: NetworkManager,
+    gameController: GameController,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
-    this.stateManager = stateManager;
-    this.networkManager = networkManager;
+    this.gameController = gameController;
   }
 
   create(): void {
@@ -96,15 +92,15 @@ export class VotePanelUI extends BaseUI {
       this.container.add(card);
     }
 
-    this.stateManager.on("state:votes:updated", this.onVotesUpdate, this);
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().on("state:votes:updated", this.onVotesUpdate, this);
+    this.gameController.getGameState().on("state:agent:selected", this.onAgentSelected, this);
 
-    const initialVotes = this.stateManager.getVotes();
+    const initialVotes = this.gameController.getVotes();
     if (initialVotes) {
       this.currentVotes = initialVotes;
       this.updateDisplay();
     }
-    const initialAgent = this.stateManager.getSelectedAgent();
+    const initialAgent = this.gameController.getSelectedAgent();
     if (initialAgent) this.selectedAgent = initialAgent.id;
   }
 
@@ -145,7 +141,7 @@ export class VotePanelUI extends BaseUI {
     card.add(countText);
 
     bg.on("pointerdown", () => {
-      if (this.selectedAgent !== null) this.networkManager.submitVote(this.selectedAgent, action);
+      if (this.selectedAgent !== null) this.gameController.submitVote(this.selectedAgent, action);
       this.scene.tweens.add({
         targets: bg,
         scaleX: 0.98,
@@ -198,8 +194,8 @@ export class VotePanelUI extends BaseUI {
 
   destroy(): void {
     // Unsubscribe from state events
-    this.stateManager.off("state:votes:updated", this.onVotesUpdate, this);
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.gameController.getGameState().off("state:votes:updated", this.onVotesUpdate, this);
+    this.gameController.getGameState().off("state:agent:selected", this.onAgentSelected, this);
     super.destroy();
   }
 }

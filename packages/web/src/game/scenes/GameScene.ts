@@ -8,15 +8,16 @@ import { AgentActionState, TileType } from "@battle-royale/shared";
 import * as Phaser from "phaser";
 import { SpriteDirection } from "@/constants/Assets";
 import { ASSETS } from "@/constants/Assets";
-import { AgentMotionManager } from "../managers/AgentMotionManager";
+import { MotionState } from "../managers/MotionState";
 import { CELL_SIZE } from "./gameConstants";
 import type { Direction, AgentDisplayState } from "./types";
 import {
   type GameSceneRenderState,
 } from "./GameSceneRenderer";
-import { GameStateManager } from "../managers/GameStateManager";
-import { NetworkManager } from "../managers/NetworkManager";
-import { UIManager } from "../managers/UIManager";
+import { GameState } from "../managers/GameState";
+import { NetworkService } from "../managers/NetworkService";
+import { GameController } from "../managers/GameController";
+import { UICoordinator } from "../managers/UICoordinator";
 import { CameraManager } from "../managers/CameraManager";
 import { CoordinateUtils } from "../utils/CoordinateUtils";
 import type { GridCoord } from "../types/coordinates";
@@ -25,9 +26,10 @@ import type { GridCoord } from "../types/coordinates";
 export { CELL_SIZE } from "./gameConstants";
 
 export class GameScene extends Phaser.Scene {
-  private networkManager!: NetworkManager;
-  private stateManager!: GameStateManager;
-  private uiManager!: UIManager;
+  private networkService!: NetworkService;
+  private gameState!: GameState;
+  private gameController!: GameController;
+  private uiCoordinator!: UICoordinator;
   private cameraManager!: CameraManager;
 
   // Dual camera system
@@ -36,7 +38,7 @@ export class GameScene extends Phaser.Scene {
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
 
-  private readonly motionManager = new AgentMotionManager();
+  private readonly motionState = new MotionState();
   private motionStates = new Map<number, AgentDisplayState>();
 
   private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
@@ -96,7 +98,7 @@ export class GameScene extends Phaser.Scene {
         // displayX/displayY are in GRID coordinates
         return { gridX: displayState.displayX, gridY: displayState.displayY };
       }
-      const agent = this.stateManager.getAgents().get(agentId);
+      const agent = this.gameState.getAgents().get(agentId);
       if (agent) {
         // agent.x/y are in GRID coordinates
         return { gridX: agent.x, gridY: agent.y };
@@ -110,22 +112,24 @@ export class GameScene extends Phaser.Scene {
     this.uiCamera.setName("uiCamera");
 
     // Initialize managers in correct dependency order:
-    // 1. NetworkManager (no dependencies)
-    this.networkManager = new NetworkManager();
+    // 1. NetworkService (Infrastructure layer - no dependencies)
+    this.networkService = new NetworkService();
 
-    // 2. GameStateManager (depends on NetworkManager)
-    this.stateManager = new GameStateManager(this.networkManager);
+    // 2. GameState (Domain/State layer - depends on NetworkService)
+    this.gameState = new GameState(this.networkService);
 
-    // 3. UIManager (depends on all managers)
-    this.uiManager = new UIManager(
+    // 3. GameController (Application/Business Logic layer - depends on GameState & NetworkService)
+    this.gameController = new GameController(this.gameState, this.networkService);
+
+    // 4. UICoordinator (Presentation layer - depends on GameController and other managers)
+    this.uiCoordinator = new UICoordinator(
       this,
-      this.stateManager,
-      this.networkManager,
+      this.gameController,
       this.cameraManager,
-      this.motionManager,
+      this.motionState,
       this.cameras.main,
     );
-    this.uiManager.create();
+    this.uiCoordinator.create();
 
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       // Only handle clicks if not dragging camera (left button drag is reserved for camera)
@@ -135,7 +139,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // 7. Connect to server and start receiving data
-    this.networkManager.connect();
+    this.networkService.connect();
 
     // 8. Setup state listeners for game rendering
     this.setupStateListeners();
@@ -150,7 +154,7 @@ export class GameScene extends Phaser.Scene {
       // displayX/displayY are in GRID coordinates
       return { gridX: displayState.displayX, gridY: displayState.displayY };
     }
-    const agent = this.stateManager.getAgents().get(agentId);
+    const agent = this.gameState.getAgents().get(agentId);
     if (agent) {
       // agent.x/y are in GRID coordinates
       return { gridX: agent.x, gridY: agent.y };
@@ -168,20 +172,20 @@ export class GameScene extends Phaser.Scene {
 
   private setupStateListeners(): void {
     // Listen to agent updates to redraw
-    this.stateManager.on("state:agents:updated", this.onAgentsUpdated, this);
+    this.gameState.on("state:agents:updated", this.onAgentsUpdated, this);
 
     // Listen to tilemap updates to draw obstacles and update world dimensions
-    this.stateManager.on("state:tilemap:updated", this.onTilemapUpdated, this);
+    this.gameState.on("state:tilemap:updated", this.onTilemapUpdated, this);
 
     // Listen to path updates
-    this.stateManager.on("state:paths:updated", this.onPathsUpdated, this);
+    this.gameState.on("state:paths:updated", this.onPathsUpdated, this);
 
     // Listen to agent selection for highlighting
-    this.stateManager.on("state:agent:selected", this.onAgentSelected, this);
+    this.gameState.on("state:agent:selected", this.onAgentSelected, this);
 
     // Listen to motion updates
-    this.motionManager.on("motion:updated", this.onMotionUpdated, this);
-    this.motionManager.on("motion:frame-updated", this.onMotionFrameUpdated, this);
+    this.motionState.on("motion:updated", this.onMotionUpdated, this);
+    this.motionState.on("motion:frame-updated", this.onMotionFrameUpdated, this);
   }
 
   private onMotionUpdated(motionStates: Map<number, AgentDisplayState>): void {
@@ -196,7 +200,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onAgentsUpdated(agents: Map<number, AgentFullState>): void {
-    this.motionManager.updateFromServer(agents, this.stateManager.getAgentPaths());
+    this.motionState.updateFromServer(agents, this.gameState.getAgentPaths());
     this.redraw();
   }
 
@@ -222,7 +226,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onPathsUpdated(paths: Record<number, Waypoint[]>): void {
-    this.motionManager.updateFromServer(this.stateManager.getAgents(), paths);
+    this.motionState.updateFromServer(this.gameState.getAgents(), paths);
   }
 
   private onAgentSelected(_agent: AgentFullState | null): void {
@@ -250,9 +254,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
-    const agents = this.stateManager.getAgents();
-    const items = this.stateManager.getItems();
-    const selectedAgent = this.stateManager.getSelectedAgent();
+    const agents = this.gameState.getAgents();
+    const items = this.gameState.getItems();
+    const selectedAgent = this.gameState.getSelectedAgent();
 
     // Update camera (handles keyboard panning)
     const gridPos = this.getAgentGridPosition(this.cameraManager.getFollowingAgentId());
@@ -272,7 +276,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Update display state
-    this.motionManager.tick(delta, agents);
+    this.motionState.tick(delta, agents);
 
     // Update agent sprites and animations
     this.updateAgentSprites(agents);
@@ -286,7 +290,7 @@ export class GameScene extends Phaser.Scene {
     // this.gameSceneRenderer.drawAlliances(state);
 
     // Update UI manager
-    this.uiManager.update(time, delta);
+    this.uiCoordinator.update(time, delta);
   }
 
   private updateAgentSprites(agents: Map<number, AgentFullState>): void {
@@ -444,8 +448,8 @@ export class GameScene extends Phaser.Scene {
     agents: Map<number, AgentFullState>,
     selectedAgent: AgentFullState | null
   ): GameSceneRenderState {
-    const world = this.stateManager.getWorld();
-    const gridSize = this.stateManager.getGridSize();
+    const world = this.gameState.getWorld();
+    const gridSize = this.gameState.getGridSize();
     const defaultGridSize = gridSize?.width ?? 100; // Fallback to 100 if not loaded yet
 
     return {
@@ -511,8 +515,8 @@ export class GameScene extends Phaser.Scene {
 
   private redraw(): void {
     // Redraw game elements (currently disabled)
-    // const agents = this.stateManager.getAgents();
-    // const selectedAgent = this.stateManager.getSelectedAgent();
+    // const agents = this.gameState.getAgents();
+    // const selectedAgent = this.gameState.getSelectedAgent();
     // const state = this.getRenderState(agents, selectedAgent);
     // this.gameSceneRenderer.drawZone(state);
     // this.gameSceneRenderer.drawConnections(state);
@@ -523,7 +527,7 @@ export class GameScene extends Phaser.Scene {
     // Convert screen coordinates to grid coordinates using CameraManager
     const clickGridPos = this.cameraManager.screenToGrid(screenX, screenY);
     const displayStates = this.motionStates;
-    const agents = this.stateManager.getAgents();
+    const agents = this.gameState.getAgents();
 
     let closest: { id: number; dist: number } | null = null;
     for (const [, agent] of agents) {
@@ -555,7 +559,7 @@ export class GameScene extends Phaser.Scene {
         this.lastClickedAgentId = null;
       } else {
         // Single-click: Just select agent
-        this.networkManager.inspectAgent(closest.id);
+        this.networkService.inspectAgent(closest.id);
         // Track for potential double-click
         this.lastClickTime = now;
         this.lastClickedAgentId = closest.id;
@@ -571,24 +575,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Get the state manager (for testing/debugging)
+   * Get the game state (for testing/debugging)
    */
-  getStateManager(): GameStateManager {
-    return this.stateManager;
+  getGameState(): GameState {
+    return this.gameState;
   }
 
   /**
-   * Get the network manager (for testing/debugging)
+   * Get the network service (for testing/debugging)
    */
-  getNetworkManager(): NetworkManager {
-    return this.networkManager;
+  getNetworkService(): NetworkService {
+    return this.networkService;
   }
 
   /**
-   * Get the UI manager (for testing/debugging)
+   * Get the UI coordinator (for testing/debugging)
    */
-  getUIManager(): UIManager {
-    return this.uiManager;
+  getUICoordinator(): UICoordinator {
+    return this.uiCoordinator;
   }
 
   /**
@@ -596,18 +600,18 @@ export class GameScene extends Phaser.Scene {
    */
   shutdown(): void {
     // Unsubscribe from all state events
-    this.stateManager.off("state:agents:updated", this.onAgentsUpdated, this);
-    this.stateManager.off("state:tilemap:updated", this.onTilemapUpdated, this);
-    this.stateManager.off("state:paths:updated", this.onPathsUpdated, this);
-    this.stateManager.off("state:agent:selected", this.onAgentSelected, this);
+    this.gameState.off("state:agents:updated", this.onAgentsUpdated, this);
+    this.gameState.off("state:tilemap:updated", this.onTilemapUpdated, this);
+    this.gameState.off("state:paths:updated", this.onPathsUpdated, this);
+    this.gameState.off("state:agent:selected", this.onAgentSelected, this);
 
     // Unsubscribe from motion events
-    this.motionManager.off("motion:updated", this.onMotionUpdated, this);
-    this.motionManager.off("motion:frame-updated", this.onMotionFrameUpdated, this);
+    this.motionState.off("motion:updated", this.onMotionUpdated, this);
+    this.motionState.off("motion:frame-updated", this.onMotionFrameUpdated, this);
 
     // Cleanup managers
     this.cameraManager.destroy();
-    this.uiManager.destroy();
-    this.motionManager.destroy();
+    this.uiCoordinator.destroy();
+    this.motionState.destroy();
   }
 }

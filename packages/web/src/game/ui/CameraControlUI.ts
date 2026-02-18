@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { BaseUI } from "./BaseUI";
 import { CameraManager } from "../managers/CameraManager";
-import { GameStateManager } from "../managers/GameStateManager";
+import { GameState } from "../managers/GameState";
 import { THEME } from "./theme";
 import {PointerEvents} from "@/game/events/GameEvents";
 
@@ -28,7 +28,7 @@ export class CameraControlUI extends BaseUI {
     width: number,
     height: number,
     cameraManager: CameraManager,
-    stateManager: GameStateManager,
+    stateManager: GameState,
     worldCamera?: Phaser.Cameras.Scene2D.Camera
   ) {
     super(scene, x, y, width, height, worldCamera);
