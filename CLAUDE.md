@@ -40,25 +40,28 @@ packages/
 
 ### Web Package: Phaser-First Architecture
 
-**IMPORTANT**: The web package was refactored in Feb 2026 from React-managed to Phaser-managed architecture.
+**IMPORTANT**: The web package uses a 4-layer architecture (Infrastructure → Domain → Application → Presentation).
 
 ```
 React (container only)
   └─ GameCanvas (Phaser wrapper)
      └─ GameScene (orchestrates everything)
-        ├─ GameStateManager (all state + custom events)
-        ├─ NetworkManager (Socket.IO abstraction)
-        ├─ UIManager (6 UI components)
-        ├─ CameraManager (dual camera system)
-        ├─ AgentDisplayStateManager (smooth animations)
+        ├─ GameController (业务逻辑层 - Application)
+        ├─ GameState (状态层 - Domain)
+        ├─ MotionState (动画状态 - Domain)
+        ├─ NetworkService (网络层 - Infrastructure)
+        ├─ UICoordinator (UI 协调层 - Presentation)
+        ├─ CameraManager (相机管理)
         └─ Sprite objects (agents, items, obstacles)
 ```
 
 **Key Files**:
 - `packages/web/src/game/scenes/GameScene.ts` - Main Phaser scene
-- `packages/web/src/game/managers/GameStateManager.ts` - Central state + events
-- `packages/web/src/game/managers/NetworkManager.ts` - Socket.IO wrapper
-- `packages/web/src/game/managers/UIManager.ts` - UI component orchestration
+- `packages/web/src/game/managers/GameController.ts` - Business logic layer
+- `packages/web/src/game/managers/GameState.ts` - Domain state + events
+- `packages/web/src/game/managers/NetworkService.ts` - Socket.IO wrapper
+- `packages/web/src/game/managers/UICoordinator.ts` - UI component orchestration
+- `packages/web/src/game/managers/MotionState.ts` - Agent motion interpolation
 - `packages/web/src/game/managers/CameraManager.ts` - Dual camera system
 - `packages/web/src/game/ui/*.ts` - Phaser UI components (NOT React)
 
@@ -80,8 +83,8 @@ React (container only)
 - ✅ All game state lives in GameStateManager (Phaser)
 - ✅ Use custom events for state changes
 
-### 2. Scheduled for Deletion (DO NOT MODIFY)
-These React files are obsolete and will be deleted:
+### 2. Legacy React Components (Safe to Delete)
+These React files are obsolete and can be deleted (Phaser equivalents exist):
 - `packages/web/src/lib/useGameSocket.ts`
 - `packages/web/src/components/Header.tsx`
 - `packages/web/src/components/Sidebar.tsx`
@@ -109,15 +112,40 @@ Dual camera setup:
 
 See `COORDINATE_SYSTEM_ANALYSIS.md` for details.
 
+### 4.5. 4-Layer Architecture (Feb 2026 Refactor)
+
+```
+┌─────────────────────────────────────┐
+│   Presentation Layer                │
+│   - UICoordinator, UI Components    │
+├─────────────────────────────────────┤
+│   Application/Business Logic        │
+│   - GameController                  │
+├─────────────────────────────────────┤
+│   Domain/State Layer                │
+│   - GameState, MotionState          │
+├─────────────────────────────────────┤
+│   Infrastructure Layer              │
+│   - NetworkService                  │
+└─────────────────────────────────────┘
+```
+
+**Dependency Rules**:
+- UI components → GameController only
+- GameController → GameState + NetworkService
+- GameState → NetworkService
+- Single-direction dependencies (no circular refs)
+
 ### 5. Socket.IO Protocol
-**Always use NetworkManager**, not direct Socket.IO:
+**Always use GameController**, not direct Socket.IO or NetworkService:
 ```typescript
 // ✅ Correct
-networkManager.submitVote(agentId, action);
-networkManager.inspectAgent(agentId);
+gameController.submitVote(agentId, action);
+gameController.selectAgent(agentId);
 
 // ❌ Wrong
 socket.emit("vote:submit", { agentId, action });
+networkService.submitVote(agentId, action); // Skip business logic layer
 ```
 
 ## Code Style
@@ -133,18 +161,18 @@ socket.emit("vote:submit", { agentId, action });
 - Use `scene.add.existing()` for custom objects
 
 ### Event System
-GameStateManager uses custom events:
+GameState uses Phaser.Events.EventEmitter:
 ```typescript
-// Subscribe
-const unsubscribe = stateManager.on("state:agents:updated", (agents) => {
+// Subscribe (from UI components)
+gameController.getGameState().on("state:agents:updated", (agents) => {
   // handle update
 });
 
-// Emit (within manager)
+// Emit (within GameState)
 this.emit("state:agents:updated", this.agents);
 
 // Cleanup
-unsubscribe();
+gameController.getGameState().off("state:agents:updated", handler, context);
 ```
 
 ## Environment Variables
@@ -181,6 +209,17 @@ See README "Deployment" section for CORS configuration.
 
 ## Recent Changes (Feb 2026)
 
+### 4-Layer Architecture Refactor (Feb 18, 2026)
+- **Status**: Complete ✅
+- **Impact**: Introduced business logic layer (GameController)
+- **Changes**:
+  - Renamed: `GameStateManager` → `GameState`
+  - Renamed: `NetworkManager` → `NetworkService`
+  - Renamed: `UIManager` → `UICoordinator`
+  - Renamed: `AgentDisplayStateManager` → `MotionState`
+  - Added: `GameController` (Application layer)
+- **Benefits**: Clear separation of concerns, single-direction dependencies
+
 ### Major Refactoring: React → Phaser
 - **Status**: Complete ✅
 - **Impact**: React no longer manages game state
@@ -209,8 +248,9 @@ See README "Deployment" section for CORS configuration.
 ### Add New UI Component
 1. Extend `BaseUI` in `packages/web/src/game/ui/YourUI.ts`
 2. Implement `create()`, `update()`, `destroy()`
-3. Add to `UIManager.create()` with positioning
-4. Subscribe to relevant state events
+3. Accept `GameController` in constructor
+4. Add to `UICoordinator.create()` with positioning
+5. Subscribe to state events via `gameController.getGameState().on(...)`
 
 ### Add New Decision Engine
 1. Implement `DecisionEngine` interface from `@battle-royale/shared`
@@ -221,4 +261,5 @@ See README "Deployment" section for CORS configuration.
 1. Update types in `packages/shared/src/index.ts`
 2. Run `pnpm --filter shared build` (builds types)
 3. Update server code in `packages/server/src/`
-4. Update client code in `packages/web/src/game/managers/GameStateManager.ts`
+4. Update client code in `packages/web/src/game/managers/GameState.ts`
+5. If adding business logic, update `packages/web/src/game/managers/GameController.ts`
