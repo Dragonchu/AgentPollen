@@ -12,6 +12,7 @@ import type { MotionState } from "./MotionState";
 export class CameraManager {
   private scene: Phaser.Scene;
   private camera: Phaser.Cameras.Scene2D.Camera;
+  private uiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   private pipCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   private motionState: MotionState | null = null;
 
@@ -139,6 +140,13 @@ export class CameraManager {
     if (this.scene.scale.width === 0 || this.scene.scale.height === 0) {
       return;
     }
+    
+    // Create UI camera (second camera for UI layer)
+    this.uiCamera = this.scene.cameras.add(0, 0, this.scene.scale.width, this.scene.scale.height);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
+    this.uiCamera.setName("uiCamera");
+    
     this.init();
     this.setupResizeListener();
   }
@@ -812,6 +820,11 @@ export class CameraManager {
       return;
     }
 
+    // Update UI camera viewport
+    if (this.uiCamera) {
+      this.uiCamera.setViewport(0, 0, this.scene.scale.width, this.scene.scale.height);
+    }
+
     // Recalculate zoom constraints based on new dimensions
     // Use Math.max to ensure viewport never exceeds map bounds
     const { width: vw, height: vh } = this.getViewportPixelSize();
@@ -832,6 +845,13 @@ export class CameraManager {
 
     // Update PiP camera position if enabled
     this.updatePipCameraPosition();
+  }
+
+  /**
+   * Get the UI camera
+   */
+  getUICamera(): Phaser.Cameras.Scene2D.Camera | null {
+    return this.uiCamera;
   }
 
   /**

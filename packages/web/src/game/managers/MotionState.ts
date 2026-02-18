@@ -197,6 +197,13 @@ export class MotionState extends Phaser.Events.EventEmitter {
   }
 
   /**
+   * Get all display states
+   */
+  getAllDisplayStates(): Map<number, AgentDisplayState> {
+    return this.displayStates;
+  }
+
+  /**
    * Clean up all event listeners
    */
   destroy(): void {
