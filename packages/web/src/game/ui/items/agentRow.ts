@@ -12,7 +12,7 @@ function agentHexColor(agentId: number): number {
  * Build a single agent row for the sidebar list.
  * Returns a rexUI Sizer that can be added to a parent Sizer.
  *
- * @param onSelect   Called on single click (select agent)
+ * @param onSelect   Called on single click (select agent + camera follow)
  * @param onFollow   Called on double click (camera follow)
  */
 export function buildAgentRow(
@@ -44,21 +44,25 @@ export function buildAgentRow(
     { fontSize: THEME.font.small, color: THEME.css.mutedForeground, fontFamily: "monospace" },
   );
 
-  // Double-click detection
-  let lastClick = 0;
-  bg.setInteractive({ cursor: "pointer" }).on("pointerdown", () => {
-    const now = Date.now();
-    if (now - lastClick < 300) {
-      onFollow();
-    } else {
-      onSelect();
-    }
-    lastClick = now;
-  });
-
-  return rexUI.add
+  const row = rexUI.add
     .sizer({ height: 36, orientation: "horizontal", background: bg, space: { left: 8, right: 8, item: 6 } })
     .add(dot, { proportion: 0, align: "center" })
     .add(nameText, { proportion: 1, align: "center" })
     .add(statsText, { proportion: 0, align: "center" });
+
+  // Set interactive on the row (sizer), not just bg - text/circle are on top and would block bg's hit area
+  let lastClick = 0;
+  (row as unknown as Phaser.GameObjects.GameObject)
+    .setInteractive({ cursor: "pointer" })
+    .on("pointerdown", () => {
+      const now = Date.now();
+      if (now - lastClick < 300) {
+        onFollow();
+      } else {
+        onSelect();
+      }
+      lastClick = now;
+    });
+
+  return row;
 }

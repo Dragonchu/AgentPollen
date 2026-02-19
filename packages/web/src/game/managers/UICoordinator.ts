@@ -1,17 +1,17 @@
-import * as Phaser from "phaser";
 import type {
   AgentFullState,
   GameEvent,
   VoteState,
   WorldSyncState,
 } from "@battle-royale/shared";
-import { THEME } from "../ui/theme";
+import * as Phaser from "phaser";
 import { CELL_SIZE } from "../scenes/gameConstants";
-import { CoordinateUtils } from "../utils/CoordinateUtils";
 import { buildAgentRow } from "../ui/items/agentRow";
 import { buildEventRow } from "../ui/items/eventRow";
-import type { GameController } from "./GameController";
+import { THEME } from "../ui/theme";
+import { CoordinateUtils } from "../utils/CoordinateUtils";
 import type { CameraManager } from "./CameraManager";
+import type { GameController } from "./GameController";
 import type { MotionState } from "./MotionState";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -127,19 +127,19 @@ export class UICoordinator {
 
     const body = this.rexUI.add
       .sizer({ orientation: "horizontal", space: { item: 0 } })
-      .add(sidebar as unknown as Phaser.GameObjects.GameObject,    { proportion: 0, expand: true })
+      .add(sidebar,    { proportion: 0, expand: true })
       .addSpace(1)
-      .add(rightPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+      .add(rightPanel, { proportion: 0, expand: true });
 
     this.mainSizer = this.rexUI.add
       .sizer({ x: w / 2, y: h / 2, width: w, height: h, orientation: "vertical", space: { item: 0 } })
-      .add(header as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
-      .add(body  as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+      .add(header, { proportion: 0, expand: true })
+      .add(body, { proportion: 1, expand: true });
 
     this.mainSizer.layout();
 
     this.cameraManager.getWorldCamera().ignore(
-      this.mainSizer as unknown as Phaser.GameObjects.GameObject,
+      this.mainSizer,
     );
   }
 
@@ -348,7 +348,10 @@ export class UICoordinator {
       const row = buildAgentRow(
         this.scene, this.rexUI, agent,
         agent.id === this.selectedAgentId,
-        () => this.gameController.selectAgent(agent.id),
+        () => {
+          this.gameController.selectAgent(agent.id);
+          this.cameraManager.followAgent(agent.id, 1.5);
+        },
         () => this.cameraManager.followAgent(agent.id, 1.5),
       );
       this.agentListContent.add(
