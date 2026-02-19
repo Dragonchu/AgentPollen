@@ -1,387 +1,486 @@
 import * as Phaser from "phaser";
-import { GameController } from "./GameController";
-import { CameraManager } from "./CameraManager";
-import { MotionState } from "./MotionState";
-import { BaseUI } from "../ui/BaseUI";
-import { HeaderUI } from "../ui/HeaderUI";
-import { EventFeedUI } from "../ui/EventFeedUI";
-import { SidebarUI } from "../ui/SidebarUI";
-import { AgentStatsUI } from "../ui/AgentStatsUI";
-import { VotePanelUI } from "../ui/VotePanelUI";
-import { AIThinkingUI } from "../ui/AIThinkingUI";
+import type {
+  AgentFullState,
+  GameEvent,
+  VoteState,
+  WorldSyncState,
+} from "@battle-royale/shared";
+import { THEME } from "../ui/theme";
+import { CELL_SIZE } from "../scenes/gameConstants";
+import { CoordinateUtils } from "../utils/CoordinateUtils";
+import { buildAgentRow } from "../ui/items/agentRow";
+import { buildEventRow } from "../ui/items/eventRow";
+import type { GameController } from "./GameController";
+import type { CameraManager } from "./CameraManager";
+import type { MotionState } from "./MotionState";
+
+// ── Layout constants ──────────────────────────────────────────────────────────
+const HEADER_H = 48;
+const SIDEBAR_W = 200;
+const RIGHT_W = 280;
+const PAD = 8;
+
+const TEXT_STYLE_TITLE = { fontSize: THEME.font.title, color: THEME.css.foreground, fontFamily: "monospace", fontStyle: "bold" } as const;
+const TEXT_STYLE_BODY  = { fontSize: THEME.font.body,  color: THEME.css.foreground, fontFamily: "monospace" } as const;
+const TEXT_STYLE_SMALL = { fontSize: THEME.font.small, color: THEME.css.mutedForeground, fontFamily: "monospace" } as const;
+const TEXT_STYLE_LABEL = { fontSize: THEME.font.label, color: THEME.css.primary,   fontFamily: "monospace", fontStyle: "bold" } as const;
 
 /**
- * UICoordinator manages all UI components for the game.
- * Presentation layer - coordinates UI components and their interactions.
- * It subscribes to state changes and updates UI components accordingly.
- * Uses percentage-based layout for responsive sizing.
+ * UICoordinator builds and maintains the full rexUI layout tree.
+ *
+ * Architecture:
+ *   buildLayout()  → one-time declarative rexUI tree construction
+ *   onXxx()        → event handlers that mutate specific refs + layout()
+ *   update()       → per-frame: thinking bubble position only
  */
 export class UICoordinator {
-  private scene: Phaser.Scene;
-  private gameController: GameController;
-  private cameraManager: CameraManager;
-  private motionState: MotionState;
-  private worldCamera: Phaser.Cameras.Scene2D.Camera;
-  private uiComponents: Map<string, BaseUI> = new Map();
+  private readonly scene: Phaser.Scene;
+  private readonly gameController: GameController;
+  private readonly cameraManager: CameraManager;
+  private readonly motionState: MotionState;
 
-  // Canvas dimensions (will be set in create)
-  private canvasWidth = 1280;
-  private canvasHeight = 720;
+  private rexUI!: NonNullable<Phaser.Scene["rexUI"]>;
 
-  // Cached layout dimensions
-  private sidebarWidth = 180;
-  private headerHeight = 44;
-  private rightPanelWidth = 260;
-  private padding = 8;
+  // ── Root ─────────────────────────────────────────────────────────────────────
+  private mainSizer!: RexUI.Sizer;
+
+  // ── Header refs ──────────────────────────────────────────────────────────────
+  private liveCircle!: Phaser.GameObjects.Arc;
+  private phaseText!: Phaser.GameObjects.Text;
+  private timerText!: Phaser.GameObjects.Text;
+  private aliveText!: Phaser.GameObjects.Text;
+
+  // ── Sidebar refs ─────────────────────────────────────────────────────────────
+  private agentListContent!: RexUI.Sizer;
+  private agentListPanel!: RexUI.ScrollablePanel;
+  private selectedAgentId: number | null = null;
+
+  // ── Vote panel refs ───────────────────────────────────────────────────────────
+  private readonly VOTE_ACTIONS = ["Attack", "Defend", "Heal"] as const;
+  private voteCountdownText!: Phaser.GameObjects.Text;
+  private voteCountdownBar!: RexUI.LineProgress;
+  private voteCountTexts = new Map<string, Phaser.GameObjects.Text>();
+
+  // ── Agent stats refs ──────────────────────────────────────────────────────────
+  private statsNameText!: Phaser.GameObjects.Text;
+  private statsInfoText!: Phaser.GameObjects.Text;
+  private hpBar!: RexUI.LineProgress;
+  private shieldBar!: RexUI.LineProgress;
+
+  // ── Event feed refs ───────────────────────────────────────────────────────────
+  private eventListContent!: RexUI.Sizer;
+  private eventListPanel!: RexUI.ScrollablePanel;
+
+  // ── Thinking bubble ───────────────────────────────────────────────────────────
+  private thinkingContainer!: Phaser.GameObjects.Container;
+  private thinkingText!: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
     gameController: GameController,
     cameraManager: CameraManager,
     motionState: MotionState,
-    worldCamera: Phaser.Cameras.Scene2D.Camera
+    _worldCamera?: Phaser.Cameras.Scene2D.Camera,
   ) {
     this.scene = scene;
     this.gameController = gameController;
     this.cameraManager = cameraManager;
     this.motionState = motionState;
-    this.worldCamera = worldCamera;
   }
 
-  /**
-   * Create all UI components
-   */
   create(): void {
-    // Get canvas dimensions
-    this.canvasWidth = this.scene.scale.width;
-    this.canvasHeight = this.scene.scale.height;
-
-    // Calculate responsive layout dimensions (percentage-based)
-    this.sidebarWidth = Math.max(200, Math.floor(this.canvasWidth * 0.15));
-    this.headerHeight = Math.max(44, Math.floor(this.canvasHeight * 0.06));
-    this.rightPanelWidth = Math.max(280, Math.floor(this.canvasWidth * 0.2));
-    this.padding = 8;
-
-    const wc = this.worldCamera;
-
-    // Create header
-    const headerUI = new HeaderUI(
-      this.scene,
-      this.canvasWidth / 2,
-      this.headerHeight / 2,
-      this.canvasWidth,
-      this.headerHeight,
-      this.gameController,
-      wc
-    );
-    headerUI.create();
-    this.uiComponents.set("header", headerUI);
-
-    // Create sidebar
-    const sidebarX = this.sidebarWidth / 2;
-    const sidebarY = this.headerHeight + (this.canvasHeight - this.headerHeight) / 2;
-    const sidebarHeight = this.canvasHeight - this.headerHeight;
-
-    const sidebarUI = new SidebarUI(
-      this.scene,
-      sidebarX,
-      sidebarY,
-      this.sidebarWidth,
-      sidebarHeight,
-      this.gameController,
-      this.cameraManager,
-      wc
-    );
-    sidebarUI.create();
-    this.uiComponents.set("sidebar", sidebarUI);
-
-    // Create right panel components
-    const rightPanelX = this.canvasWidth - this.rightPanelWidth / 2;
-    const rightPanelY = this.headerHeight;
-    const rightPanelHeight = this.canvasHeight - this.headerHeight;
-
-    // Vote panel (top right)
-    const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
-    const votePanelUI = new VotePanelUI(
-      this.scene,
-      rightPanelX,
-      rightPanelY + votePanelHeight / 2,
-      this.rightPanelWidth - this.padding,
-      votePanelHeight - this.padding,
-      this.gameController,
-      wc
-    );
-    votePanelUI.create();
-    this.uiComponents.set("votePanel", votePanelUI);
-
-    // Agent stats (middle right)
-    const statsHeight = Math.floor(rightPanelHeight * 0.25);
-    const statsY = rightPanelY + votePanelHeight + statsHeight / 2;
-    const agentStatsUI = new AgentStatsUI(
-      this.scene,
-      rightPanelX,
-      statsY,
-      this.rightPanelWidth - this.padding,
-      statsHeight - this.padding,
-      this.gameController,
-      wc
-    );
-    agentStatsUI.create();
-    this.uiComponents.set("agentStats", agentStatsUI);
-
-    // Event feed (bottom right)
-    const eventFeedY = rightPanelY + votePanelHeight + statsHeight;
-    const eventFeedHeight = rightPanelHeight - votePanelHeight - statsHeight;
-    const eventFeedUI = new EventFeedUI(
-      this.scene,
-      rightPanelX,
-      eventFeedY + eventFeedHeight / 2,
-      this.rightPanelWidth - this.padding,
-      eventFeedHeight - this.padding,
-      this.gameController,
-      wc
-    );
-    eventFeedUI.create();
-    this.uiComponents.set("eventFeed", eventFeedUI);
-
-    // AI Thinking (bubble above selected agent - position passed as 0,0, size unused)
-    const aiThinkingUI = new AIThinkingUI(
-      this.scene,
-      0,
-      0,
-      260,
-      70,
-      this.gameController,
-      this.cameraManager,
-      this.motionState,
-      wc
-    );
-    aiThinkingUI.create();
-    this.uiComponents.set("aiThinking", aiThinkingUI);
-
-    this.setupStateListeners();
-    this.setupResizeListener();
+    this.rexUI = this.scene.rexUI!;
+    this.buildLayout();
+    this.buildThinkingBubble();
+    this.subscribeEvents();
+    this.setupResize();
+    this.startLiveAnimation();
   }
 
-  private setupResizeListener(): void {
-    this.scene.scale.on("resize", this.onResize, this);
+  update(_time: number, _delta: number): void {
+    this.updateThinkingBubblePosition();
   }
 
-  private onResize(): void {
-    const newWidth = this.scene.scale.width;
-    const newHeight = this.scene.scale.height;
-
-    this.canvasWidth = newWidth;
-    this.canvasHeight = newHeight;
-    this.sidebarWidth = Math.max(200, Math.floor(newWidth * 0.15));
-    this.headerHeight = Math.max(44, Math.floor(newHeight * 0.06));
-    this.rightPanelWidth = Math.max(280, Math.floor(newWidth * 0.2));
-
-    // Header
-    const header = this.uiComponents.get("header");
-    if (header) {
-      header.setPosition(newWidth / 2, this.headerHeight / 2);
-      header.resize(newWidth, this.headerHeight);
-    }
-
-    // Sidebar
-    const sidebar = this.uiComponents.get("sidebar");
-    if (sidebar) {
-      const sidebarX = this.sidebarWidth / 2;
-      const sidebarY = this.headerHeight + (newHeight - this.headerHeight) / 2;
-      const sidebarHeight = newHeight - this.headerHeight;
-      sidebar.setPosition(sidebarX, sidebarY);
-      sidebar.resize(this.sidebarWidth, sidebarHeight);
-    }
-
-    // Right panel
-    const rightPanelX = newWidth - this.rightPanelWidth / 2;
-    const rightPanelY = this.headerHeight;
-    const rightPanelHeight = newHeight - this.headerHeight;
-
-    const votePanelHeight = Math.floor(rightPanelHeight * 0.3);
-    const votePanel = this.uiComponents.get("votePanel");
-    if (votePanel) {
-      votePanel.setPosition(rightPanelX, rightPanelY + votePanelHeight / 2);
-      votePanel.resize(this.rightPanelWidth - this.padding, votePanelHeight - this.padding);
-    }
-
-    const statsHeight = Math.floor(rightPanelHeight * 0.25);
-    const agentStats = this.uiComponents.get("agentStats");
-    if (agentStats) {
-      agentStats.setPosition(rightPanelX, rightPanelY + votePanelHeight + statsHeight / 2);
-      agentStats.resize(this.rightPanelWidth - this.padding, statsHeight - this.padding);
-    }
-
-    const eventFeed = this.uiComponents.get("eventFeed");
-    if (eventFeed) {
-      const eventFeedY = rightPanelY + votePanelHeight + statsHeight;
-      const eventFeedHeight = rightPanelHeight - votePanelHeight - statsHeight;
-      eventFeed.setPosition(rightPanelX, eventFeedY + eventFeedHeight / 2);
-      eventFeed.resize(this.rightPanelWidth - this.padding, eventFeedHeight - this.padding);
-    }
-
-    // Camera control
-    const cameraControl = this.uiComponents.get("cameraControl");
-    if (cameraControl) {
-      const cameraControlWidth = 200;
-      const cameraControlHeight = 40;
-      cameraControl.setPosition(
-        this.sidebarWidth + this.padding + cameraControlWidth / 2,
-        this.headerHeight + this.padding + cameraControlHeight / 2
-      );
-      cameraControl.resize(cameraControlWidth, cameraControlHeight);
-    }
-
-    this.cameraManager.onResize();
-  }
-
-  /**
-   * Update all UI components each frame
-   */
-  update(time: number, delta: number): void {
-    for (const component of this.uiComponents.values()) {
-      component.update(time, delta);
-    }
-  }
-
-  /**
-   * Check if a screen-space pointer position is over any UI region.
-   * Used by CameraManager to prevent zoom when scrolling UI.
-   */
-  isPointerOverUI(screenX: number, screenY: number): boolean {
-    // Header (full width, top)
-    if (screenY < this.headerHeight) return true;
-
-    // Sidebar (left)
-    if (screenX < this.sidebarWidth && screenY >= this.headerHeight) return true;
-
-    // Right panel
-    if (screenX > this.canvasWidth - this.rightPanelWidth && screenY >= this.headerHeight) return true;
-
-    return false;
-  }
-
-  /**
-   * Setup listeners for state changes
-   */
-  private setupStateListeners(): void {
-    const gameState = this.gameController.getGameState();
-
-    // Listen to world updates
-    gameState.on("state:world:updated", this.onWorldUpdated, this);
-
-    // Listen to agent updates
-    gameState.on("state:agents:updated", this.onAgentsUpdated, this);
-
-    // Listen to event updates
-    gameState.on("state:events:updated", this.onEventsUpdated, this);
-
-    // Listen to vote updates
-    gameState.on("state:votes:updated", this.onVotesUpdated, this);
-
-    // Listen to agent selection
-    gameState.on("state:agent:selected", this.onAgentSelected, this);
-
-    // Listen to thinking history updates
-    gameState.on("state:thinking:updated", this.onThinkingUpdated, this);
-  }
-
-  /**
-   * Register a UI component
-   */
-  registerComponent(name: string, component: BaseUI): void {
-    this.uiComponents.set(name, component);
-  }
-
-  /**
-   * Get a registered component
-   */
-  getComponent(name: string): BaseUI | undefined {
-    return this.uiComponents.get(name);
-  }
-
-  /**
-   * Remove a registered component
-   */
-  removeComponent(name: string): void {
-    const component = this.uiComponents.get(name);
-    if (component) {
-      component.destroy();
-      this.uiComponents.delete(name);
-    }
-  }
-
-  /**
-   * Destroy all UI components and cleanup
-   */
   destroy(): void {
+    const gs = this.gameController.getGameState();
+    gs.off("state:world:updated", this.onWorldUpdated, this);
+    gs.off("state:agents:updated", this.onAgentsUpdated, this);
+    gs.off("state:agent:selected", this.onAgentSelected, this);
+    gs.off("state:events:updated", this.onEventsUpdated, this);
+    gs.off("state:votes:updated", this.onVotesUpdated, this);
+    gs.off("state:thinking:updated", this.onThinkingUpdated, this);
+    this.motionState.off("motion:frame-updated", this.onMotionFrameUpdated, this);
     this.scene.scale.off("resize", this.onResize, this);
 
-    const gameState = this.gameController.getGameState();
+    this.mainSizer?.destroy();
+    this.thinkingContainer?.destroy();
+  }
 
-    // Unsubscribe from all state events
-    gameState.off("state:world:updated", this.onWorldUpdated, this);
-    gameState.off("state:agents:updated", this.onAgentsUpdated, this);
-    gameState.off("state:events:updated", this.onEventsUpdated, this);
-    gameState.off("state:votes:updated", this.onVotesUpdated, this);
-    gameState.off("state:agent:selected", this.onAgentSelected, this);
-    gameState.off("state:thinking:updated", this.onThinkingUpdated, this);
+  // ── Layout construction ───────────────────────────────────────────────────────
 
-    // Destroy all UI components
-    for (const component of this.uiComponents.values()) {
-      component.destroy();
+  private buildLayout(): void {
+    const { width: w, height: h } = this.scene.scale;
+
+    const header    = this.buildHeader();
+    const sidebar   = this.buildSidebar();
+    const rightPanel = this.buildRightPanel();
+
+    const body = this.rexUI.add
+      .sizer({ orientation: "horizontal", space: { item: 0 } })
+      .add(sidebar as unknown as Phaser.GameObjects.GameObject,    { proportion: 0, expand: true })
+      .addSpace(1)
+      .add(rightPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+
+    this.mainSizer = this.rexUI.add
+      .sizer({ x: w / 2, y: h / 2, width: w, height: h, orientation: "vertical", space: { item: 0 } })
+      .add(header as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
+      .add(body  as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+
+    this.mainSizer.layout();
+
+    this.cameraManager.getWorldCamera().ignore(
+      this.mainSizer as unknown as Phaser.GameObjects.GameObject,
+    );
+  }
+
+  private buildHeader(): RexUI.Sizer {
+    const bg = this.rexUI.add.roundRectangle(0, 0, 0, HEADER_H, 0, THEME.colors.background, 0.95);
+
+    this.liveCircle = this.scene.add.arc(0, 0, 5, 0, 360, false, THEME.colors.destructive);
+    const title      = this.scene.add.text(0, 0, "⚔ AI BATTLE ROYALE", TEXT_STYLE_TITLE);
+    this.phaseText   = this.scene.add.text(0, 0, "WAITING", TEXT_STYLE_SMALL);
+    this.timerText   = this.scene.add.text(0, 0, "00:00", TEXT_STYLE_TITLE);
+    this.aliveText   = this.scene.add.text(0, 0, "0 alive", TEXT_STYLE_SMALL);
+
+    return this.rexUI.add
+      .sizer({ height: HEADER_H, orientation: "horizontal", background: bg, space: { left: PAD * 2, right: PAD * 2, item: PAD * 2 } })
+      .add(this.liveCircle as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
+      .add(title,           { proportion: 0, align: "center" })
+      .addSpace(1)
+      .add(this.phaseText,  { proportion: 0, align: "center" })
+      .addSpace(1)
+      .add(this.timerText,  { proportion: 0, align: "center" })
+      .add(this.aliveText,  { proportion: 0, align: "center", padding: { left: PAD } });
+  }
+
+  private buildSidebar(): RexUI.Sizer {
+    const bg        = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, 0, THEME.colors.background, 0.9);
+    const titleText = this.scene.add.text(0, 0, "AGENTS", TEXT_STYLE_LABEL);
+
+    this.agentListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 2 } });
+
+    this.agentListPanel = this.rexUI.add.scrollablePanel({
+      width: SIDEBAR_W - PAD * 2,
+      scrollMode: 0,
+      panel: {
+        child: this.agentListContent,
+        mask: { padding: 1 },
+      },
+      slider: false,
+      mouseWheelScroller: { focus: false, speed: 0.3 },
+      space: { panel: 4 },
+    });
+
+    return this.rexUI.add
+      .sizer({ width: SIDEBAR_W, orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .add(titleText, { proportion: 0, align: "left" })
+      .add(this.agentListPanel, { proportion: 1, expand: true });
+  }
+
+  private buildRightPanel(): RexUI.Sizer {
+    const votePanel  = this.buildVotePanel();
+    const statsPanel = this.buildStatsPanel();
+    const eventPanel = this.buildEventPanel();
+
+    return this.rexUI.add
+      .sizer({ width: RIGHT_W, orientation: "vertical", space: { item: PAD } })
+      .add(votePanel  as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
+      .add(statsPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
+      .add(eventPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+  }
+
+  private buildVotePanel(): RexUI.Sizer {
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const titleText = this.scene.add.text(0, 0, "VOTE", TEXT_STYLE_LABEL);
+
+    this.voteCountdownText = this.scene.add.text(0, 0, "—", TEXT_STYLE_SMALL);
+    this.voteCountdownBar  = this.rexUI.add.lineProgress({
+      width: RIGHT_W - PAD * 4, height: 6,
+      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
+    });
+
+    const cardRow = this.rexUI.add.sizer({ orientation: "horizontal", space: { item: PAD } });
+    for (const action of this.VOTE_ACTIONS) {
+      const countText  = this.scene.add.text(0, 0, "0", { ...TEXT_STYLE_TITLE, color: THEME.css.primary });
+      const labelText  = this.scene.add.text(0, 0, action, TEXT_STYLE_SMALL);
+      const cardBg     = this.rexUI.add.roundRectangle(0, 0, 0, 48, 4, THEME.colors.secondary, 1);
+
+      this.voteCountTexts.set(action, countText);
+
+      (cardBg as unknown as Phaser.GameObjects.GameObject & {
+        setInteractive(c?: object): Phaser.GameObjects.GameObject;
+        on(e: string, cb: () => void): Phaser.GameObjects.GameObject;
+      })
+        .setInteractive({ cursor: "pointer" })
+        .on("pointerdown", () => {
+          const agent = this.gameController.getSelectedAgent();
+          if (!agent?.alive) return;
+          this.gameController.submitVote(agent.id, action);
+        });
+
+      const card = this.rexUI.add
+        .sizer({ orientation: "vertical", background: cardBg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 4 } })
+        .add(countText, { proportion: 0, align: "center" })
+        .add(labelText, { proportion: 0, align: "center" });
+
+      cardRow.add(card as unknown as Phaser.GameObjects.GameObject, { proportion: 1 });
     }
-    this.uiComponents.clear();
+
+    return this.rexUI.add
+      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .add(titleText,               { proportion: 0, align: "left" })
+      .add(this.voteCountdownText,  { proportion: 0, align: "left" })
+      .add(this.voteCountdownBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
+      .add(cardRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
   }
 
-  // ============ Event handlers ============
+  private buildStatsPanel(): RexUI.Sizer {
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const titleText = this.scene.add.text(0, 0, "AGENT STATS", TEXT_STYLE_LABEL);
 
-  private onWorldUpdated(): void {
-    // Update header, zone, etc.
+    this.statsNameText = this.scene.add.text(0, 0, "Select an agent", TEXT_STYLE_BODY);
+    this.statsInfoText = this.scene.add.text(0, 0, "", TEXT_STYLE_SMALL);
+
+    this.hpBar = this.rexUI.add.lineProgress({
+      width: RIGHT_W - PAD * 4, height: 8,
+      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
+    });
+    this.shieldBar = this.rexUI.add.lineProgress({
+      width: RIGHT_W - PAD * 4, height: 8,
+      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.accent,
+    });
+
+    return this.rexUI.add
+      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 6 } })
+      .add(titleText,         { proportion: 0, align: "left" })
+      .add(this.statsNameText, { proportion: 0, align: "left" })
+      .add(this.statsInfoText, { proportion: 0, align: "left" })
+      .add(this.scene.add.text(0, 0, "HP",     TEXT_STYLE_SMALL), { proportion: 0, align: "left" })
+      .add(this.hpBar    as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
+      .add(this.scene.add.text(0, 0, "SHIELD", TEXT_STYLE_SMALL), { proportion: 0, align: "left" })
+      .add(this.shieldBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
   }
 
-  private onAgentsUpdated(): void {
-    // Update sidebar agent list
+  private buildEventPanel(): RexUI.Sizer {
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const titleText = this.scene.add.text(0, 0, "EVENTS", TEXT_STYLE_LABEL);
+
+    this.eventListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 4 } });
+
+    this.eventListPanel = this.rexUI.add.scrollablePanel({
+      width: RIGHT_W - PAD * 2,
+      scrollMode: 0,
+      panel: { child: this.eventListContent as unknown as Phaser.GameObjects.GameObject, mask: { padding: 1 } },
+      slider: false,
+      mouseWheelScroller: { focus: false, speed: 0.3 },
+    });
+
+    return this.rexUI.add
+      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .add(titleText, { proportion: 0, align: "left" })
+      .add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
   }
 
-  private onEventsUpdated(): void {
-    // Update event feed
+  private buildThinkingBubble(): void {
+    const bg = this.scene.add
+      .rectangle(0, 0, 260, 60, THEME.colors.secondary, 0.92)
+      .setOrigin(0.5, 0.5);
+
+    this.thinkingText = this.scene.add
+      .text(0, 0, "", {
+        fontSize: THEME.font.small,
+        color: THEME.css.foreground,
+        fontFamily: "monospace",
+        wordWrap: { width: 240 },
+        align: "center",
+      })
+      .setOrigin(0.5, 0.5);
+
+    this.thinkingContainer = this.scene.add
+      .container(0, 0, [bg, this.thinkingText])
+      .setVisible(false);
+
+    this.cameraManager.getWorldCamera().ignore(this.thinkingContainer);
   }
 
-  private onVotesUpdated(): void {
-    // Update vote panel
+  // ── Event subscriptions ───────────────────────────────────────────────────────
+
+  private subscribeEvents(): void {
+    const gs = this.gameController.getGameState();
+    gs.on("state:world:updated",   this.onWorldUpdated,   this);
+    gs.on("state:agents:updated",  this.onAgentsUpdated,  this);
+    gs.on("state:agent:selected",  this.onAgentSelected,  this);
+    gs.on("state:events:updated",  this.onEventsUpdated,  this);
+    gs.on("state:votes:updated",   this.onVotesUpdated,   this);
+    gs.on("state:thinking:updated", this.onThinkingUpdated, this);
+    this.motionState.on("motion:frame-updated", this.onMotionFrameUpdated, this);
   }
 
-  private onAgentSelected(): void {
-    // Update agent stats, thinking process
+  // ── Event handlers ────────────────────────────────────────────────────────────
+
+  private onWorldUpdated(world: WorldSyncState): void {
+    this.phaseText.setText(world.phase.toUpperCase());
+    const m = Math.floor(world.tick / 60);
+    const s = world.tick % 60;
+    this.timerText.setText(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    this.aliveText.setText(`${world.aliveCount} alive`);
+  }
+
+  private onAgentsUpdated(agents: Map<number, AgentFullState>): void {
+    const sorted = [...agents.values()].sort((a, b) => {
+      if (a.alive !== b.alive) return a.alive ? -1 : 1;
+      if (b.killCount !== a.killCount) return b.killCount - a.killCount;
+      return b.hp - a.hp;
+    });
+
+    this.agentListContent.clear(true);
+    for (const agent of sorted) {
+      const row = buildAgentRow(
+        this.scene, this.rexUI, agent,
+        agent.id === this.selectedAgentId,
+        () => this.gameController.selectAgent(agent.id),
+        () => this.cameraManager.followAgent(agent.id, 1.5),
+      );
+      this.agentListContent.add(
+        row,
+        { proportion: 0, expand: true },
+      );
+    }
+    this.mainSizer.layout();
+  }
+
+  private onAgentSelected(agent: AgentFullState | null): void {
+    this.selectedAgentId = agent?.id ?? null;
+
+    if (!agent) {
+      this.statsNameText.setText("Select an agent");
+      this.statsInfoText.setText("");
+      this.hpBar.setValue(0);
+      this.shieldBar.setValue(0);
+      this.thinkingContainer.setVisible(false);
+      return;
+    }
+
+    this.statsNameText.setText(`${agent.name} ${agent.alive ? "🟢" : "🔴"}`);
+    this.statsInfoText.setText(`ATK ${agent.attack}  DEF ${agent.defense}  ${agent.killCount}💀`);
+    this.hpBar.setValue(Math.max(0, Math.min(1, agent.hp / agent.maxHp)));
+    this.shieldBar.setValue(Math.max(0, Math.min(1, (agent.defense * 5) / 100)));
+
+    // Refresh sidebar to update selection highlight
+    this.onAgentsUpdated(this.gameController.getAgents());
+  }
+
+  private onEventsUpdated(events: GameEvent[]): void {
+    const latest = events.slice(-50).reverse();
+    this.eventListContent.clear(true);
+    for (const event of latest) {
+      this.eventListContent.add(buildEventRow(this.scene, event), { proportion: 0, expand: true });
+    }
+    this.eventListPanel.layout();
+  }
+
+  private onVotesUpdated(voteState: VoteState): void {
+    const remaining = voteState.timeRemainingMs / 1000;
+    this.voteCountdownText.setText(`${remaining.toFixed(1)}s remaining`);
+    this.voteCountdownBar.setValue(Math.max(0, Math.min(1, remaining / 60)));
+
+    const counts: Record<string, number> = {};
+    for (const options of Object.values(voteState.agentVotes)) {
+      for (const opt of options) {
+        counts[opt.action] = (counts[opt.action] ?? 0) + opt.votes;
+      }
+    }
+    for (const action of this.VOTE_ACTIONS) {
+      this.voteCountTexts.get(action)?.setText(String(counts[action] ?? 0));
+    }
   }
 
   private onThinkingUpdated(): void {
-    // Update AI thinking UI
+    const agent = this.gameController.getSelectedAgent();
+    if (!agent) return;
+    const history = this.gameController.getAgentThinkingHistory(agent.id);
+    const latest = history[0];
+    if (latest) {
+      const preview = latest.reasoning.length > 60
+        ? `${latest.reasoning.slice(0, 60)}…`
+        : latest.reasoning;
+      this.thinkingText.setText(`${latest.action}\n${preview}`);
+    }
   }
 
-  // ============ Helper methods ============
-
-  /**
-   * Get the canvas bounds
-   */
-  getCanvasBounds(): { width: number; height: number } {
-    return {
-      width: this.scene.scale.width,
-      height: this.scene.scale.height,
-    };
+  private onMotionFrameUpdated(): void {
+    this.updateThinkingBubblePosition();
   }
 
-  /**
-   * Get the playable area bounds (excluding UI)
-   */
+  // ── Thinking bubble ───────────────────────────────────────────────────────────
+
+  private updateThinkingBubblePosition(): void {
+    const agent = this.gameController.getSelectedAgent();
+    if (!agent?.alive) {
+      this.thinkingContainer.setVisible(false);
+      return;
+    }
+    const displayState = this.motionState.getDisplayState(agent.id);
+    const gridPos = displayState
+      ? { gridX: displayState.displayX, gridY: displayState.displayY }
+      : { gridX: agent.x, gridY: agent.y };
+    const worldPos  = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
+    const screenPos = this.cameraManager.worldToScreen(worldPos.worldX, worldPos.worldY);
+    this.thinkingContainer.setPosition(screenPos.x, screenPos.y - 80).setVisible(true);
+  }
+
+  // ── Resize ────────────────────────────────────────────────────────────────────
+
+  private setupResize(): void {
+    this.scene.scale.on("resize", this.onResize, this);
+  }
+
+  private onResize(gameSize: Phaser.Structs.Size): void {
+    this.mainSizer
+      .setPosition(gameSize.width / 2, gameSize.height / 2)
+      .setMinSize(gameSize.width, gameSize.height)
+      .layout();
+    this.cameraManager.onResize();
+  }
+
+  // ── LIVE animation ────────────────────────────────────────────────────────────
+
+  private startLiveAnimation(): void {
+    this.scene.tweens.add({
+      targets: this.liveCircle,
+      alpha: { from: 0.3, to: 1 },
+      duration: 1000,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.inOut",
+    });
+  }
+
+  // ── Hit testing ───────────────────────────────────────────────────────────────
+
+  isPointerOverUI(screenX: number, screenY: number): boolean {
+    if (screenY < HEADER_H) return true;
+    if (screenX < SIDEBAR_W) return true;
+    if (screenX > this.scene.scale.width - RIGHT_W) return true;
+    return false;
+  }
+
   getPlayableArea(): { x: number; y: number; width: number; height: number } {
-    return {
-      x: this.sidebarWidth,
-      y: this.headerHeight,
-      width: this.canvasWidth - this.sidebarWidth - this.rightPanelWidth,
-      height: this.canvasHeight - this.headerHeight,
-    };
+    const { width: w, height: h } = this.scene.scale;
+    return { x: SIDEBAR_W, y: HEADER_H, width: w - SIDEBAR_W - RIGHT_W, height: h - HEADER_H };
+  }
+
+  getCanvasBounds(): { width: number; height: number } {
+    return { width: this.scene.scale.width, height: this.scene.scale.height };
   }
 }
