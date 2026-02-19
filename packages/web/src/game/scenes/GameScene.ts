@@ -99,6 +99,8 @@ export class GameScene extends Phaser.Scene {
     );
     this.uiCoordinator.create();
 
+    this.cameraManager.setPointerOverUICheck((x, y) => this.uiCoordinator.isPointerOverUI(x, y));
+
     // 7. Input
     this.setupInputHandlers();
 

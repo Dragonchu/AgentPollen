@@ -60,6 +60,9 @@ export class CameraManager {
   private followingAgentId: number | null = null;
   private followZoom: number = 1.5; // Default zoom when following agent
 
+  /** When set, pointer events over UI will not start drag or stop follow */
+  private pointerOverUICheck: ((x: number, y: number) => boolean) | null = null;
+
   constructor(scene: Phaser.Scene, motionState?: MotionState) {
     this.scene = scene;
     this.camera = scene.cameras.main;
@@ -161,6 +164,14 @@ export class CameraManager {
    */
   ignoreInUICamera(obj: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): void {
     this.uiCamera.ignore(obj);
+  }
+
+  /**
+   * Set callback to detect when pointer is over UI. When true, pointer down
+   * will not start camera drag or stop follow mode.
+   */
+  setPointerOverUICheck(fn: (x: number, y: number) => boolean): void {
+    this.pointerOverUICheck = fn;
   }
 
   /**
@@ -347,6 +358,11 @@ export class CameraManager {
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     // Only drag with left mouse button
     if (pointer.button !== 0) return;
+
+    // Don't start drag or stop follow when clicking on UI (e.g. sidebar agent list)
+    if (this.pointerOverUICheck?.(pointer.x, pointer.y)) {
+      return;
+    }
 
     // Exit follow mode when user starts dragging
     if (this.followingAgentId !== null) {

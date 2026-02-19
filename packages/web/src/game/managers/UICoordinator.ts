@@ -54,6 +54,9 @@ export class UICoordinator {
   private agentListContent!: RexUI.Sizer;
   private agentListPanel!: RexUI.ScrollablePanel;
   private selectedAgentId: number | null = null;
+  private lastAgentListClickTime = 0;
+  private lastAgentListClickedId: number | null = null;
+  private readonly DOUBLE_CLICK_MS = 300;
 
   // ── Vote panel refs ───────────────────────────────────────────────────────────
   private readonly VOTE_ACTIONS = ["Attack", "Defend", "Heal"] as const;
@@ -348,11 +351,7 @@ export class UICoordinator {
       const row = buildAgentRow(
         this.scene, this.rexUI, agent,
         agent.id === this.selectedAgentId,
-        () => {
-          this.gameController.selectAgent(agent.id);
-          this.cameraManager.followAgent(agent.id, 1.5);
-        },
-        () => this.cameraManager.followAgent(agent.id, 1.5),
+        () => this.handleAgentRowClick(agent.id),
       );
       this.agentListContent.add(
         row,
@@ -360,6 +359,24 @@ export class UICoordinator {
       );
     }
     this.mainSizer.layout();
+  }
+
+  private handleAgentRowClick(agentId: number): void {
+    const now = Date.now();
+    const isDouble =
+      this.lastAgentListClickedId === agentId && now - this.lastAgentListClickTime < this.DOUBLE_CLICK_MS;
+
+    if (isDouble) {
+      this.gameController.selectAgent(agentId);
+      this.cameraManager.followAgent(agentId, 1.5);
+      this.lastAgentListClickedId = null;
+      this.lastAgentListClickTime = 0;
+    } else {
+      this.gameController.selectAgent(agentId);
+      this.cameraManager.followAgent(agentId, 1.5);
+      this.lastAgentListClickedId = agentId;
+      this.lastAgentListClickTime = now;
+    }
   }
 
   private onAgentSelected(agent: AgentFullState | null): void {

@@ -12,16 +12,14 @@ function agentHexColor(agentId: number): number {
  * Build a single agent row for the sidebar list.
  * Returns a rexUI Sizer that can be added to a parent Sizer.
  *
- * @param onSelect   Called on single click (select agent + camera follow)
- * @param onFollow   Called on double click (camera follow)
+ * @param onClick   Called on click (single or double - caller handles detection)
  */
 export function buildAgentRow(
   scene: Phaser.Scene,
   rexUI: NonNullable<Phaser.Scene["rexUI"]>,
   agent: AgentFullState,
   isSelected: boolean,
-  onSelect: () => void,
-  onFollow: () => void,
+  onClick: () => void,
 ): RexUI.Sizer {
   const bg = rexUI.add.roundRectangle(
     0, 0, 0, 36,
@@ -51,18 +49,9 @@ export function buildAgentRow(
     .add(statsText, { proportion: 0, align: "center" });
 
   // Set interactive on the row (sizer), not just bg - text/circle are on top and would block bg's hit area
-  let lastClick = 0;
   (row as unknown as Phaser.GameObjects.GameObject)
     .setInteractive({ cursor: "pointer" })
-    .on("pointerdown", () => {
-      const now = Date.now();
-      if (now - lastClick < 300) {
-        onFollow();
-      } else {
-        onSelect();
-      }
-      lastClick = now;
-    });
+    .on("pointerdown", onClick);
 
   return row;
 }
