@@ -10,7 +10,9 @@ import type {
   VoteState,
   PathSyncPayload,
   ThinkingHistoryPayload,
+  SocketEvents,
 } from "@battle-royale/shared";
+import { NetworkEvents } from "../events/GameEvents";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -54,54 +56,52 @@ export class NetworkService extends Phaser.Events.EventEmitter {
     this.socket = io(this.serverUrl);
 
     // Connection events
-    this.socket.on("connect", () => {
-      console.log("Connected to server:", this.socket?.id);
-      this.emit("network:connected");
+    this.socket.on(SocketEvents.CONNECTED, () => {
+      this.emit(NetworkEvents.CONNECTED);
     });
 
-    this.socket.on("disconnect", () => {
-      console.log("Disconnected from server");
-      this.emit("network:disconnected");
+    this.socket.on(SocketEvents.DISCONNECTED, () => {
+      this.emit(NetworkEvents.DISCONNECTED);
     });
 
     // Full sync on connect
-    this.socket.on("sync:full", (data: FullSyncPayload) => {
-      this.emit("network:sync:full", data);
+    this.socket.on(SocketEvents.SYNC_FULL, (data: FullSyncPayload) => {
+      this.emit(NetworkEvents.SYNC_FULL, data);
     });
 
     // World state updates
-    this.socket.on("sync:world", (data: WorldSyncState) => {
-      this.emit("network:sync:world", data);
+    this.socket.on(SocketEvents.SYNC_WORLD, (data: WorldSyncState) => {
+      this.emit(NetworkEvents.SYNC_WORLD, data);
     });
 
     // Agent updates (full or delta)
-    this.socket.on("sync:agents", (data: AgentSyncPayload) => {
-      this.emit("network:sync:agents", data);
+    this.socket.on(SocketEvents.SYNC_AGENTS, (data: AgentSyncPayload) => {
+      this.emit(NetworkEvents.SYNC_AGENTS, data);
     });
 
     // Events
-    this.socket.on("sync:events", (events: GameEvent[]) => {
-      this.emit("network:sync:events", events);
+    this.socket.on(SocketEvents.SYNC_EVENTS, (events: GameEvent[]) => {
+      this.emit(NetworkEvents.SYNC_EVENTS, events);
     });
 
     // Vote state
-    this.socket.on("vote:state", (votes: VoteState) => {
-      this.emit("network:vote:state", votes);
+    this.socket.on(SocketEvents.VOTE_STATE, (votes: VoteState) => {
+      this.emit(NetworkEvents.VOTE_STATE, votes);
     });
 
     // Agent detail (on demand)
-    this.socket.on("agent:detail", (detail) => {
-      this.emit("network:agent:detail", detail);
+    this.socket.on(SocketEvents.AGENT_DETAIL, (detail) => {
+      this.emit(NetworkEvents.AGENT_DETAIL, detail);
     });
 
     // Thinking history (on demand)
-    this.socket.on("thinking:history", (data: ThinkingHistoryPayload) => {
-      this.emit("network:thinking:history", data);
+    this.socket.on(SocketEvents.THINKING_HISTORY, (data: ThinkingHistoryPayload) => {
+      this.emit(NetworkEvents.THINKING_HISTORY, data);
     });
 
     // Path updates (for smooth movement visualization)
-    this.socket.on("sync:paths", (data: PathSyncPayload) => {
-      this.emit("network:sync:paths", data);
+    this.socket.on(SocketEvents.SYNC_PATHS, (data: PathSyncPayload) => {
+      this.emit(NetworkEvents.SYNC_PATHS, data);
     });
   }
 
@@ -120,7 +120,7 @@ export class NetworkService extends Phaser.Events.EventEmitter {
    * Submit a vote action
    */
   submitVote(agentId: number, action: string): void {
-    this.socket?.emit("vote:submit", {
+    this.socket?.emit(SocketEvents.VOTE_SUBMIT, {
       agentId,
       action,
       playerId: this.socket.id ?? "anon",
@@ -131,29 +131,29 @@ export class NetworkService extends Phaser.Events.EventEmitter {
    * Request agent detail and follow the agent
    */
   inspectAgent(agentId: number): void {
-    this.socket?.emit("agent:inspect", agentId);
-    this.socket?.emit("agent:follow", agentId);
-    this.socket?.emit("thinking:request", agentId, 20);
+    this.socket?.emit(SocketEvents.AGENT_INSPECT, agentId);
+    this.socket?.emit(SocketEvents.AGENT_FOLLOW, agentId);
+    this.socket?.emit(SocketEvents.THINKING_REQUEST, agentId, 20);
 
     // Emit event for state manager to handle selection
-    this.emit("network:agent:inspect", agentId);
+    this.emit(NetworkEvents.AGENT_INSPECT, agentId);
   }
 
   /**
    * Clear agent selection
    */
   clearSelection(): void {
-    this.socket?.emit("agent:follow", null);
+    this.socket?.emit(SocketEvents.AGENT_FOLLOW, null);
 
     // Emit event for state manager to handle deselection
-    this.emit("network:agent:clear-selection");
+    this.emit(NetworkEvents.AGENT_CLEAR_SELECTION);
   }
 
   /**
    * Request thinking history for an agent
    */
   requestThinkingHistory(agentId: number, limit: number = 10): void {
-    this.socket?.emit("thinking:request", agentId, limit);
+    this.socket?.emit(SocketEvents.THINKING_REQUEST, agentId, limit);
   }
 
   /**

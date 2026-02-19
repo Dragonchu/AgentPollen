@@ -4,6 +4,7 @@ import {
   ClientToServerEvents,
   Vote,
   Waypoint,
+  SocketEvents,
 } from "@battle-royale/shared";
 import { World } from "../engine/World.js";
 
@@ -31,25 +32,23 @@ export class SyncManager {
   }
 
   private setupHandlers(): void {
-    this.io.on("connection", (socket: IOSocket) => {
-      console.log(`Client connected: ${socket.id}`);
-
+    this.io.on(SocketEvents.CONNECTED, (socket: IOSocket) => {
       // Send full state on connect
       this.sendFullSync(socket);
 
       // Handle vote submissions
-      socket.on("vote:submit", (vote: Vote) => {
+      socket.on(SocketEvents.VOTE_SUBMIT, (vote: Vote) => {
         const enrichedVote = { ...vote, playerId: socket.id };
         this.world.getVoteManager().submitVote(enrichedVote);
       });
 
       // Handle agent inspection
-      socket.on("agent:inspect", (agentId: number) => {
+      socket.on(SocketEvents.AGENT_INSPECT, (agentId: number) => {
         this.sendAgentDetail(socket, agentId);
       });
 
       // Handle agent following
-      socket.on("agent:follow", (agentId: number | null) => {
+      socket.on(SocketEvents.AGENT_FOLLOW, (agentId: number | null) => {
         const prev = this.following.get(socket.id);
         if (prev !== undefined) {
           socket.leave(`follow:${prev}`);
@@ -64,34 +63,33 @@ export class SyncManager {
       });
 
       // Handle thinking history requests
-      socket.on("thinking:request", async (agentId: number, limit?: number) => {
+      socket.on(SocketEvents.THINKING_REQUEST, async (agentId: number, limit?: number) => {
         await this.sendThinkingHistory(socket, agentId, limit);
       });
 
-      socket.on("disconnect", () => {
+      socket.on(SocketEvents.DISCONNECTED, () => {
         this.following.delete(socket.id);
-        console.log(`Client disconnected: ${socket.id}`);
       });
     });
   }
 
   /** Send full world state to a single socket */
   private sendFullSync(socket: IOSocket): void {
-    socket.emit("sync:full", this.world.getFullSync());
+    socket.emit(SocketEvents.SYNC_FULL, this.world.getFullSync());
   }
 
   /** Send agent detail to a single socket */
   private sendAgentDetail(socket: IOSocket, agentId: number): void {
     const agent = this.world.agents.find((a) => a.id === agentId);
     if (agent) {
-      socket.emit("agent:detail", agent.toFullState());
+      socket.emit(SocketEvents.AGENT_DETAIL, agent.toFullState());
     }
   }
 
   /** Send thinking history to a single socket */
   private async sendThinkingHistory(socket: IOSocket, agentId: number, limit: number = 10): Promise<void> {
     const history = await this.world.getThinkingHistory(agentId, limit);
-    socket.emit("thinking:history", { agentId, history });
+    socket.emit(SocketEvents.THINKING_HISTORY, { agentId, history });
   }
 
   /**
@@ -102,11 +100,11 @@ export class SyncManager {
    */
   broadcastTick(): void {
     // World state (always small)
-    this.io.emit("sync:world", this.world.getWorldState());
+    this.io.emit(SocketEvents.SYNC_WORLD, this.world.getWorldState());
 
     // --- MVP: Full agent sync ---
     const allAgents = this.world.agents.map((a) => a.toSyncState());
-    this.io.emit("sync:agents", {
+    this.io.emit(SocketEvents.SYNC_AGENTS, {
       tick: this.world.tick,
       changes: allAgents,
     });
@@ -119,18 +117,18 @@ export class SyncManager {
 
     // Events
     if (this.world.pendingEvents.length > 0) {
-      this.io.emit("sync:events", this.world.pendingEvents);
+      this.io.emit(SocketEvents.SYNC_EVENTS, this.world.pendingEvents);
     }
 
     // Vote state
-    this.io.emit("vote:state", this.world.getVoteManager().getState());
+    this.io.emit(SocketEvents.VOTE_STATE, this.world.getVoteManager().getState());
 
     // Agent paths (waypoints) - always emit, even when empty so clients can clear
     const pathsObj: Record<number, Waypoint[]> = {};
     for (const [agentId, waypoints] of this.world.agentPaths) {
       pathsObj[agentId] = waypoints;
     }
-    this.io.emit("sync:paths", { paths: pathsObj });
+    this.io.emit(SocketEvents.SYNC_PATHS, { paths: pathsObj });
 
     // Update followed agents
     this.broadcastFollowedAgents();
@@ -142,7 +140,7 @@ export class SyncManager {
     for (const agentId of followedIds) {
       const agent = this.world.agents.find((a) => a.id === agentId);
       if (agent) {
-        this.io.to(`follow:${agentId}`).emit("agent:detail", agent.toFullState());
+        this.io.to(`follow:${agentId}`).emit(SocketEvents.AGENT_DETAIL, agent.toFullState());
       }
     }
   }

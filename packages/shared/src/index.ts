@@ -393,3 +393,21 @@ export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [
   { name: "Iris", personality: "resourceful", description: "Always finds a way to survive", baseStats: { hp: 100, attack: 7, defense: 8 } },
   { name: "Ash", personality: "aggressive", description: "Born to fight, lives for battle", baseStats: { hp: 90, attack: 14, defense: 3 } },
 ];
+
+export enum SocketEvents {
+  CONNECTED = 'connect',
+  DISCONNECTED = 'disconnect',
+  SYNC_FULL = 'sync:full',
+  SYNC_WORLD = 'sync:world',
+  SYNC_AGENTS = 'sync:agents',
+  SYNC_EVENTS = 'sync:events',
+  VOTE_STATE = 'vote:state',
+  AGENT_DETAIL = 'agent:detail',
+  THINKING_HISTORY = 'thinking:history', 
+  SYNC_PATHS = 'sync:paths',
+  VOTE_SUBMIT = 'vote:submit',
+  AGENT_INSPECT = 'agent:inspect',
+  AGENT_FOLLOW = 'agent:follow',
+  THINKING_REQUEST = 'thinking:request',
+}
+
