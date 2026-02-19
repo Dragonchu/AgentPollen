@@ -29,6 +29,9 @@ export class CameraManager {
   private pipBorderGraphics: Phaser.GameObjects.Graphics | null = null;
   private pipLabelText: Phaser.GameObjects.Text | null = null;
 
+  // UI overlay camera (fixed, non-scrolling)
+  private uiCamera!: Phaser.Cameras.Scene2D.Camera;
+
   // Zoom constraints (dynamically computed)
   private fitZoom: number = 1;
   private minZoom: number = 0.3;
@@ -140,7 +143,38 @@ export class CameraManager {
       return;
     }
     this.init();
+    this.createUICamera();
     this.setupResizeListener();
+  }
+
+  private createUICamera(): void {
+    const { width, height } = this.scene.scale;
+    this.uiCamera = this.scene.cameras.add(0, 0, width, height);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
+    this.uiCamera.setName("uiCamera");
+  }
+
+  /**
+   * Tell the UI camera to ignore a world-space game object,
+   * so it only appears in the world camera (not the HUD overlay).
+   */
+  ignoreInUICamera(obj: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): void {
+    this.uiCamera.ignore(obj);
+  }
+
+  /**
+   * Get the UI overlay camera (for passing to UICoordinator / UI components).
+   */
+  getUICamera(): Phaser.Cameras.Scene2D.Camera {
+    return this.uiCamera;
+  }
+
+  /**
+   * Get the world camera (main camera).
+   */
+  getWorldCamera(): Phaser.Cameras.Scene2D.Camera {
+    return this.camera;
   }
 
   /**
@@ -812,9 +846,14 @@ export class CameraManager {
       return;
     }
 
-    // Recalculate zoom constraints based on new dimensions
-    // Use Math.max to ensure viewport never exceeds map bounds
     const { width: vw, height: vh } = this.getViewportPixelSize();
+
+    // Resize UI camera to match new canvas size
+    if (this.uiCamera) {
+      this.uiCamera.setViewport(0, 0, vw, vh);
+    }
+
+    // Recalculate zoom constraints based on new dimensions
     this.fitZoom = Math.max(vw / this.worldWidth, vh / this.worldHeight);
     this.minZoom = this.fitZoom;
 
@@ -879,8 +918,11 @@ export class CameraManager {
     this.scene.input.off("pointerup", this.onPointerUp, this);
     this.scene.input.off("pointerleave", this.onPointerUp, this);
 
-    // Clean up resize listener
     this.scene.scale.off("resize", this.onResize, this);
+
+    if (this.uiCamera) {
+      this.scene.cameras.remove(this.uiCamera);
+    }
 
     this.destroyPipCamera();
   }
