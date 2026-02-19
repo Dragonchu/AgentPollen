@@ -63,6 +63,7 @@ export class CameraManager {
   /** When set, pointer events over UI will not start drag or stop follow */
   private pointerOverUICheck: ((x: number, y: number) => boolean) | null = null;
 
+
   constructor(scene: Phaser.Scene, motionState?: MotionState) {
     this.scene = scene;
     this.camera = scene.cameras.main;
@@ -73,15 +74,35 @@ export class CameraManager {
   }
 
   /**
-   * Get main camera viewport size in pixels.
-   * Uses scene.scale to avoid camera.displayWidth/displayHeight returning
-   * incorrect values in multi-camera or zoomed setups (see followAgent bug).
+   * Get main camera viewport size in pixels (full canvas).
    */
   private getViewportPixelSize(): { width: number; height: number } {
     return {
       width: this.scene.scale.width,
       height: this.scene.scale.height,
     };
+  }
+
+  /**
+   * Get the canvas coordinates that correspond to browser window center.
+   * Ensures agent aligns with the visual center of the viewport.
+   */
+  private getBrowserWindowCenterInCanvas(): { x: number; y: number } {
+    if (typeof window === "undefined") {
+      const { width, height } = this.getViewportPixelSize();
+      return { x: width / 2, y: height / 2 };
+    }
+    const canvas = this.scene.game.canvas;
+    const rect = canvas?.getBoundingClientRect?.();
+    const { width: cw, height: ch } = this.getViewportPixelSize();
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      return { x: cw / 2, y: ch / 2 };
+    }
+    const vx = window.innerWidth / 2;
+    const vy = window.innerHeight / 2;
+    const x = (vx - rect.left) * (cw / rect.width);
+    const y = (vy - rect.top) * (ch / rect.height);
+    return { x, y };
   }
 
   /**
@@ -207,6 +228,8 @@ export class CameraManager {
    * Initialize camera and input handlers
    */
   private init(): void {
+    const { width, height } = this.scene.scale;
+    this.camera.setViewport(0, 0, width, height);
     // If world dimensions are already set (tilemap received), configure camera
     if (this.worldWidth > 0 && this.worldHeight > 0) {
       this.updateCameraBoundsAndZoom();
@@ -434,19 +457,20 @@ export class CameraManager {
         // Convert grid position to world coordinates (center of cell)
         const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
 
-        // Smoothly follow agent (without animation, just direct update)
+        // Smoothly follow agent - center = browser window center
         const zoom = this.camera.zoom;
         const { width: vw, height: vh } = this.getViewportPixelSize();
+        const { x: centerX, y: centerY } = this.getBrowserWindowCenterInCanvas();
         const viewportWidth = vw / zoom;
         const viewportHeight = vh / zoom;
 
         const scrollX = Phaser.Math.Clamp(
-          worldPos.worldX - viewportWidth / 2,
+          worldPos.worldX - centerX / zoom,
           0,
           this.worldWidth - viewportWidth
         );
         const scrollY = Phaser.Math.Clamp(
-          worldPos.worldY - viewportHeight / 2,
+          worldPos.worldY - centerY / zoom,
           0,
           this.worldHeight - viewportHeight
         );
@@ -498,7 +522,7 @@ export class CameraManager {
   }
 
   /**
-   * Convert world coordinates to screen coordinates
+   * Convert world coordinates to screen coordinates (canvas).
    */
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
     const screen = CoordinateUtils.worldToScreen(
@@ -509,7 +533,7 @@ export class CameraManager {
   }
 
   /**
-   * Convert screen coordinates to grid coordinates
+   * Convert screen coordinates (canvas) to grid coordinates.
    */
   screenToGrid(screenX: number, screenY: number): GridCoord {
     return CoordinateUtils.screenToGrid(
@@ -582,19 +606,22 @@ export class CameraManager {
     const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
 
     // Calculate target scroll position using TARGET zoom (not current zoom)
-    // This ensures agent stays centered after zoom animation completes
+    // Center = browser window center (converted to canvas coords) so agent aligns with viewport center
     const targetZoom = this.followZoom;
     const { width: vw, height: vh } = this.getViewportPixelSize();
+    const { x: centerX, y: centerY } = this.getBrowserWindowCenterInCanvas();
     const viewportWidth = vw / targetZoom;
     const viewportHeight = vh / targetZoom;
 
+    const scrollXRaw = worldPos.worldX - centerX / targetZoom;
+    const scrollYRaw = worldPos.worldY - centerY / targetZoom;
     const scrollX = Phaser.Math.Clamp(
-      worldPos.worldX - viewportWidth / 2,
+      scrollXRaw,
       0,
       this.worldWidth - viewportWidth
     );
     const scrollY = Phaser.Math.Clamp(
-      worldPos.worldY - viewportHeight / 2,
+      scrollYRaw,
       0,
       this.worldHeight - viewportHeight
     );
@@ -742,12 +769,8 @@ export class CameraManager {
    * Create the Picture-in-Picture camera
    */
   private createPipCamera(): void {
-    // Calculate PiP camera position (bottom-right corner by default)
-    const { width: mainCameraWidth, height: mainCameraHeight } =
-      this.getViewportPixelSize();
-
-    const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
-    const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
+    const pipX = this.scene.scale.width - this.pipCameraWidth - this.pipCameraPadding;
+    const pipY = this.scene.scale.height - this.pipCameraHeight - this.pipCameraPadding;
 
     // Create the PiP camera
     this.pipCamera = this.scene.cameras.add(
@@ -862,16 +885,18 @@ export class CameraManager {
       return;
     }
 
-    const { width: vw, height: vh } = this.getViewportPixelSize();
+    const { width: vw, height: vh } = this.scene.scale;
+    this.camera.setViewport(0, 0, vw, vh);
 
     // Resize UI camera to match new canvas size
     if (this.uiCamera) {
       this.uiCamera.setViewport(0, 0, vw, vh);
     }
 
-    // Recalculate zoom constraints based on new dimensions
-    this.fitZoom = Math.max(vw / this.worldWidth, vh / this.worldHeight);
-    this.minZoom = this.fitZoom;
+    if (this.worldWidth > 0 && this.worldHeight > 0) {
+      this.fitZoom = Math.max(vw / this.worldWidth, vh / this.worldHeight);
+      this.minZoom = this.fitZoom;
+    }
 
     // Clamp current zoom to new constraints
     const currentZoom = this.camera.zoom;
@@ -913,11 +938,8 @@ export class CameraManager {
    */
   private updatePipCameraPosition(): void {
     if (this.pipCamera && this.pipBorderGraphics) {
-      const { width: mainCameraWidth, height: mainCameraHeight } =
-        this.getViewportPixelSize();
-
-      const pipX = mainCameraWidth - this.pipCameraWidth - this.pipCameraPadding;
-      const pipY = mainCameraHeight - this.pipCameraHeight - this.pipCameraPadding;
+      const pipX = this.scene.scale.width - this.pipCameraWidth - this.pipCameraPadding;
+      const pipY = this.scene.scale.height - this.pipCameraHeight - this.pipCameraPadding;
 
       this.pipCamera.setPosition(pipX, pipY);
       this.drawPipBorder(pipX, pipY);
