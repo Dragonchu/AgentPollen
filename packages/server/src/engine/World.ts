@@ -259,9 +259,7 @@ export class World {
         break;
       default:
         // Explore: move randomly but multiple steps
-        for (let i = 0; i < this.config.maxStepsPerTick; i++) {
-          agent.moveRandom(this.config.gridSize, this.tileMap);
-        }
+        this.moveRandomSteps(agent);
         agent.actionState = AgentActionState.Exploring;
         agent.currentAction = decision.reason ?? "Exploring";
         // Clear path since agent is not using pathfinding
@@ -382,19 +380,29 @@ export class World {
       avgX /= perception.nearbyAgents.length;
       avgY /= perception.nearbyAgents.length;
       // Move away multiple steps
-      for (let i = 0; i < this.config.maxStepsPerTick; i++) {
-        agent.moveAwayFrom(avgX, avgY, this.config.gridSize, this.tileMap);
-      }
+      this.moveAwaySteps(agent, avgX, avgY);
     } else {
-      for (let i = 0; i < this.config.maxStepsPerTick; i++) {
-        agent.moveRandom(this.config.gridSize, this.tileMap);
-      }
+      this.moveRandomSteps(agent);
     }
     agent.actionState = AgentActionState.Fleeing;
     agent.currentAction = "Fleeing!";
     agent.memory.add("I fled from danger", 5, MemoryType.Observation);
     // Clear path since agent is not using pathfinding
     this.agentPaths.delete(agent.id);
+  }
+
+  /** Move agent randomly for maxStepsPerTick steps. */
+  private moveRandomSteps(agent: Agent): void {
+    for (let i = 0; i < this.config.maxStepsPerTick; i++) {
+      agent.moveRandom(this.config.gridSize, this.tileMap);
+    }
+  }
+
+  /** Move agent away from (targetX, targetY) for maxStepsPerTick steps. */
+  private moveAwaySteps(agent: Agent, targetX: number, targetY: number): void {
+    for (let i = 0; i < this.config.maxStepsPerTick; i++) {
+      agent.moveAwayFrom(targetX, targetY, this.config.gridSize, this.tileMap);
+    }
   }
 
   /**

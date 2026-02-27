@@ -32,7 +32,7 @@ export class SyncManager {
   }
 
   private setupHandlers(): void {
-    this.io.on(SocketEvents.CONNECTED, (socket: IOSocket) => {
+    this.io.on(SocketEvents.CONNECTION, (socket: IOSocket) => {
       // Send full state on connect
       this.sendFullSync(socket);
 
