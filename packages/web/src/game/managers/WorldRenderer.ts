@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
-import { AgentActionState } from "@battle-royale/shared";
+import { AgentActionState, TileType } from "@battle-royale/shared";
 import { ASSETS, SpriteDirection } from "@/constants/Assets";
 import { CELL_SIZE } from "../scenes/gameConstants";
 import type { AgentDisplayState, Direction } from "../scenes/types";
@@ -34,6 +34,9 @@ type FacingDir = "down" | "up" | "left" | "right";
  * Character sprites use the GenerativeAgentsCN atlas format (32×32, 4-directional).
  * The Tiled tilemap replaces the old tileSprite/obstacle approach for faithful
  * visual alignment with the server-side collision map.
+ *
+ * Obstacle visibility: the Collisions layer is rendered as a semi-transparent
+ * overlay so players can see exactly where agents cannot walk.
  */
 export class WorldRenderer {
   private readonly scene: Phaser.Scene;
@@ -45,9 +48,13 @@ export class WorldRenderer {
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
   /** Cached spriteKey per agent — used to detect texture changes on respawn. */
   private agentSpriteKeys = new Map<number, string>();
+  /** Last known facing direction per agent — preserved when idle. */
+  private agentFacings = new Map<number, FacingDir>();
 
   /** Phaser tilemap object (village map from GenerativeAgentsCN) */
   private tiledMap: Phaser.Tilemaps.Tilemap | null = null;
+  /** Fallback obstacle graphics used when the Phaser tilemap is unavailable. */
+  private obstacleGraphics: Phaser.GameObjects.Graphics | null = null;
 
   // Latest snapshot from MotionState events
   private motionStates = new Map<number, AgentDisplayState>();
@@ -84,6 +91,7 @@ export class WorldRenderer {
     for (const s of this.agentSprites.values()) s.destroy();
     this.agentSprites.clear();
     this.agentSpriteKeys.clear();
+    this.agentFacings.clear();
 
     for (const s of this.itemSprites.values()) s.destroy();
     this.itemSprites.clear();
@@ -91,6 +99,11 @@ export class WorldRenderer {
     if (this.tiledMap) {
       this.tiledMap.destroy();
       this.tiledMap = null;
+    }
+
+    if (this.obstacleGraphics) {
+      this.obstacleGraphics.destroy();
+      this.obstacleGraphics = null;
     }
   }
 
@@ -100,7 +113,11 @@ export class WorldRenderer {
     this.cameraManager.setWorldDimensions(tileMap.width, tileMap.height);
 
     if (!this.tiledMap) {
-      this.buildVillageTilemap();
+      const success = this.buildVillageTilemap();
+      if (!success) {
+        // Fallback: draw obstacle markers directly from server collision data
+        this.drawObstacleFallback(tileMap);
+      }
     }
   }
 
@@ -113,17 +130,20 @@ export class WorldRenderer {
   /**
    * Construct the Phaser tilemap from the pre-loaded GenerativeAgentsCN assets.
    * Layer order and tileset names match the original GenerativeAgentsCN frontend.
+   * The "Collisions" layer is rendered as a semi-transparent overlay so players
+   * can see which tiles are blocked.
+   * @returns true if successful, false if assets are unavailable
    */
-  private buildVillageTilemap(): void {
+  private buildVillageTilemap(): boolean {
     if (!this.scene.cache.tilemap.exists(ASSETS.IMAGES.VILLAGE_TILEMAP)) {
-      console.warn("[WorldRenderer] Village tilemap not yet loaded – skipping.");
-      return;
+      console.warn("[WorldRenderer] Village tilemap not yet loaded – using fallback obstacle rendering.");
+      return false;
     }
 
     const map = this.scene.make.tilemap({ key: ASSETS.IMAGES.VILLAGE_TILEMAP });
     this.tiledMap = map;
 
-    // Add all tilesets
+    // Add all visual tilesets
     const tilesets = [
       map.addTilesetImage("CuteRPG_Field_B",   ASSETS.IMAGES.TILESET_FIELD_B),
       map.addTilesetImage("CuteRPG_Field_C",   ASSETS.IMAGES.TILESET_FIELD_C),
@@ -166,6 +186,48 @@ export class WorldRenderer {
         }
       }
     }
+
+    // ── Collisions layer: render as semi-transparent obstacle overlay ──────────
+    // The "blocks" tileset name in tilemap.json maps to blocks_1.png.
+    // This is the only tileset needed for the Collisions layer.
+    const blocksTileset = map.addTilesetImage("blocks", ASSETS.IMAGES.TILESET_BLOCKS);
+    if (blocksTileset) {
+      const collisionsLayer = map.createLayer("Collisions", blocksTileset, 0, 0);
+      if (collisionsLayer) {
+        // Semi-transparent overlay so players can see which tiles are blocked
+        // without hiding the visual map underneath.
+        collisionsLayer.setAlpha(0.35);
+        collisionsLayer.setDepth(1);
+        this.cameraManager.ignoreInUICamera(collisionsLayer);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Fallback: draw semi-transparent rectangles for every blocked tile using
+   * the server-provided TileMap. Used when the Phaser village tilemap assets
+   * are unavailable.
+   */
+  private drawObstacleFallback(tileMap: TileMap): void {
+    if (this.obstacleGraphics) {
+      this.obstacleGraphics.destroy();
+    }
+    const gfx = this.scene.add.graphics();
+    gfx.fillStyle(0x444466, 0.5);
+
+    for (let y = 0; y < tileMap.height; y++) {
+      for (let x = 0; x < tileMap.width; x++) {
+        if (tileMap.tiles[y][x].type === TileType.Blocked) {
+          gfx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+      }
+    }
+
+    gfx.setDepth(1);
+    this.cameraManager.ignoreInUICamera(gfx);
+    this.obstacleGraphics = gfx;
   }
 
   // ─── Items ─────────────────────────────────────────────────────────────────
@@ -207,6 +269,7 @@ export class WorldRenderer {
         this.agentSprites.get(id)?.destroy();
         this.agentSprites.delete(id);
         this.agentSpriteKeys.delete(id);
+        this.agentFacings.delete(id);
         continue;
       }
 
@@ -229,11 +292,14 @@ export class WorldRenderer {
         this.agentSpriteKeys.set(id, spriteKey);
       }
 
-      // Determine facing from movement
+      // Determine facing from movement, preserving previous direction when idle
+      const prevFacing = this.agentFacings.get(id) ?? "down";
       const facing = this.getFacing(
         displayState.prevX, displayState.prevY,
         displayState.targetX, displayState.targetY,
+        prevFacing,
       );
+      this.agentFacings.set(id, facing);
 
       // Play the appropriate animation
       const animKey = this.getAnimKey(spriteKey, facing, isMoving, agent.actionState);
@@ -253,6 +319,7 @@ export class WorldRenderer {
         this.agentSprites.get(id)?.destroy();
         this.agentSprites.delete(id);
         this.agentSpriteKeys.delete(id);
+        this.agentFacings.delete(id);
       }
     }
   }
@@ -289,7 +356,9 @@ export class WorldRenderer {
 
   /**
    * Return the animation key for the current state.
-   * Fighting agents use down-walk (attack animation reuses walk frames).
+   * Fighting and moving agents use the directional walk animation.
+   * Dead agents use the down-walk animation as a static "fallen" pose until removed.
+   * Idle agents use the down-walk animation for a gentle idle loop.
    */
   private getAnimKey(
     spriteKey: string,
@@ -297,8 +366,6 @@ export class WorldRenderer {
     isMoving: boolean,
     actionState: AgentActionState,
   ): string {
-    // Dead agents show the first frame of the down-walk animation as a static
-    // "fallen" pose until the sprite is removed on the next update cycle.
     if (actionState === AgentActionState.Dead) return `${spriteKey}-down-walk`;
     if (isMoving || actionState === AgentActionState.Fighting) {
       return `${spriteKey}-${facing}-walk`;
@@ -307,14 +374,26 @@ export class WorldRenderer {
     return `${spriteKey}-down-walk`;
   }
 
-  /** Derive facing direction from previous → target movement. */
-  private getFacing(prevX: number, prevY: number, targetX: number, targetY: number): FacingDir {
+  /**
+   * Derive facing direction from previous → target movement.
+   * When the agent is stationary (dx=dy=0) the previous direction is preserved
+   * so sprites don't snap to a default facing when idle.
+   */
+  private getFacing(
+    prevX: number,
+    prevY: number,
+    targetX: number,
+    targetY: number,
+    currentFacing: FacingDir,
+  ): FacingDir {
     const dx = targetX - prevX;
     const dy = targetY - prevY;
+    // No movement — keep the last known direction
+    if (dx === 0 && dy === 0) return currentFacing;
     if (Math.abs(dx) >= Math.abs(dy)) {
-      return dx >= 0 ? "right" : "left";
+      return dx > 0 ? "right" : "left";
     }
-    return dy >= 0 ? "down" : "up";
+    return dy > 0 ? "down" : "up";
   }
 
   private safePlayAnimation(

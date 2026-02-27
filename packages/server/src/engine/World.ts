@@ -148,6 +148,13 @@ export class World {
     const agents: Agent[] = [];
     const usedSpawnIndices = new Set<number>();
 
+    if (this.spawnPoints.length > 0 && this.config.agentCount > this.spawnPoints.length) {
+      console.warn(
+        `[World] agentCount (${this.config.agentCount}) exceeds available spawn points ` +
+        `(${this.spawnPoints.length}). Extra agents will use random passable tiles.`
+      );
+    }
+
     for (let i = 0; i < this.config.agentCount; i++) {
       let x: number, y: number;
 
