@@ -22,7 +22,7 @@ export class RuleBasedEngine implements DecisionEngine {
   readonly name = "rule-based";
 
   async decide(ctx: DecisionContext): Promise<Decision> {
-    const { agent, nearbyAgents, nearbyItems, innerVoice, currentPlan } = ctx;
+    const { agent, nearbyAgents, nearbyItems, innerVoice } = ctx;
 
     // Priority 1: Inner voice (player votes) override
     if (innerVoice) {
