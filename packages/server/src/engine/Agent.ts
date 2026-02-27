@@ -32,6 +32,8 @@ export class Agent {
   readonly personality: string;
   readonly description: string;
   readonly color: string;
+  /** Sprite atlas key used by the client to render this character (e.g. "乔治") */
+  readonly spriteKey: string;
 
   x: number;
   y: number;
@@ -45,6 +47,12 @@ export class Agent {
 
   actionState: AgentActionState = AgentActionState.Idle;
   currentAction: string = "Surveying surroundings";
+  /**
+   * Active plan — the agent's current high-level goal.
+   * Aligns with GenerativeAgentsCN's plan layer: agents set a plan and pursue
+   * it across ticks until they decide to change it.
+   */
+  currentPlan: string = "Assess the situation and decide on a strategy.";
   currentDecision: Decision | null = null;
   thinkingProcess: ThinkingProcess | null = null;
 
@@ -61,6 +69,7 @@ export class Agent {
     this.name = template.name;
     this.personality = template.personality;
     this.description = template.description;
+    this.spriteKey = template.spriteKey;
     this.color = `hsl(${(id * 137) % 360}, 70%, 60%)`;
 
     this.x = x;
@@ -81,6 +90,16 @@ export class Agent {
   /** Hear the inner voice (player vote result) */
   hearInnerVoice(message: string): void {
     this.memory.add(`[Inner Voice] ${message}`, 9, MemoryType.InnerVoice);
+  }
+
+  /**
+   * Set a new plan and record it in memory.
+   * Aligned with GenerativeAgentsCN's plan layer — plans are high-level goals
+   * that persist across ticks until the agent decides to revise them.
+   */
+  setNewPlan(plan: string): void {
+    this.currentPlan = plan;
+    this.memory.add(`[计划] ${plan}`, 6, MemoryType.Plan);
   }
 
   /** Perceive nearby agents and items within vision range */
@@ -254,6 +273,8 @@ export class Agent {
       alliances: [...this.alliances],
       enemies: [...this.enemies],
       currentAction: this.currentAction,
+      currentPlan: this.currentPlan,
+      spriteKey: this.spriteKey,
       memories: this.memory.getRecent(15),
       thinkingProcess: this.thinkingProcess ?? undefined,
     };

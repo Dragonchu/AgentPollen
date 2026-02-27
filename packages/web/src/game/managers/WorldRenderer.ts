@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
-import { AgentActionState, TileType } from "@battle-royale/shared";
+import { AgentActionState } from "@battle-royale/shared";
 import { ASSETS, SpriteDirection } from "@/constants/Assets";
 import { CELL_SIZE } from "../scenes/gameConstants";
 import type { AgentDisplayState, Direction } from "../scenes/types";
@@ -9,12 +9,28 @@ import type { GameState } from "./GameState";
 import type { MotionState } from "./MotionState";
 import type { CameraManager } from "./CameraManager";
 
+/** Phaser atlas frame keys for 4-directional character animations (GenerativeAgentsCN convention). */
+const AGENT_FRAME = {
+  down:       "down",
+  downWalk:   ["down-walk.000", "down-walk.001", "down-walk.002", "down-walk.003"],
+  left:       "left",
+  leftWalk:   ["left-walk.000", "left-walk.001", "left-walk.002", "left-walk.003"],
+  right:      "right",
+  rightWalk:  ["right-walk.000", "right-walk.001", "right-walk.002", "right-walk.003"],
+  up:         "up",
+  upWalk:     ["up-walk.000", "up-walk.001", "up-walk.002", "up-walk.003"],
+};
+
+/** Movement direction derived from dx/dy. */
+type FacingDir = "down" | "up" | "left" | "right";
+
 /**
  * WorldRenderer is responsible for all world-space rendering:
- * tile background, obstacles, items, and agent sprites.
+ * the Phaser tilemap (village map), item sprites, and agent sprites.
  *
- * It subscribes to GameState and MotionState events directly,
- * so GameScene.update() only needs to call worldRenderer.update().
+ * Character sprites use the GenerativeAgentsCN atlas format (32×32, 4-directional).
+ * The Tiled tilemap replaces the old tileSprite/obstacle approach for faithful
+ * visual alignment with the server-side collision map.
  */
 export class WorldRenderer {
   private readonly scene: Phaser.Scene;
@@ -24,9 +40,11 @@ export class WorldRenderer {
 
   private agentSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
-  private obstacleSprites = new Map<string, Phaser.GameObjects.Sprite>();
-  private tileBackground: Phaser.GameObjects.TileSprite | null = null;
-  private animCreated = false;
+  /** Cached spriteKey per agent — used to detect texture changes on respawn. */
+  private agentSpriteKeys = new Map<number, string>();
+
+  /** Phaser tilemap object (village map from GenerativeAgentsCN) */
+  private tiledMap: Phaser.Tilemaps.Tilemap | null = null;
 
   // Latest snapshot from MotionState events
   private motionStates = new Map<number, AgentDisplayState>();
@@ -62,16 +80,14 @@ export class WorldRenderer {
 
     for (const s of this.agentSprites.values()) s.destroy();
     this.agentSprites.clear();
+    this.agentSpriteKeys.clear();
 
     for (const s of this.itemSprites.values()) s.destroy();
     this.itemSprites.clear();
 
-    for (const s of this.obstacleSprites.values()) s.destroy();
-    this.obstacleSprites.clear();
-
-    if (this.tileBackground) {
-      this.tileBackground.destroy();
-      this.tileBackground = null;
+    if (this.tiledMap) {
+      this.tiledMap.destroy();
+      this.tiledMap = null;
     }
   }
 
@@ -80,40 +96,76 @@ export class WorldRenderer {
   private onTilemapUpdated(tileMap: TileMap): void {
     this.cameraManager.setWorldDimensions(tileMap.width, tileMap.height);
 
-    if (!this.tileBackground) {
-      const worldWidth = tileMap.width * CELL_SIZE;
-      const worldHeight = tileMap.height * CELL_SIZE;
-      this.tileBackground = this.scene.add
-        .tileSprite(0, 0, worldWidth, worldHeight, ASSETS.IMAGES.Tile.KEY)
-        .setOrigin(0, 0);
-      this.cameraManager.ignoreInUICamera(this.tileBackground);
+    if (!this.tiledMap) {
+      this.buildVillageTilemap();
     }
-
-    this.drawObstacles(tileMap);
   }
 
   private onMotionStatesChanged(motionStates: Map<number, AgentDisplayState>): void {
     this.motionStates = motionStates;
   }
 
-  // ─── Drawing helpers ────────────────────────────────────────────────────────
+  // ─── Village Tilemap (GenerativeAgentsCN) ──────────────────────────────────
 
-  private drawObstacles(tileMap: TileMap): void {
-    for (const sprite of this.obstacleSprites.values()) sprite.destroy();
-    this.obstacleSprites.clear();
+  /**
+   * Construct the Phaser tilemap from the pre-loaded GenerativeAgentsCN assets.
+   * Layer order and tileset names match the original GenerativeAgentsCN frontend.
+   */
+  private buildVillageTilemap(): void {
+    if (!this.scene.cache.tilemap.exists(ASSETS.IMAGES.VILLAGE_TILEMAP)) {
+      console.warn("[WorldRenderer] Village tilemap not yet loaded – skipping.");
+      return;
+    }
 
-    for (let gridY = 0; gridY < tileMap.height; gridY++) {
-      for (let gridX = 0; gridX < tileMap.width; gridX++) {
-        if (tileMap.tiles[gridY][gridX].type !== TileType.Blocked) continue;
-        const worldPos = CoordinateUtils.gridToWorld({ gridX, gridY }, CELL_SIZE);
-        const sprite = this.scene.add
-          .sprite(worldPos.worldX, worldPos.worldY, ASSETS.IMAGES.ROCK2)
-          .setOrigin(0.5, 0.5);
-        this.cameraManager.ignoreInUICamera(sprite);
-        this.obstacleSprites.set(`${gridX},${gridY}`, sprite);
+    const map = this.scene.make.tilemap({ key: ASSETS.IMAGES.VILLAGE_TILEMAP });
+    this.tiledMap = map;
+
+    // Add all tilesets
+    const tilesets = [
+      map.addTilesetImage("CuteRPG_Field_B",   ASSETS.IMAGES.TILESET_FIELD_B),
+      map.addTilesetImage("CuteRPG_Field_C",   ASSETS.IMAGES.TILESET_FIELD_C),
+      map.addTilesetImage("CuteRPG_Harbor_C",  ASSETS.IMAGES.TILESET_HARBOR_C),
+      map.addTilesetImage("CuteRPG_Village_B", ASSETS.IMAGES.TILESET_VILLAGE_B),
+      map.addTilesetImage("CuteRPG_Forest_B",  ASSETS.IMAGES.TILESET_FOREST_B),
+      map.addTilesetImage("CuteRPG_Desert_C",  ASSETS.IMAGES.TILESET_DESERT_C),
+      map.addTilesetImage("CuteRPG_Mountains_B", ASSETS.IMAGES.TILESET_MOUNTAINS_B),
+      map.addTilesetImage("CuteRPG_Desert_B",  ASSETS.IMAGES.TILESET_DESERT_B),
+      map.addTilesetImage("CuteRPG_Forest_C",  ASSETS.IMAGES.TILESET_FOREST_C),
+      map.addTilesetImage("Room_Builder_32x32", ASSETS.IMAGES.TILESET_WALLS),
+      map.addTilesetImage("interiors_pt1", ASSETS.IMAGES.TILESET_INTERIORS_1),
+      map.addTilesetImage("interiors_pt2", ASSETS.IMAGES.TILESET_INTERIORS_2),
+      map.addTilesetImage("interiors_pt3", ASSETS.IMAGES.TILESET_INTERIORS_3),
+      map.addTilesetImage("interiors_pt4", ASSETS.IMAGES.TILESET_INTERIORS_4),
+      map.addTilesetImage("interiors_pt5", ASSETS.IMAGES.TILESET_INTERIORS_5),
+    ].filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
+
+    // Visual layers (ordered bottom-to-top as in GenerativeAgentsCN)
+    const visualLayers = [
+      "Bottom Ground",
+      "Exterior Ground",
+      "Exterior Decoration L1",
+      "Exterior Decoration L2",
+      "Interior Ground",
+      "Wall",
+      "Interior Furniture L1",
+      "Interior Furniture L2 ",
+      "Foreground L1",
+      "Foreground L2",
+    ];
+
+    for (const layerName of visualLayers) {
+      const layer = map.createLayer(layerName, tilesets, 0, 0);
+      if (layer) {
+        this.cameraManager.ignoreInUICamera(layer);
+        // Foreground layers render above agents
+        if (layerName.startsWith("Foreground")) {
+          layer.setDepth(2);
+        }
       }
     }
   }
+
+  // ─── Items ─────────────────────────────────────────────────────────────────
 
   private drawItems(items: ItemState[]): void {
     const validItems = items.filter((item): item is NonNullable<typeof item> => item != null);
@@ -125,7 +177,9 @@ export class WorldRenderer {
       if (!sprite) {
         sprite = this.scene.add
           .image(worldPos.worldX, worldPos.worldY, ASSETS.IMAGES.GOLD_RESOURCE)
-          .setOrigin(0.5, 0.5);
+          .setOrigin(0.5, 0.5)
+          .setScale(0.5)
+          .setDepth(1);
         this.cameraManager.ignoreInUICamera(sprite);
         this.itemSprites.set(item.id, sprite);
       } else {
@@ -141,53 +195,48 @@ export class WorldRenderer {
     }
   }
 
+  // ─── Agent sprites ─────────────────────────────────────────────────────────
+
   private updateAgentSprites(agents: Map<number, AgentFullState>): void {
     for (const [id, displayState] of this.motionStates) {
       const agent = agents.get(id);
       if (!agent?.alive) {
         this.agentSprites.get(id)?.destroy();
         this.agentSprites.delete(id);
+        this.agentSpriteKeys.delete(id);
         continue;
       }
 
-      let sprite = this.agentSprites.get(id);
+      const spriteKey = agent.spriteKey || ASSETS.AGENT_SPRITES[id % ASSETS.AGENT_SPRITES.length];
       const isMoving =
         displayState.path.length > 0 && displayState.pathIndex < displayState.path.length;
 
-      if (!sprite) {
-        if (!this.animCreated) {
-          this.createAnimations();
-          this.animCreated = true;
-        }
-        sprite = this.scene.add.sprite(0, 0, ASSETS.IMAGES.WARRIOR_RUN.KEY);
+      let sprite = this.agentSprites.get(id);
+
+      if (!sprite || this.agentSpriteKeys.get(id) !== spriteKey) {
+        // Create (or re-create after spriteKey change)
+        sprite?.destroy();
+        this.createCharacterAnimations(spriteKey);
+        sprite = this.scene.add
+          .sprite(0, 0, spriteKey, AGENT_FRAME.down)
+          .setScale(1.25)   // slightly upscale 32px sprites for visibility
+          .setDepth(1);
         this.cameraManager.ignoreInUICamera(sprite);
-        this.safePlayAnimation(sprite, this.getAnimationForState(agent.actionState, isMoving));
-        displayState.currentAnimation = agent.actionState;
         this.agentSprites.set(id, sprite);
-      } else {
-        const newAnim = this.getAnimationForState(agent.actionState, isMoving);
-        if (
-          displayState.currentAnimation !== agent.actionState ||
-          newAnim !== sprite.anims.currentAnim?.key
-        ) {
-          this.safePlayAnimation(sprite, newAnim);
-          displayState.currentAnimation = agent.actionState;
-          if (agent.actionState === AgentActionState.Fighting) {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_ATTACK.KEY);
-          } else if (!isMoving) {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_IDLE.KEY);
-          } else {
-            sprite.setTexture(ASSETS.IMAGES.WARRIOR_RUN.KEY);
-          }
-        }
+        this.agentSpriteKeys.set(id, spriteKey);
       }
 
-      const newFacing = this.getDirectionFromMovement(displayState.prevX, displayState.targetX);
-      if (newFacing !== displayState.facing) {
-        displayState.facing = newFacing;
-        sprite.setFlipX(newFacing === SpriteDirection.Left);
-      }
+      // Determine facing from movement
+      const facing = this.getFacing(
+        displayState.prevX, displayState.prevY,
+        displayState.targetX, displayState.targetY,
+      );
 
+      // Play the appropriate animation
+      const animKey = this.getAnimKey(spriteKey, facing, isMoving, agent.actionState);
+      this.safePlayAnimation(sprite, animKey);
+
+      // Position
       const worldPos = CoordinateUtils.gridToWorld(
         { gridX: displayState.displayX, gridY: displayState.displayY },
         CELL_SIZE,
@@ -195,51 +244,71 @@ export class WorldRenderer {
       sprite.setPosition(worldPos.worldX, worldPos.worldY).setOrigin(0.5, 0.5);
     }
 
-    // Remove sprites for agents no longer in motionStates or dead
-    for (const id of this.agentSprites.keys()) {
+    // Remove sprites for agents no longer tracked or dead
+    for (const id of [...this.agentSprites.keys()]) {
       if (!this.motionStates.has(id) || !agents.get(id)?.alive) {
         this.agentSprites.get(id)?.destroy();
         this.agentSprites.delete(id);
+        this.agentSpriteKeys.delete(id);
       }
     }
   }
 
   // ─── Animation helpers ──────────────────────────────────────────────────────
 
-  private createAnimations(): void {
-    this.scene.anims.create({
-      key: "walk-anim",
-      frames: this.scene.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_RUN.KEY, {
-        start: 0,
-        end: 5,
-      }),
-      frameRate: 6,
-      repeat: -1,
-    });
-    this.scene.anims.create({
-      key: "attack-anim",
-      frames: this.scene.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_ATTACK.KEY, {
-        start: 0,
-        end: 5,
-      }),
-      frameRate: 6,
-      repeat: -1,
-    });
-    this.scene.anims.create({
-      key: "idle-anim",
-      frames: this.scene.anims.generateFrameNumbers(ASSETS.IMAGES.WARRIOR_IDLE.KEY, {
-        start: 0,
-        end: 3,
-      }),
-      frameRate: 4,
-      repeat: -1,
-    });
+  /**
+   * Create per-character 4-directional animations if not yet registered.
+   * Mirrors the GenerativeAgentsCN animation setup (left/right/up/down walk + idle).
+   */
+  private createCharacterAnimations(spriteKey: string): void {
+    const anims = this.scene.anims;
+    const frameRate = 6;
+
+    const dirs: Array<{ dir: FacingDir; frames: string[] }> = [
+      { dir: "down",  frames: AGENT_FRAME.downWalk },
+      { dir: "left",  frames: AGENT_FRAME.leftWalk },
+      { dir: "right", frames: AGENT_FRAME.rightWalk },
+      { dir: "up",    frames: AGENT_FRAME.upWalk },
+    ];
+
+    for (const { dir, frames } of dirs) {
+      const walkKey = `${spriteKey}-${dir}-walk`;
+      if (!anims.exists(walkKey)) {
+        anims.create({
+          key: walkKey,
+          frames: frames.map((f) => ({ key: spriteKey, frame: f })),
+          frameRate,
+          repeat: -1,
+        });
+      }
+    }
   }
 
-  private getAnimationForState(actionState: AgentActionState, isMoving: boolean): string {
-    if (actionState === AgentActionState.Fighting) return "attack-anim";
-    if (isMoving) return "walk-anim";
-    return "idle-anim";
+  /**
+   * Return the animation key for the current state.
+   * Fighting agents use down-walk (attack animation reuses walk frames).
+   */
+  private getAnimKey(
+    spriteKey: string,
+    facing: FacingDir,
+    isMoving: boolean,
+    actionState: AgentActionState,
+  ): string {
+    if (actionState === AgentActionState.Dead) return `${spriteKey}-down-walk`;
+    if (isMoving || actionState === AgentActionState.Fighting) {
+      return `${spriteKey}-${facing}-walk`;
+    }
+    return `${spriteKey}-down-walk`; // idle: use down-walk first frame
+  }
+
+  /** Derive facing direction from previous → target movement. */
+  private getFacing(prevX: number, prevY: number, targetX: number, targetY: number): FacingDir {
+    const dx = targetX - prevX;
+    const dy = targetY - prevY;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return dx >= 0 ? "right" : "left";
+    }
+    return dy >= 0 ? "down" : "up";
   }
 
   private safePlayAnimation(
@@ -256,8 +325,8 @@ export class WorldRenderer {
     }
   }
 
+  /** @deprecated Legacy helper retained for type compatibility */
   private getDirectionFromMovement(fromX: number, toX: number): Direction {
     return toX < fromX ? SpriteDirection.Left : SpriteDirection.Right;
   }
 }
-

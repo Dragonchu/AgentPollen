@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { AgentFullState, Waypoint } from "@battle-royale/shared";
-import { ASSETS } from "@/constants/Assets";
+import { SpriteDirection } from "@/constants/Assets";
 import type { AgentDisplayState } from "../scenes/types";
 
 /** 单步移动耗时（每格 1 秒） */
@@ -45,7 +45,8 @@ export class MotionState extends Phaser.Events.EventEmitter {
     agents: Map<number, AgentFullState>,
     agentPaths: Record<number, Waypoint[]>
   ): void {
-    const defaultFacing = ASSETS.IMAGES.WARRIOR_RUN.DEFAULT_DIRECTION;
+    // Default facing is SpriteDirection.Right (1) — agents face right when idle
+    const defaultFacing = SpriteDirection.Right;
 
     for (const [id, agent] of agents) {
       const displayState = this.displayStates.get(id);
