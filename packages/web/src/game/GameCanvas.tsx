@@ -1,118 +1,85 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
-import type { AgentFullState, ItemState, Waypoint, TileMap } from "@battle-royale/shared";
-import type { GameScene } from "./scenes/GameScene";
+import { useEffect, useRef } from "react";
 
-const CELL_SIZE = 24;
-const GRID_SIZE = 20;
-const CANVAS_SIZE = CELL_SIZE * GRID_SIZE;
-
-interface GameCanvasProps {
-  agents: Map<number, AgentFullState>;
-  items?: ItemState[];
-  selectedAgentId?: number | null;
-  shrinkBorder?: number;
-  onAgentClick?: (agentId: number) => void;
-  agentPaths?: Record<number, Waypoint[]>;
-  tileMap?: TileMap | null;
-  zoneCenterX?: number;
-  zoneCenterY?: number;
-}
-
-export function GameCanvas({
-  agents,
-  items = [],
-  selectedAgentId,
-  shrinkBorder = GRID_SIZE,
-  onAgentClick,
-  agentPaths = {},
-  tileMap = null,
-  zoneCenterX = GRID_SIZE / 2,
-  zoneCenterY = GRID_SIZE / 2,
-}: GameCanvasProps) {
+export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameRef = useRef<Phaser.Game | null>(null);
-  const sceneRef = useRef<GameScene | null>(null);
-  const readyRef = useRef(false);
-
-  // Keep latest values in refs so the Phaser scene can always access them
-  const propsRef = useRef({ agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, agentPaths, tileMap, zoneCenterX, zoneCenterY });
-  const onAgentClickRef = useRef(onAgentClick);
-  propsRef.current = { agents, items, selectedAgentId: selectedAgentId ?? null, shrinkBorder, agentPaths, tileMap, zoneCenterX, zoneCenterY };
-  onAgentClickRef.current = onAgentClick;
-
-  /** Push current props into the Phaser scene (no-op if scene isn't ready). */
-  const syncToScene = useCallback(() => {
-    const scene = sceneRef.current;
-    if (!scene || !readyRef.current) return;
-    const { agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap, zoneCenterX, zoneCenterY } = propsRef.current;
-    scene.updateData(agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap, zoneCenterX, zoneCenterY);
-  }, []);
-
-  // --------------- Phaser lifecycle ---------------
+  const gameRef = useRef<unknown>(null);
 
   useEffect(() => {
     let destroyed = false;
 
     // Dynamic import to avoid SSR issues – Phaser accesses browser globals at load time.
+    // RexUI plugin expects Phaser on window, so we must set it before loading the plugin.
     Promise.all([
       import("phaser"),
       import("./scenes/GameScene"),
-    ]).then(([Phaser, { GameScene }]) => {
+    ]).then(([PhaserModule, { GameScene }]) => {
+      const Phaser = (PhaserModule as { default?: typeof import("phaser") }).default ?? PhaserModule;
+      (window as unknown as { Phaser?: typeof import("phaser") }).Phaser = Phaser;
+
+      return import("phaser3-rex-plugins/templates/ui/ui-plugin.js").then((RexUIPluginModule) => ({
+        Phaser,
+        GameScene,
+        RexUIPluginModule,
+      }));
+    }).then(({ Phaser, GameScene, RexUIPluginModule }) => {
       if (destroyed || !containerRef.current) return;
 
-      const scene = new GameScene();
-      sceneRef.current = scene;
+      // Destroy old game if exists
+      const prevGame = gameRef.current as { destroy?: (flag?: boolean) => void } | null;
+      if (prevGame?.destroy) {
+        prevGame.destroy(true);
+      }
 
-      // Set up callback before the scene is created
-      scene.setOnReady(() => {
-        if (destroyed) return;
-        scene.setOnAgentClick((id) => onAgentClickRef.current?.(id));
-        readyRef.current = true;
-        syncToScene();
-      });
+      const mod = RexUIPluginModule as { default?: unknown };
+      const RexUIPlugin = mod.default ?? RexUIPluginModule;
 
       const game = new Phaser.Game({
-        type: Phaser.CANVAS,
-        width: CANVAS_SIZE,
-        height: CANVAS_SIZE,
+        type: Phaser.AUTO,
+        width: window.innerWidth,
+        height: window.innerHeight,
         parent: containerRef.current,
-        backgroundColor: "#0a0a14",
-        scene,
+        backgroundColor: "#070a12",
+        scene: GameScene,
         scale: {
-          mode: Phaser.Scale.FIT,
+          mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
+          expandParent: false,
+          width: window.innerWidth,
+          height: window.innerHeight,
         },
         render: { antialias: true },
         audio: { noAudio: true },
-        // Let the parent container handle pointer style
         banner: false,
+        dom: { createContainer: true },
+        plugins: {
+          scene: [
+            {
+              key: "rexUI",
+              plugin: RexUIPlugin,
+              mapping: "rexUI",
+            },
+          ],
+        },
       });
       gameRef.current = game;
     });
 
     return () => {
       destroyed = true;
-      readyRef.current = false;
-      gameRef.current?.destroy(true);
+      const game = gameRef.current as { destroy?: (flag?: boolean) => void } | null;
+      if (game?.destroy) {
+        game.destroy(true);
+      }
       gameRef.current = null;
-      sceneRef.current = null;
     };
-  }, [syncToScene]);
-
-  // --------------- sync React props → Phaser ---------------
-
-  useEffect(() => {
-    syncToScene();
-  }, [agents, items, selectedAgentId, shrinkBorder, agentPaths, tileMap, syncToScene]);
-
-  // --------------- render ---------------
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-[480px] aspect-square rounded-lg cursor-pointer border border-border overflow-hidden"
+      className="w-screen h-screen bg-background overflow-hidden"
     />
   );
 }

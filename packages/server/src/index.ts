@@ -136,8 +136,21 @@ async function main() {
   const thinkingStorage = createThinkingStorage();
 
   // 5. Create and initialize world
+  const DEFAULT_GRID_SIZE = 100;
+  const MIN_GRID_SIZE = 10;
+  const parsedGridSize = parseInt(process.env.GRID_SIZE ?? String(DEFAULT_GRID_SIZE), 10);
+  if (!Number.isFinite(parsedGridSize) || parsedGridSize < MIN_GRID_SIZE) {
+    throw new Error(`Invalid GRID_SIZE: "${process.env.GRID_SIZE}". Must be an integer >= ${MIN_GRID_SIZE}.`);
+  }
+  const GRID_SIZE = parsedGridSize;
+  console.log(`Grid Size: ${GRID_SIZE}x${GRID_SIZE}`);
+
   const world = new World(
-    { agentCount: AGENT_COUNT, tickIntervalMs: TICK_INTERVAL },
+    {
+      agentCount: AGENT_COUNT,
+      tickIntervalMs: TICK_INTERVAL,
+      gridSize: GRID_SIZE,
+    },
     engine,
     pathfinder,
     thinkingStorage,
