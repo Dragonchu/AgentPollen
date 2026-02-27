@@ -68,12 +68,17 @@ export class World {
   /** Agent paths to broadcast to clients */
   agentPaths: Map<number, Waypoint[]> = new Map();
 
+  /** Pre-defined spawn positions from the tilemap (Spawning Blocks layer) */
+  private spawnPoints: Waypoint[] = [];
+
   constructor(
     config: Partial<WorldConfig>, 
     engine: DecisionEngine, 
     pathfinder: PathfindingEngine,
     thinkingStorage: ThinkingHistoryStorage,
-    factory?: AgentFactory
+    factory?: AgentFactory,
+    /** Optional pre-loaded village tilemap (replaces random obstacle generation) */
+    villageMap?: { tileMap: TileMap; spawnPoints: Waypoint[] }
   ) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
     this.decisionEngine = engine;
@@ -81,13 +86,21 @@ export class World {
     this.thinkingHistoryStorage = thinkingStorage;
     this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
     this.voteManager = new VoteManager(this.config.votingWindowMs);
-    this.shrinkBorder = this.config.gridSize;
-    // Initial session ID (will be regenerated on each init())
     this.sessionId = randomUUID();
 
-    // Initialize tile map
-    this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
-    MapGenerator.addRandomObstacles(this.tileMap, 0.15); // 15% obstacle density
+    if (villageMap) {
+      // Use the GenerativeAgentsCN village tilemap for realistic terrain
+      this.tileMap = villageMap.tileMap;
+      this.spawnPoints = villageMap.spawnPoints;
+      // Override gridSize to match tilemap dimensions
+      (this.config as WorldConfig).gridSize = villageMap.tileMap.width;
+    } else {
+      // Fallback: procedurally generated random map
+      this.tileMap = MapGenerator.createEmpty(this.config.gridSize, this.config.gridSize);
+      MapGenerator.addRandomObstacles(this.tileMap, 0.15);
+    }
+
+    this.shrinkBorder = this.config.gridSize;
 
     // Wire vote resolution → agent inner voice
     this.voteManager.setOnResolve((results) => {
@@ -123,31 +136,53 @@ export class World {
     this.phase = GamePhase.WaitingToStart;
 
     // Randomize zone center within middle 60% of map to avoid edge zones
-    const margin = Math.floor(this.config.gridSize * 0.2);
-    this.zoneCenterX = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
-    this.zoneCenterY = margin + Math.floor(Math.random() * (this.config.gridSize - 2 * margin));
+    const mapWidth = this.tileMap.width;
+    const mapHeight = this.tileMap.height;
+    const marginX = Math.floor(mapWidth * 0.2);
+    const marginY = Math.floor(mapHeight * 0.2);
+    this.zoneCenterX = marginX + Math.floor(Math.random() * (mapWidth - 2 * marginX));
+    this.zoneCenterY = marginY + Math.floor(Math.random() * (mapHeight - 2 * marginY));
     console.log(`Zone center randomized to (${this.zoneCenterX}, ${this.zoneCenterY})`);
 
-    // Spawn agents on passable tiles
+    // Spawn agents using pre-defined spawn points when available
     const agents: Agent[] = [];
+    const usedSpawnIndices = new Set<number>();
+
+    if (this.spawnPoints.length > 0 && this.config.agentCount > this.spawnPoints.length) {
+      console.warn(
+        `[World] agentCount (${this.config.agentCount}) exceeds available spawn points ` +
+        `(${this.spawnPoints.length}). Extra agents will use random passable tiles.`
+      );
+    }
+
     for (let i = 0; i < this.config.agentCount; i++) {
       let x: number, y: number;
-      let attempts = 0;
-      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
-      
-      do {
-        x = Math.floor(Math.random() * this.config.gridSize);
-        y = Math.floor(Math.random() * this.config.gridSize);
-        attempts++;
-        
-        // If we've tried many times, throw an error - the map may be too crowded
-        if (attempts >= maxAttempts) {
-          throw new Error(
-            `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts. ` +
-            `Map may have too few passable tiles (gridSize: ${this.config.gridSize}, agentCount: ${this.config.agentCount})`
-          );
-        }
-      } while (!MapGenerator.isPassable(this.tileMap, x, y));
+
+      if (this.spawnPoints.length >= this.config.agentCount) {
+        // Use pre-defined spawn points from the tilemap (Spawning Blocks layer)
+        // Shuffle-pick to spread agents across the map
+        let idx: number;
+        do {
+          idx = Math.floor(Math.random() * this.spawnPoints.length);
+        } while (usedSpawnIndices.has(idx));
+        usedSpawnIndices.add(idx);
+        x = this.spawnPoints[idx].x;
+        y = this.spawnPoints[idx].y;
+      } else {
+        // Fallback: pick a random passable tile
+        let attempts = 0;
+        const maxAttempts = mapWidth * mapHeight * 2;
+        do {
+          x = Math.floor(Math.random() * mapWidth);
+          y = Math.floor(Math.random() * mapHeight);
+          attempts++;
+          if (attempts >= maxAttempts) {
+            throw new Error(
+              `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts.`
+            );
+          }
+        } while (!MapGenerator.isPassable(this.tileMap, x, y));
+      }
       
       agents.push(this.agentFactory.createAgent(x, y));
     }
@@ -177,39 +212,43 @@ export class World {
     // 3. Process votes
     const voteResult = this.voteManager.tick();
 
-    // 4. Agent loop: perceive → decide → execute
+    // 4. Agent loop: perceive → retrieve → plan → execute → reflect
+    //    Aligns with GenerativeAgentsCN's cognitive cycle.
     const shuffled = this.agents.filter((a) => a.alive).sort(() => Math.random() - 0.5);
     for (const agent of shuffled) {
       if (!agent.alive) continue;
 
-      // 1. If agent has an ongoing path, continue following it (path caching)
+      // Step 1 — Follow existing path (path caching avoids re-planning every tick)
       if (agent.hasPath()) {
         this.moveAlongPath(agent);
         continue;
       }
 
-      // 2. No path - make a new decision
-      // Perceive
+      // Step 2 — Perceive: observe nearby environment
       const perception = agent.perceive(this.agents, this.items);
 
-      // Decide (via engine plugin)
+      // Step 3 — Decide: engine receives perception + current plan, returns decision
       const context = this.buildDecisionContext(agent, perception);
       const decision = await this.decisionEngine.decide(context);
       agent.currentDecision = decision;
 
+      // Step 4 — Plan revision: if the engine proposes a new plan, adopt it
+      if (decision.newPlan && decision.newPlan !== agent.currentPlan) {
+        agent.setNewPlan(decision.newPlan);
+      }
+
       // Store thinking process if available
       if (decision.thinking) {
         agent.thinkingProcess = decision.thinking;
-        // Store in history (non-blocking: failures are logged but don't interrupt game execution)
         this.thinkingHistoryStorage.store(this.sessionId, agent.id, decision.thinking).catch((err) => {
           console.error(`Failed to store thinking process for agent ${agent.id}:`, err);
         });
       }
 
-      // Execute
+      // Step 5 — Execute the decision
       this.executeDecision(agent, decision);
 
-      // Reflect periodically
+      // Step 6 — Reflect periodically (synthesise memories into insights)
       if (this.tick % 5 === 0) {
         const reflection = await this.decisionEngine.reflect({
           agent: agent.toFullState(),
@@ -481,12 +520,12 @@ export class World {
     const half = this.shrinkBorder / 2;
 
     // Calculate damage scaling based on zone size (more damage as zone gets smaller)
-    // Guard against division by zero if gridSize equals minZoneSize
-    const zoneSizeRange = this.config.gridSize - this.config.minZoneSize;
+    const initialBorder = this.tileMap.width; // use actual map width as initial border
+    const zoneSizeRange = initialBorder - this.config.minZoneSize;
     const zoneProgress = zoneSizeRange > 0 
       ? 1 - (this.shrinkBorder - this.config.minZoneSize) / zoneSizeRange
-      : 1; // If no range, assume maximum damage
-    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // Multiplier: 1x (early) to 5x (late)
+      : 1;
+    const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // 1x (early) to 5x (late)
     const zoneDamage = this.config.zoneDamageBase * damageMultiplier;
 
     for (const agent of this.agents) {
@@ -505,25 +544,22 @@ export class World {
 
   private spawnItems(count: number): void {
     const weapons = ["knife", "sword", "bow", "spear", "axe", "mace"];
+    const mapWidth = this.tileMap.width;
+    const mapHeight = this.tileMap.height;
     itemLoop: for (let i = 0; i < count; i++) {
       const idx = Math.floor(Math.random() * weapons.length);
       
-      // Find a passable tile for item spawning
       let x: number, y: number;
       let attempts = 0;
-      const maxAttempts = this.config.gridSize * this.config.gridSize * 2; // Safety limit
+      const maxAttempts = mapWidth * mapHeight * 2;
       
       do {
-        x = Math.floor(Math.random() * this.config.gridSize);
-        y = Math.floor(Math.random() * this.config.gridSize);
+        x = Math.floor(Math.random() * mapWidth);
+        y = Math.floor(Math.random() * mapHeight);
         attempts++;
-        
-        // If we can't find a spot after many attempts, skip this item
         if (attempts >= maxAttempts) {
-          console.warn(
-            `Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`
-          );
-          continue itemLoop; // Skip to next item
+          console.warn(`Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`);
+          continue itemLoop;
         }
       } while (!MapGenerator.isPassable(this.tileMap, x, y));
       
@@ -554,6 +590,7 @@ export class World {
       worldState: this.getWorldState(),
       recentMemories: agent.memory.getRecent(10),
       innerVoice: innerVoiceMemories.length > 0 ? innerVoiceMemories[0].text.replace("[Inner Voice] ", "") : null,
+      currentPlan: agent.currentPlan,
     };
   }
 

@@ -39,6 +39,7 @@ export class RuleBasedEngine implements DecisionEngine {
         type: DecisionType.Loot,
         targetId: nearbyItems[0].id,
         reason: `Picking up ${nearbyItems[0].type}`,
+        newPlan: `Collect weapons and strengthen combat capability.`,
       };
       const thinking = this.buildThinkingProcess(decision, ctx, "Item available");
       return { ...decision, thinking };
@@ -49,6 +50,7 @@ export class RuleBasedEngine implements DecisionEngine {
       const decision: Decision = {
         type: DecisionType.Flee,
         reason: "HP critically low, fleeing",
+        newPlan: `Retreat to safety and recover. HP is critical (${agent.hp}/${agent.maxHp}).`,
       };
       const thinking = this.buildThinkingProcess(decision, ctx, "Low HP");
       return { ...decision, thinking };
@@ -56,6 +58,8 @@ export class RuleBasedEngine implements DecisionEngine {
 
     // Priority 4: Personality-driven behavior
     const decision = this.personalityDecision(ctx);
+    // Always derive a fresh plan to keep the plan layer active
+    decision.newPlan = this.derivePlan(decision, ctx);
     const thinking = this.buildThinkingProcess(decision, ctx, "Personality-based");
     return { ...decision, thinking };
   }
@@ -121,6 +125,31 @@ export class RuleBasedEngine implements DecisionEngine {
     return parts.join(" ");
   }
 
+  /**
+   * Derive a high-level plan from the current decision.
+   * Mirrors GenerativeAgentsCN's plan generation where agents set a multi-tick goal.
+   */
+  private derivePlan(decision: Decision, ctx: DecisionContext): string {
+    const { agent, worldState } = ctx;
+    const aliveCount = worldState.aliveCount;
+    switch (decision.type) {
+      case DecisionType.Attack:
+        return aliveCount <= 3
+          ? `Eliminate all remaining opponents to win.`
+          : `Eliminate weak opponents to reduce competition.`;
+      case DecisionType.Ally:
+        return `Build alliances to improve survival odds against ${aliveCount - 1} remaining opponents.`;
+      case DecisionType.Betray:
+        return `Exploit weakened allies to gain advantage — trust no one.`;
+      case DecisionType.Flee:
+        return `Retreat, recover health, and return to fight on better terms.`;
+      case DecisionType.Loot:
+        return `Prioritise collecting weapons to boost combat power.`;
+      default:
+        return `Explore, locate opponents, and assess the battlefield. (${aliveCount} alive)`;
+    }
+  }
+
   private personalityDecision(ctx: DecisionContext): Decision {
     const { agent, nearbyAgents } = ctx;
     const enemies = nearbyAgents.filter((a) => agent.enemies.includes(a.agent.id));
@@ -131,6 +160,9 @@ export class RuleBasedEngine implements DecisionEngine {
 
     switch (agent.personality) {
       case "aggressive":
+      case "勇敢型":
+      case "激进型":
+      case "冲动型":
       case "brave":
       case "impulsive": {
         // Attack weakest non-ally
@@ -143,7 +175,10 @@ export class RuleBasedEngine implements DecisionEngine {
       }
 
       case "cautious":
+      case "谨慎型":
+      case "分析型":
       case "strategic":
+      case "忠诚型":
       case "loyal": {
         // If outnumbered, seek alliance
         if (neutrals.length > 0 && enemies.length > allies.length) {
@@ -157,6 +192,7 @@ export class RuleBasedEngine implements DecisionEngine {
       }
 
       case "treacherous":
+      case "狡猾型":
       case "cunning": {
         // Betray weak allies
         if (allies.length > 0 && Math.random() < 0.2) {
@@ -172,7 +208,10 @@ export class RuleBasedEngine implements DecisionEngine {
         break;
       }
 
-      case "resourceful": {
+      case "resourceful":
+      case "机智型":
+      case "社交型":
+      case "艺术型": {
         // Prefer alliances, avoid fights
         if (neutrals.length > 0 && allies.length < 2) {
           return { type: DecisionType.Ally, targetId: neutrals[0].agent.id, reason: `Building alliance network` };

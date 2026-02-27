@@ -44,24 +44,40 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image(ASSETS.IMAGES.ROCK2, "/assets/Terrain/Decorations/Rocks/Rock2.png");
+    const BASE = "/assets/village";
+
+    // ── Village tilemap (GenerativeAgentsCN) ──────────────────────────────────
+    this.load.tilemapTiledJSON(ASSETS.IMAGES.VILLAGE_TILEMAP, `${BASE}/tilemap/tilemap.json`);
+
+    // Tilesets
+    this.load.image(ASSETS.IMAGES.TILESET_FIELD_B,     `${BASE}/tilemap/CuteRPG_Field_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FIELD_C,     `${BASE}/tilemap/CuteRPG_Field_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_HARBOR_C,    `${BASE}/tilemap/CuteRPG_Harbor_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_VILLAGE_B,   `${BASE}/tilemap/CuteRPG_Village_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FOREST_B,    `${BASE}/tilemap/CuteRPG_Forest_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_DESERT_C,    `${BASE}/tilemap/CuteRPG_Desert_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_MOUNTAINS_B, `${BASE}/tilemap/CuteRPG_Mountains_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_DESERT_B,    `${BASE}/tilemap/CuteRPG_Desert_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FOREST_C,    `${BASE}/tilemap/CuteRPG_Forest_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_WALLS,       `${BASE}/tilemap/Room_Builder_32x32.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_BLOCKS,      `${BASE}/tilemap/blocks_1.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_1, `${BASE}/tilemap/interiors_pt1.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_2, `${BASE}/tilemap/interiors_pt2.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_3, `${BASE}/tilemap/interiors_pt3.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_4, `${BASE}/tilemap/interiors_pt4.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_5, `${BASE}/tilemap/interiors_pt5.png`);
+
+    // ── Character sprite atlases (GenerativeAgentsCN, 32×32, 4-directional) ──
+    const atlasJson = ASSETS.SPRITE_ATLAS_JSON;
+    for (const name of ASSETS.AGENT_SPRITES) {
+      this.load.atlas(name, `${BASE}/agents/${name}/texture.png`, atlasJson);
+    }
+
+    // ── Legacy item sprite (gold resource) ───────────────────────────────────
     this.load.image(
       ASSETS.IMAGES.GOLD_RESOURCE,
       "/assets/Terrain/Resources/Gold/GoldResource/Gold_Resource.png",
     );
-    this.load.spritesheet(ASSETS.IMAGES.WARRIOR_RUN.KEY, ASSETS.IMAGES.WARRIOR_RUN.PATH, {
-      frameWidth: ASSETS.IMAGES.WARRIOR_RUN.WIDTH,
-      frameHeight: ASSETS.IMAGES.WARRIOR_RUN.HEIGHT,
-    });
-    this.load.spritesheet(ASSETS.IMAGES.WARRIOR_ATTACK.KEY, ASSETS.IMAGES.WARRIOR_ATTACK.PATH, {
-      frameWidth: ASSETS.IMAGES.WARRIOR_RUN.WIDTH,
-      frameHeight: ASSETS.IMAGES.WARRIOR_RUN.HEIGHT,
-    });
-    this.load.spritesheet(ASSETS.IMAGES.WARRIOR_IDLE.KEY, ASSETS.IMAGES.WARRIOR_IDLE.PATH, {
-      frameWidth: ASSETS.IMAGES.WARRIOR_IDLE.WIDTH,
-      frameHeight: ASSETS.IMAGES.WARRIOR_IDLE.HEIGHT,
-    });
-    this.load.image(ASSETS.IMAGES.Tile.KEY, ASSETS.IMAGES.Tile.PATH);
   }
 
   create(): void {

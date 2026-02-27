@@ -94,6 +94,21 @@ export function AgentDetail({ agent, onClose }: AgentDetailProps) {
         ))}
       </div>
 
+      {/* Current plan */}
+      {agent.currentPlan && (
+        <div style={{
+          padding: 8,
+          background: "#0a0a12",
+          borderRadius: 4,
+          borderLeft: "3px solid #44aaff",
+        }}>
+          <div style={{ fontSize: 10, color: "#44aaff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>
+            📋 Current Plan
+          </div>
+          <div style={{ fontSize: 13, color: "#ddd" }}>{agent.currentPlan}</div>
+        </div>
+      )}
+
       {/* Current action */}
       <div style={{
         padding: 8,

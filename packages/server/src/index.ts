@@ -3,19 +3,27 @@ import {
   GamePhase,
   type ServerToClientEvents,
   type ClientToServerEvents,
+  type TileMap,
+  type Waypoint,
   DecisionEngine,
   PathfindingEngine,
 } from "@battle-royale/shared";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { World } from "./engine/World.js";
 import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
 import { LLMEngine } from "./plugins/LLMEngine.js";
 import { SyncManager } from "./network/SyncManager.js";
 import { AStarPathfinder } from "./pathfinding/AStarPathfinder.js";
+import { TiledMapLoader } from "./pathfinding/TiledMapLoader.js";
 import {
   ThinkingHistoryStorage,
   InMemoryThinkingHistoryStorage,
   NullThinkingHistoryStorage,
 } from "./persistence/ThinkingHistoryStorage.js";
+
+/** Village map loaded from collision data file. */
+type VillageMapData = { tileMap: TileMap; spawnPoints: Waypoint[] };
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
@@ -135,32 +143,39 @@ async function main() {
   // 4. Create thinking history storage (plugin)
   const thinkingStorage = createThinkingStorage();
 
-  // 5. Create and initialize world
-  const DEFAULT_GRID_SIZE = 100;
-  const MIN_GRID_SIZE = 10;
-  const parsedGridSize = parseInt(process.env.GRID_SIZE ?? String(DEFAULT_GRID_SIZE), 10);
-  if (!Number.isFinite(parsedGridSize) || parsedGridSize < MIN_GRID_SIZE) {
-    throw new Error(`Invalid GRID_SIZE: "${process.env.GRID_SIZE}". Must be an integer >= ${MIN_GRID_SIZE}.`);
+  // 5. Load village tilemap (GenerativeAgentsCN map alignment)
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const collisionPath = resolve(__dirname, "../data/village_collision.json");
+  let villageMap: VillageMapData | undefined;
+  try {
+    villageMap = TiledMapLoader.loadFromFile(collisionPath);
+    console.log(
+      `Village tilemap loaded: ${villageMap.tileMap.width}x${villageMap.tileMap.height} tiles, ` +
+      `${villageMap.spawnPoints.length} spawn points`
+    );
+  } catch (err) {
+    console.warn(`Could not load village tilemap from ${collisionPath}: ${err}. Using random map.`);
   }
-  const GRID_SIZE = parsedGridSize;
-  console.log(`Grid Size: ${GRID_SIZE}x${GRID_SIZE}`);
 
+  // 6. Create and initialize world
   const world = new World(
     {
       agentCount: AGENT_COUNT,
       tickIntervalMs: TICK_INTERVAL,
-      gridSize: GRID_SIZE,
     },
     engine,
     pathfinder,
     thinkingStorage,
+    undefined,
+    villageMap,
   );
   await world.init();
+  console.log(`Grid Size: ${world.tileMap.width}x${world.tileMap.height}`);
 
-  // 6. Create sync manager
+  // 7. Create sync manager
   const sync = new SyncManager(io, world);
 
-  // 7. Game loop with restart logic
+  // 8. Game loop with restart logic
   let gameLoopInterval: NodeJS.Timeout | null = null;
 
   function startGameLoop() {
