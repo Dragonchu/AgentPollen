@@ -58,10 +58,8 @@ export class RuleBasedEngine implements DecisionEngine {
 
     // Priority 4: Personality-driven behavior
     const decision = this.personalityDecision(ctx);
-    // Propose a new plan only if the current plan is the default or has changed significantly
-    if (!decision.newPlan && !currentPlan.includes(decision.reason ?? "")) {
-      decision.newPlan = this.derivePlan(decision, ctx);
-    }
+    // Always derive a fresh plan to keep the plan layer active
+    decision.newPlan = this.derivePlan(decision, ctx);
     const thinking = this.buildThinkingProcess(decision, ctx, "Personality-based");
     return { ...decision, thinking };
   }

@@ -149,7 +149,7 @@ export class LLMEngine implements DecisionEngine {
   }
 
   private buildDecisionPrompt(ctx: DecisionContext): string {
-    const { agent, nearbyAgents, nearbyItems, worldState, recentMemories, innerVoice } = ctx;
+    const { agent, nearbyAgents, nearbyItems, worldState, recentMemories, innerVoice, currentPlan } = ctx;
 
     const memoryText = recentMemories
       .slice(-5)
@@ -181,6 +181,7 @@ YOUR STATUS:
 - Weapon: ${agent.weapon}
 - Kills: ${agent.killCount}
 - Position: (${agent.x}, ${agent.y})
+- Current Plan: ${currentPlan}
 
 NEARBY AGENTS: ${nearbyAgentText || "none"}
 ALLIES: ${allyNames || "none"}
@@ -207,19 +208,24 @@ Choose ONE action:
 Respond in this format:
 ACTION: [action]
 REASON: [brief reason]
+PLAN: [updated plan for next few ticks — keep concise]
 
 Examples:
-ACTION: attack Kael
-REASON: Kael is wounded and an easy target for my aggressive nature
+ACTION: attack 亚瑟
+REASON: 亚瑟 is wounded and an easy target
+PLAN: Eliminate weakened opponents and push toward the zone center.
 
-ACTION: ally Lyra
-REASON: Need allies to survive, Lyra is nearby and neutral
+ACTION: ally 伊莎贝拉
+REASON: Need allies to survive, 伊莎贝拉 is nearby and neutral
+PLAN: Build alliances to improve odds against remaining opponents.
 
 ACTION: flee
-REASON: Low HP and outnumbered, must retreat to safety
+REASON: Low HP and outnumbered, must retreat
+PLAN: Retreat, recover health, and return when stronger.
 
 ACTION: loot sword
-REASON: Better weapon will increase my combat effectiveness`;
+REASON: Better weapon will increase combat effectiveness
+PLAN: Collect weapons then seek combat.`;
   }
 
   private buildReflectionPrompt(ctx: ReflectionContext): string {
@@ -246,17 +252,21 @@ Examples:
     const lines = response.trim().split("\n");
     let actionLine = "";
     let reasonLine = "";
+    let planLine = "";
 
     for (const line of lines) {
       if (line.toUpperCase().startsWith("ACTION:")) {
         actionLine = line.substring(7).trim();
       } else if (line.toUpperCase().startsWith("REASON:")) {
         reasonLine = line.substring(7).trim();
+      } else if (line.toUpperCase().startsWith("PLAN:")) {
+        planLine = line.substring(5).trim();
       }
     }
 
     const actionLower = actionLine.toLowerCase();
     const reason = reasonLine || "LLM decision";
+    const newPlan = planLine || undefined;
 
     // Parse attack action
     if (actionLower.startsWith("attack")) {
@@ -265,7 +275,7 @@ Examples:
         (a) => a.agent.name.toLowerCase() === targetName.toLowerCase()
       );
       if (target) {
-        return { type: DecisionType.Attack, targetId: target.agent.id, reason };
+        return { type: DecisionType.Attack, targetId: target.agent.id, reason, newPlan };
       }
     }
 
@@ -274,7 +284,7 @@ Examples:
       const targetName = this.extractTargetName(actionLine);
       const target = ctx.nearbyAgents.find((a) => a.agent.name.toLowerCase() === targetName.toLowerCase());
       if (target) {
-        return { type: DecisionType.Ally, targetId: target.agent.id, reason };
+        return { type: DecisionType.Ally, targetId: target.agent.id, reason, newPlan };
       }
     }
 
@@ -283,7 +293,7 @@ Examples:
       const targetName = this.extractTargetName(actionLine);
       const target = ctx.nearbyAgents.find((a) => a.agent.name.toLowerCase() === targetName.toLowerCase());
       if (target) {
-        return { type: DecisionType.Betray, targetId: target.agent.id, reason };
+        return { type: DecisionType.Betray, targetId: target.agent.id, reason, newPlan };
       }
     }
 
@@ -292,23 +302,23 @@ Examples:
       const itemType = this.extractTargetName(actionLine);
       const item = ctx.nearbyItems.find((i) => i.type.toLowerCase().includes(itemType.toLowerCase()));
       if (item) {
-        return { type: DecisionType.Loot, targetId: item.id, reason };
+        return { type: DecisionType.Loot, targetId: item.id, reason, newPlan };
       }
-      return { type: DecisionType.Loot, targetId: ctx.nearbyItems[0].id, reason };
+      return { type: DecisionType.Loot, targetId: ctx.nearbyItems[0].id, reason, newPlan };
     }
 
     // Parse flee action
     if (actionLower.includes("flee") || actionLower.includes("run")) {
-      return { type: DecisionType.Flee, reason };
+      return { type: DecisionType.Flee, reason, newPlan };
     }
 
     // Parse rest action
     if (actionLower.includes("rest") || actionLower.includes("recover")) {
-      return { type: DecisionType.Rest, reason };
+      return { type: DecisionType.Rest, reason, newPlan };
     }
 
     // Default to explore
-    return { type: DecisionType.Explore, reason: reason || "Exploring" };
+    return { type: DecisionType.Explore, reason: reason || "Exploring", newPlan };
   }
 
   private extractTargetName(actionLine: string): string {

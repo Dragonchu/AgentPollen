@@ -3,6 +3,8 @@ import {
   GamePhase,
   type ServerToClientEvents,
   type ClientToServerEvents,
+  type TileMap,
+  type Waypoint,
   DecisionEngine,
   PathfindingEngine,
 } from "@battle-royale/shared";
@@ -19,6 +21,9 @@ import {
   InMemoryThinkingHistoryStorage,
   NullThinkingHistoryStorage,
 } from "./persistence/ThinkingHistoryStorage.js";
+
+/** Village map loaded from collision data file. */
+type VillageMapData = { tileMap: TileMap; spawnPoints: Waypoint[] };
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
@@ -141,7 +146,7 @@ async function main() {
   // 5. Load village tilemap (GenerativeAgentsCN map alignment)
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const collisionPath = resolve(__dirname, "../data/village_collision.json");
-  let villageMap: { tileMap: import("@battle-royale/shared").TileMap; spawnPoints: import("@battle-royale/shared").Waypoint[] } | undefined;
+  let villageMap: VillageMapData | undefined;
   try {
     villageMap = TiledMapLoader.loadFromFile(collisionPath);
     console.log(

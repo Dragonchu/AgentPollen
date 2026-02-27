@@ -46,6 +46,10 @@ export class TiledMapLoader {
       tiles,
     };
 
+    if (!data.spawnPoints || data.spawnPoints.length === 0) {
+      console.warn("[TiledMapLoader] No spawn points found in collision data. Agents will use random passable tiles.");
+    }
+
     return { tileMap, spawnPoints: data.spawnPoints ?? [] };
   }
 }

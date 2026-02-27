@@ -9,6 +9,9 @@ import type { GameState } from "./GameState";
 import type { MotionState } from "./MotionState";
 import type { CameraManager } from "./CameraManager";
 
+/** Scale factor applied to 32×32 character sprites for better visibility. */
+const AGENT_SPRITE_SCALE = 1.25;
+
 /** Phaser atlas frame keys for 4-directional character animations (GenerativeAgentsCN convention). */
 const AGENT_FRAME = {
   down:       "down",
@@ -219,7 +222,7 @@ export class WorldRenderer {
         this.createCharacterAnimations(spriteKey);
         sprite = this.scene.add
           .sprite(0, 0, spriteKey, AGENT_FRAME.down)
-          .setScale(1.25)   // slightly upscale 32px sprites for visibility
+          .setScale(AGENT_SPRITE_SCALE)
           .setDepth(1);
         this.cameraManager.ignoreInUICamera(sprite);
         this.agentSprites.set(id, sprite);
@@ -294,11 +297,14 @@ export class WorldRenderer {
     isMoving: boolean,
     actionState: AgentActionState,
   ): string {
+    // Dead agents show the first frame of the down-walk animation as a static
+    // "fallen" pose until the sprite is removed on the next update cycle.
     if (actionState === AgentActionState.Dead) return `${spriteKey}-down-walk`;
     if (isMoving || actionState === AgentActionState.Fighting) {
       return `${spriteKey}-${facing}-walk`;
     }
-    return `${spriteKey}-down-walk`; // idle: use down-walk first frame
+    // Idle: play down-walk animation so the character has a gentle idle loop.
+    return `${spriteKey}-down-walk`;
   }
 
   /** Derive facing direction from previous → target movement. */

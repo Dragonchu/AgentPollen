@@ -99,6 +99,7 @@ export class Agent {
    */
   setNewPlan(plan: string): void {
     this.currentPlan = plan;
+    // Use Chinese prefix "[计划]" to align with GenerativeAgentsCN's plan memory convention.
     this.memory.add(`[计划] ${plan}`, 6, MemoryType.Plan);
   }
 
