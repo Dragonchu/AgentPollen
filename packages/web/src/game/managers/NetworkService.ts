@@ -10,8 +10,8 @@ import type {
   VoteState,
   PathSyncPayload,
   ThinkingHistoryPayload,
-  SocketEvents,
 } from "@battle-royale/shared";
+import { SocketEvents } from "@battle-royale/shared";
 import { NetworkEvents } from "../events/GameEvents";
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
