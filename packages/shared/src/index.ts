@@ -396,6 +396,7 @@ export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [
 
 export enum SocketEvents {
   CONNECTED = 'connect',
+  CONNECTION = 'connection',
   DISCONNECTED = 'disconnect',
   SYNC_FULL = 'sync:full',
   SYNC_WORLD = 'sync:world',
