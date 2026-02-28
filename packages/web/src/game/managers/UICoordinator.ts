@@ -37,6 +37,12 @@ const TEXT_STYLE_SMALL = {
   color: THEME.css.mutedForeground,
   fontFamily: 'monospace',
 } as const;
+const TEXT_STYLE_TOGGLE = {
+  fontSize: THEME.font.body,
+  color: THEME.css.mutedForeground,
+  fontFamily: 'monospace',
+  fontStyle: 'bold',
+} as const;
 const TEXT_STYLE_LABEL = {
   fontSize: THEME.font.label,
   color: THEME.css.primary,
@@ -70,9 +76,9 @@ export class UICoordinator {
   private aliveText!: Phaser.GameObjects.Text;
 
   // ── Collapse state ────────────────────────────────────────────────────────────
-  private sidebarCollapsed = true;
-  private votePanelCollapsed = true;
-  private eventPanelCollapsed = true;
+  private sidebarCollapsed = false;
+  private votePanelCollapsed = false;
+  private eventPanelCollapsed = false;
 
   // ── Sidebar refs ─────────────────────────────────────────────────────────────
   private agentListContent: RexUI.Sizer | null = null;
@@ -151,6 +157,8 @@ export class UICoordinator {
   private buildLayout(): void {
     const { width: w, height: h } = this.scene.scale;
 
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
+
     const header = this.buildHeader();
     const sidebar = this.buildSidebar();
     const rightPanel = this.buildRightPanel();
@@ -175,7 +183,21 @@ export class UICoordinator {
 
     this.mainSizer.layout();
 
-    this.cameraManager.getWorldCamera().ignore(this.mainSizer);
+    this.ignoreNewUIChildren(childrenBefore);
+  }
+
+  /**
+   * Ignore all scene children created since `childrenBefore` from the world camera.
+   * rexUI creates individual scene-level game objects (texts, roundRectangles, etc.)
+   * that are NOT automatically handled by Phaser Camera.ignore() on the sizer alone.
+   */
+  private ignoreNewUIChildren(childrenBefore: Set<Phaser.GameObjects.GameObject>): void {
+    const worldCamera = this.cameraManager.getWorldCamera();
+    for (const child of this.scene.children.list) {
+      if (!childrenBefore.has(child)) {
+        worldCamera.ignore(child);
+      }
+    }
   }
 
   private buildHeader(): RexUI.Sizer {
@@ -220,8 +242,9 @@ export class UICoordinator {
 
     const chevron = this.sidebarCollapsed ? '▶' : '▼';
     const toggleBtn = this.scene.add
-      .text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: 'pointer' })
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ cursor: 'pointer', useHandCursor: true })
       .on('pointerdown', () => {
         this.sidebarCollapsed = !this.sidebarCollapsed;
         this.rebuildLayout();
@@ -289,8 +312,9 @@ export class UICoordinator {
 
     const chevron = this.votePanelCollapsed ? '▶' : '▼';
     const toggleBtn = this.scene.add
-      .text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: 'pointer' })
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ cursor: 'pointer', useHandCursor: true })
       .on('pointerdown', () => {
         this.votePanelCollapsed = !this.votePanelCollapsed;
         this.rebuildLayout();
@@ -439,8 +463,9 @@ export class UICoordinator {
 
     const chevron = this.eventPanelCollapsed ? '▶' : '▼';
     const toggleBtn = this.scene.add
-      .text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: 'pointer' })
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ cursor: 'pointer', useHandCursor: true })
       .on('pointerdown', () => {
         this.eventPanelCollapsed = !this.eventPanelCollapsed;
         this.rebuildLayout();
@@ -583,6 +608,7 @@ export class UICoordinator {
     }
 
     if (!this.agentListContent) return;
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
     this.agentListContent.clear(true);
     for (const agent of sorted) {
       const row = buildAgentRow(
@@ -595,6 +621,7 @@ export class UICoordinator {
       this.agentListContent.add(row, { proportion: 0, expand: true });
     }
     this.mainSizer.layout();
+    this.ignoreNewUIChildren(childrenBefore);
   }
 
   private handleAgentRowClick(agentId: number): void {
@@ -637,12 +664,14 @@ export class UICoordinator {
 
   private onEventsUpdated(events: GameEvent[]): void {
     if (!this.eventListContent || !this.eventListPanel) return;
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
     const latest = events.slice(-50).reverse();
     this.eventListContent.clear(true);
     for (const event of latest) {
       this.eventListContent.add(buildEventRow(this.scene, event), { proportion: 0, expand: true });
     }
     this.eventListPanel.layout();
+    this.ignoreNewUIChildren(childrenBefore);
   }
 
   private onVotesUpdated(voteState: VoteState): void {
