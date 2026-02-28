@@ -1,18 +1,18 @@
-import type { AgentFullState, Waypoint } from "@battle-royale/shared";
-import * as Phaser from "phaser";
-import { ASSETS } from "@/constants/Assets";
-import { MotionState } from "../managers/MotionState";
-import { CELL_SIZE } from "./gameConstants";
-import { GameState } from "../managers/GameState";
-import { NetworkService } from "../managers/NetworkService";
-import { GameController } from "../managers/GameController";
-import { UICoordinator } from "../managers/UICoordinator";
-import { CameraManager } from "../managers/CameraManager";
-import { WorldRenderer } from "../managers/WorldRenderer";
-import { CoordinateUtils } from "../utils/CoordinateUtils";
-import type { GridCoord } from "../types/coordinates";
+import type { AgentFullState, Waypoint } from '@battle-royale/shared';
+import * as Phaser from 'phaser';
+import { ASSETS } from '@/constants/Assets';
+import { MotionState } from '../managers/MotionState';
+import { CELL_SIZE } from './gameConstants';
+import { GameState } from '../managers/GameState';
+import { NetworkService } from '../managers/NetworkService';
+import { GameController } from '../managers/GameController';
+import { UICoordinator } from '../managers/UICoordinator';
+import { CameraManager } from '../managers/CameraManager';
+import { WorldRenderer } from '../managers/WorldRenderer';
+import { CoordinateUtils } from '../utils/CoordinateUtils';
+import type { GridCoord } from '../types/coordinates';
 
-export { CELL_SIZE } from "./gameConstants";
+export { CELL_SIZE } from './gameConstants';
 
 export class GameScene extends Phaser.Scene {
   // ── Infrastructure ──────────────────────────────────────────────────────────
@@ -40,27 +40,27 @@ export class GameScene extends Phaser.Scene {
   private readonly DOUBLE_CLICK_DELAY = 300;
 
   constructor() {
-    super({ key: "GameScene" });
+    super({ key: 'GameScene' });
   }
 
   preload(): void {
-    const BASE = "/assets/village";
+    const BASE = '/assets/village';
 
     // ── Village tilemap (GenerativeAgentsCN) ──────────────────────────────────
     this.load.tilemapTiledJSON(ASSETS.IMAGES.VILLAGE_TILEMAP, `${BASE}/tilemap/tilemap.json`);
 
     // Tilesets
-    this.load.image(ASSETS.IMAGES.TILESET_FIELD_B,     `${BASE}/tilemap/CuteRPG_Field_B.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_FIELD_C,     `${BASE}/tilemap/CuteRPG_Field_C.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_HARBOR_C,    `${BASE}/tilemap/CuteRPG_Harbor_C.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_VILLAGE_B,   `${BASE}/tilemap/CuteRPG_Village_B.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_FOREST_B,    `${BASE}/tilemap/CuteRPG_Forest_B.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_DESERT_C,    `${BASE}/tilemap/CuteRPG_Desert_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FIELD_B, `${BASE}/tilemap/CuteRPG_Field_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FIELD_C, `${BASE}/tilemap/CuteRPG_Field_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_HARBOR_C, `${BASE}/tilemap/CuteRPG_Harbor_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_VILLAGE_B, `${BASE}/tilemap/CuteRPG_Village_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FOREST_B, `${BASE}/tilemap/CuteRPG_Forest_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_DESERT_C, `${BASE}/tilemap/CuteRPG_Desert_C.png`);
     this.load.image(ASSETS.IMAGES.TILESET_MOUNTAINS_B, `${BASE}/tilemap/CuteRPG_Mountains_B.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_DESERT_B,    `${BASE}/tilemap/CuteRPG_Desert_B.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_FOREST_C,    `${BASE}/tilemap/CuteRPG_Forest_C.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_WALLS,       `${BASE}/tilemap/Room_Builder_32x32.png`);
-    this.load.image(ASSETS.IMAGES.TILESET_BLOCKS,      `${BASE}/tilemap/blocks_1.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_DESERT_B, `${BASE}/tilemap/CuteRPG_Desert_B.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_FOREST_C, `${BASE}/tilemap/CuteRPG_Forest_C.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_WALLS, `${BASE}/tilemap/Room_Builder_32x32.png`);
+    this.load.image(ASSETS.IMAGES.TILESET_BLOCKS, `${BASE}/tilemap/blocks_1.png`);
     this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_1, `${BASE}/tilemap/interiors_pt1.png`);
     this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_2, `${BASE}/tilemap/interiors_pt2.png`);
     this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_3, `${BASE}/tilemap/interiors_pt3.png`);
@@ -76,7 +76,7 @@ export class GameScene extends Phaser.Scene {
     // ── Legacy item sprite (gold resource) ───────────────────────────────────
     this.load.image(
       ASSETS.IMAGES.GOLD_RESOURCE,
-      "/assets/Terrain/Resources/Gold/GoldResource/Gold_Resource.png",
+      '/assets/Terrain/Resources/Gold/GoldResource/Gold_Resource.png',
     );
   }
 
@@ -154,8 +154,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.gameState.off("state:agents:updated", this.onServerAgentsUpdated, this);
-    this.gameState.off("state:paths:updated", this.onServerPathsUpdated, this);
+    this.gameState.off('state:agents:updated', this.onServerAgentsUpdated, this);
+    this.gameState.off('state:paths:updated', this.onServerPathsUpdated, this);
 
     this.cameraManager.destroy();
     this.worldRenderer.destroy();
@@ -166,7 +166,7 @@ export class GameScene extends Phaser.Scene {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private setupInputHandlers(): void {
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.button === 2) {
         this.handleClick(pointer.x, pointer.y);
       }
@@ -178,8 +178,8 @@ export class GameScene extends Phaser.Scene {
    * stays in sync. All rendering is handled by WorldRenderer via MotionState events.
    */
   private setupStateListeners(): void {
-    this.gameState.on("state:agents:updated", this.onServerAgentsUpdated, this);
-    this.gameState.on("state:paths:updated", this.onServerPathsUpdated, this);
+    this.gameState.on('state:agents:updated', this.onServerAgentsUpdated, this);
+    this.gameState.on('state:paths:updated', this.onServerPathsUpdated, this);
   }
 
   private onServerAgentsUpdated(agents: Map<number, AgentFullState>): void {

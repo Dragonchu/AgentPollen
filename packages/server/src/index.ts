@@ -1,4 +1,4 @@
-import { Server } from "socket.io";
+import { Server } from 'socket.io';
 import {
   GamePhase,
   type ServerToClientEvents,
@@ -7,38 +7,38 @@ import {
   type Waypoint,
   DecisionEngine,
   PathfindingEngine,
-} from "@battle-royale/shared";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { World } from "./engine/World.js";
-import { RuleBasedEngine } from "./plugins/RuleBasedEngine.js";
-import { LLMEngine } from "./plugins/LLMEngine.js";
-import { SyncManager } from "./network/SyncManager.js";
-import { AStarPathfinder } from "./pathfinding/AStarPathfinder.js";
-import { TiledMapLoader } from "./pathfinding/TiledMapLoader.js";
+} from '@battle-royale/shared';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { World } from './engine/World.js';
+import { RuleBasedEngine } from './plugins/RuleBasedEngine.js';
+import { LLMEngine } from './plugins/LLMEngine.js';
+import { SyncManager } from './network/SyncManager.js';
+import { AStarPathfinder } from './pathfinding/AStarPathfinder.js';
+import { TiledMapLoader } from './pathfinding/TiledMapLoader.js';
 import {
   ThinkingHistoryStorage,
   InMemoryThinkingHistoryStorage,
   NullThinkingHistoryStorage,
-} from "./persistence/ThinkingHistoryStorage.js";
+} from './persistence/ThinkingHistoryStorage.js';
 
 /** Village map loaded from collision data file. */
 type VillageMapData = { tileMap: TileMap; spawnPoints: Waypoint[] };
 
-const PORT = parseInt(process.env.PORT ?? "3001", 10);
-const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? "10", 10);
-const TICK_INTERVAL = parseInt(process.env.TICK_INTERVAL ?? "1000", 10);
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
-const AI_ENGINE = process.env.AI_ENGINE ?? "rule-based";
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? "";
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
-const THINKING_STORAGE = process.env.THINKING_STORAGE ?? "memory"; // "memory" | "null"
+const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const AGENT_COUNT = parseInt(process.env.AGENT_COUNT ?? '10', 10);
+const TICK_INTERVAL = parseInt(process.env.TICK_INTERVAL ?? '1000', 10);
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? '*';
+const AI_ENGINE = process.env.AI_ENGINE ?? 'rule-based';
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const THINKING_STORAGE = process.env.THINKING_STORAGE ?? 'memory'; // "memory" | "null"
 
 // Parse and validate DEEPSEEK_MAX_CONCURRENCY
-let DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? "10", 10);
+let DEEPSEEK_MAX_CONCURRENCY = parseInt(process.env.DEEPSEEK_MAX_CONCURRENCY ?? '10', 10);
 if (isNaN(DEEPSEEK_MAX_CONCURRENCY) || DEEPSEEK_MAX_CONCURRENCY < 1) {
   console.warn(
-    `Invalid DEEPSEEK_MAX_CONCURRENCY (${process.env.DEEPSEEK_MAX_CONCURRENCY}), using default: 10`
+    `Invalid DEEPSEEK_MAX_CONCURRENCY (${process.env.DEEPSEEK_MAX_CONCURRENCY}), using default: 10`,
   );
   DEEPSEEK_MAX_CONCURRENCY = 10;
 }
@@ -47,16 +47,16 @@ if (isNaN(DEEPSEEK_MAX_CONCURRENCY) || DEEPSEEK_MAX_CONCURRENCY < 1) {
 // credentials: true), comma-separated values become an array, otherwise pass
 // the string as-is.
 function parseCorsOrigin(raw: string): boolean | string | string[] {
-  if (raw === "*") return true;
-  if (raw.includes(",")) return raw.split(",").map((s) => s.trim());
+  if (raw === '*') return true;
+  if (raw.includes(',')) return raw.split(',').map((s) => s.trim());
   return raw;
 }
 
 function createDecisionEngine(): DecisionEngine {
-  if (AI_ENGINE === "llm") {
+  if (AI_ENGINE === 'llm') {
     if (!DEEPSEEK_API_KEY) {
-      console.error("ERROR: AI_ENGINE=llm requires DEEPSEEK_API_KEY to be set");
-      console.error("Falling back to rule-based engine");
+      console.error('ERROR: AI_ENGINE=llm requires DEEPSEEK_API_KEY to be set');
+      console.error('Falling back to rule-based engine');
       return new RuleBasedEngine();
     }
     console.log(`Using LLM engine with model: ${DEEPSEEK_MODEL}`);
@@ -66,26 +66,28 @@ function createDecisionEngine(): DecisionEngine {
       maxConcurrency: DEEPSEEK_MAX_CONCURRENCY,
     });
   }
-  console.log("Using rule-based engine");
+  console.log('Using rule-based engine');
   return new RuleBasedEngine();
 }
 
 function createThinkingStorage(): ThinkingHistoryStorage {
-  if (THINKING_STORAGE === "null") {
-    console.log("Using null thinking storage (no persistence)");
+  if (THINKING_STORAGE === 'null') {
+    console.log('Using null thinking storage (no persistence)');
     return new NullThinkingHistoryStorage();
   }
-  if (THINKING_STORAGE === "memory") {
-    console.log("Using in-memory thinking storage");
+  if (THINKING_STORAGE === 'memory') {
+    console.log('Using in-memory thinking storage');
     return new InMemoryThinkingHistoryStorage();
   }
   // Invalid value - warn and fall back to memory
-  console.warn(`Invalid THINKING_STORAGE value: "${THINKING_STORAGE}". Expected "memory" or "null". Falling back to in-memory storage.`);
+  console.warn(
+    `Invalid THINKING_STORAGE value: "${THINKING_STORAGE}". Expected "memory" or "null". Falling back to in-memory storage.`,
+  );
   return new InMemoryThinkingHistoryStorage();
 }
 
 async function main() {
-  console.log("=== AI Battle Royale Server ===");
+  console.log('=== AI Battle Royale Server ===');
   console.log(`Agents: ${AGENT_COUNT} | Tick: ${TICK_INTERVAL}ms | Port: ${PORT}`);
   console.log(`CORS Origin: ${CORS_ORIGIN}`);
 
@@ -95,7 +97,9 @@ async function main() {
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(PORT, {
     cors: {
       origin: (requestOrigin, callback) => {
-        console.log(`[CORS] origin callback invoked | request origin: ${requestOrigin ?? "(none)"}`);
+        console.log(
+          `[CORS] origin callback invoked | request origin: ${requestOrigin ?? '(none)'}`,
+        );
 
         // If allowedOrigins is true (wildcard), allow everything
         if (allowedOrigins === true) {
@@ -104,35 +108,45 @@ async function main() {
         }
 
         const allowed =
-          typeof allowedOrigins === "string"
+          typeof allowedOrigins === 'string'
             ? requestOrigin === allowedOrigins
             : Array.isArray(allowedOrigins)
-              ? allowedOrigins.includes(requestOrigin ?? "")
+              ? allowedOrigins.includes(requestOrigin ?? '')
               : false;
 
         if (!allowed) {
           console.warn(
-            `[CORS] Blocked request from origin: ${requestOrigin ?? "(none)"} | Allowed origins: ${JSON.stringify(allowedOrigins)}`,
+            `[CORS] Blocked request from origin: ${requestOrigin ?? '(none)'} | Allowed origins: ${JSON.stringify(allowedOrigins)}`,
           );
         }
 
         callback(null, allowed);
       },
-      methods: ["GET", "POST"],
+      methods: ['GET', 'POST'],
       credentials: true,
     },
     allowRequest: (req, callback) => {
-      const origin = req.headers.origin ?? "(none)";
+      const origin = req.headers.origin ?? '(none)';
       console.log(`[allowRequest] incoming request | origin: ${origin} | url: ${req.url}`);
       callback(null, true); // let CORS middleware handle the actual decision
     },
   });
 
   // Log low-level engine connection errors
-  io.engine.on("connection_error", (err: { req: { headers: Record<string, string | undefined> }; code: number; message: string; context: unknown }) => {
-    const origin = err.req?.headers?.origin ?? "(none)";
-    console.error(`[Engine] connection_error | code: ${err.code} | message: ${err.message} | origin: ${origin}`);
-  });
+  io.engine.on(
+    'connection_error',
+    (err: {
+      req: { headers: Record<string, string | undefined> };
+      code: number;
+      message: string;
+      context: unknown;
+    }) => {
+      const origin = err.req?.headers?.origin ?? '(none)';
+      console.error(
+        `[Engine] connection_error | code: ${err.code} | message: ${err.message} | origin: ${origin}`,
+      );
+    },
+  );
 
   // 2. Create decision engine (plugin)
   const engine = createDecisionEngine();
@@ -145,13 +159,13 @@ async function main() {
 
   // 5. Load village tilemap (GenerativeAgentsCN map alignment)
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const collisionPath = resolve(__dirname, "../data/village_collision.json");
+  const collisionPath = resolve(__dirname, '../data/village_collision.json');
   let villageMap: VillageMapData | undefined;
   try {
     villageMap = TiledMapLoader.loadFromFile(collisionPath);
     console.log(
       `Village tilemap loaded: ${villageMap.tileMap.width}x${villageMap.tileMap.height} tiles, ` +
-      `${villageMap.spawnPoints.length} spawn points`
+        `${villageMap.spawnPoints.length} spawn points`,
     );
   } catch (err) {
     console.warn(`Could not load village tilemap from ${collisionPath}: ${err}. Using random map.`);
@@ -187,11 +201,11 @@ async function main() {
       if (world.phase !== GamePhase.Running) {
         // Auto-restart after game over
         if (world.phase === GamePhase.Finished) {
-          console.log(`Game over! Winner: ${world.winner?.name ?? "none"}`);
-          console.log("Restarting in 10 seconds...");
+          console.log(`Game over! Winner: ${world.winner?.name ?? 'none'}`);
+          console.log('Restarting in 10 seconds...');
           setTimeout(async () => {
             await world.init();
-            console.log("Game restarted!");
+            console.log('Game restarted!');
           }, 10000);
         }
         return;
@@ -213,7 +227,7 @@ async function main() {
 
   // 8. Graceful shutdown
   const shutdown = () => {
-    console.log("\nShutting down...");
+    console.log('\nShutting down...');
     if (gameLoopInterval) {
       clearInterval(gameLoopInterval);
     }
@@ -223,8 +237,8 @@ async function main() {
     process.exit(0);
   };
 
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 
   console.log(`Server running on ws://localhost:${PORT}`);
   console.log(`${world.agents.length} agents spawned, simulation starting...`);

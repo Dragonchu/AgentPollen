@@ -4,9 +4,8 @@ import {
   ReflectionContext,
   Decision,
   DecisionType,
-  MemoryType,
   ThinkingProcess,
-} from "@battle-royale/shared";
+} from '@battle-royale/shared';
 
 /**
  * Rule-based decision engine for MVP.
@@ -19,7 +18,7 @@ import {
  * 4. Register the new engine in World constructor
  */
 export class RuleBasedEngine implements DecisionEngine {
-  readonly name = "rule-based";
+  readonly name = 'rule-based';
 
   async decide(ctx: DecisionContext): Promise<Decision> {
     const { agent, nearbyAgents, nearbyItems, innerVoice } = ctx;
@@ -28,7 +27,7 @@ export class RuleBasedEngine implements DecisionEngine {
     if (innerVoice) {
       const decision = this.parseInnerVoice(innerVoice, ctx);
       if (decision) {
-        const thinking = this.buildThinkingProcess(decision, ctx, "Player vote");
+        const thinking = this.buildThinkingProcess(decision, ctx, 'Player vote');
         return { ...decision, thinking };
       }
     }
@@ -41,7 +40,7 @@ export class RuleBasedEngine implements DecisionEngine {
         reason: `Picking up ${nearbyItems[0].type}`,
         newPlan: `Collect weapons and strengthen combat capability.`,
       };
-      const thinking = this.buildThinkingProcess(decision, ctx, "Item available");
+      const thinking = this.buildThinkingProcess(decision, ctx, 'Item available');
       return { ...decision, thinking };
     }
 
@@ -49,10 +48,10 @@ export class RuleBasedEngine implements DecisionEngine {
     if (agent.hp < agent.maxHp * 0.3 && nearbyAgents.length > 0) {
       const decision: Decision = {
         type: DecisionType.Flee,
-        reason: "HP critically low, fleeing",
+        reason: 'HP critically low, fleeing',
         newPlan: `Retreat to safety and recover. HP is critical (${agent.hp}/${agent.maxHp}).`,
       };
-      const thinking = this.buildThinkingProcess(decision, ctx, "Low HP");
+      const thinking = this.buildThinkingProcess(decision, ctx, 'Low HP');
       return { ...decision, thinking };
     }
 
@@ -60,14 +59,18 @@ export class RuleBasedEngine implements DecisionEngine {
     const decision = this.personalityDecision(ctx);
     // Always derive a fresh plan to keep the plan layer active
     decision.newPlan = this.derivePlan(decision, ctx);
-    const thinking = this.buildThinkingProcess(decision, ctx, "Personality-based");
+    const thinking = this.buildThinkingProcess(decision, ctx, 'Personality-based');
     return { ...decision, thinking };
   }
 
-  private buildThinkingProcess(decision: Decision, ctx: DecisionContext, trigger: string): ThinkingProcess {
+  private buildThinkingProcess(
+    decision: Decision,
+    ctx: DecisionContext,
+    trigger: string,
+  ): ThinkingProcess {
     const actionDesc = this.getActionDescription(decision, ctx);
     const reasoning = this.buildReasoning(decision, ctx, trigger);
-    
+
     return {
       action: actionDesc,
       reasoning: reasoning,
@@ -78,51 +81,51 @@ export class RuleBasedEngine implements DecisionEngine {
   private getActionDescription(decision: Decision, ctx: DecisionContext): string {
     switch (decision.type) {
       case DecisionType.Attack: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `attack ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `attack ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Ally: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `ally ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `ally ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Betray: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `betray ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `betray ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Loot: {
-        const item = ctx.nearbyItems.find(i => i.id === decision.targetId);
-        return `loot ${item?.type ?? "item"}`;
+        const item = ctx.nearbyItems.find((i) => i.id === decision.targetId);
+        return `loot ${item?.type ?? 'item'}`;
       }
       case DecisionType.Flee:
-        return "flee";
+        return 'flee';
       case DecisionType.Explore:
-        return "explore";
+        return 'explore';
       case DecisionType.Rest:
-        return "rest";
+        return 'rest';
       default:
-        return "unknown";
+        return 'unknown';
     }
   }
 
   private buildReasoning(decision: Decision, ctx: DecisionContext, trigger: string): string {
     const { agent, nearbyAgents } = ctx;
     const hpPercent = Math.round((agent.hp / agent.maxHp) * 100);
-    
+
     const parts = [
       `[Rule-Based AI] Trigger: ${trigger}.`,
       `Current HP: ${agent.hp}/${agent.maxHp} (${hpPercent}%).`,
       `Personality: ${agent.personality}.`,
     ];
-    
+
     if (nearbyAgents.length > 0) {
       parts.push(`${nearbyAgents.length} agent(s) nearby.`);
     }
-    
+
     if (decision.reason) {
       parts.push(`Decision: ${decision.reason}`);
     }
-    
-    return parts.join(" ");
+
+    return parts.join(' ');
   }
 
   /**
@@ -130,7 +133,7 @@ export class RuleBasedEngine implements DecisionEngine {
    * Mirrors GenerativeAgentsCN's plan generation where agents set a multi-tick goal.
    */
   private derivePlan(decision: Decision, ctx: DecisionContext): string {
-    const { agent, worldState } = ctx;
+    const { worldState } = ctx;
     const aliveCount = worldState.aliveCount;
     switch (decision.type) {
       case DecisionType.Attack:
@@ -159,89 +162,124 @@ export class RuleBasedEngine implements DecisionEngine {
     );
 
     switch (agent.personality) {
-      case "aggressive":
-      case "勇敢型":
-      case "激进型":
-      case "冲动型":
-      case "brave":
-      case "impulsive": {
+      case 'aggressive':
+      case '勇敢型':
+      case '激进型':
+      case '冲动型':
+      case 'brave':
+      case 'impulsive': {
         // Attack weakest non-ally
         const targets = nearbyAgents.filter((a) => !agent.alliances.includes(a.agent.id));
         if (targets.length > 0) {
           const weakest = targets.sort((a, b) => a.agent.hp - b.agent.hp)[0];
-          return { type: DecisionType.Attack, targetId: weakest.agent.id, reason: `Attacking ${weakest.agent.name} (weakest nearby)` };
+          return {
+            type: DecisionType.Attack,
+            targetId: weakest.agent.id,
+            reason: `Attacking ${weakest.agent.name} (weakest nearby)`,
+          };
         }
         break;
       }
 
-      case "cautious":
-      case "谨慎型":
-      case "分析型":
-      case "strategic":
-      case "忠诚型":
-      case "loyal": {
+      case 'cautious':
+      case '谨慎型':
+      case '分析型':
+      case 'strategic':
+      case '忠诚型':
+      case 'loyal': {
         // If outnumbered, seek alliance
         if (neutrals.length > 0 && enemies.length > allies.length) {
-          return { type: DecisionType.Ally, targetId: neutrals[0].agent.id, reason: `Seeking alliance with ${neutrals[0].agent.name}` };
+          return {
+            type: DecisionType.Ally,
+            targetId: neutrals[0].agent.id,
+            reason: `Seeking alliance with ${neutrals[0].agent.name}`,
+          };
         }
         // If strong enough, attack enemies
         if (enemies.length > 0 && allies.length >= enemies.length) {
-          return { type: DecisionType.Attack, targetId: enemies[0].agent.id, reason: `Attacking enemy ${enemies[0].agent.name}` };
+          return {
+            type: DecisionType.Attack,
+            targetId: enemies[0].agent.id,
+            reason: `Attacking enemy ${enemies[0].agent.name}`,
+          };
         }
         break;
       }
 
-      case "treacherous":
-      case "狡猾型":
-      case "cunning": {
+      case 'treacherous':
+      case '狡猾型':
+      case 'cunning': {
         // Betray weak allies
         if (allies.length > 0 && Math.random() < 0.2) {
           const weakAlly = allies.sort((a, b) => a.agent.hp - b.agent.hp)[0];
           if (weakAlly.agent.hp < 40) {
-            return { type: DecisionType.Betray, targetId: weakAlly.agent.id, reason: `Betraying weakened ally ${weakAlly.agent.name}` };
+            return {
+              type: DecisionType.Betray,
+              targetId: weakAlly.agent.id,
+              reason: `Betraying weakened ally ${weakAlly.agent.name}`,
+            };
           }
         }
         // Otherwise attack
         if (neutrals.length > 0) {
-          return { type: DecisionType.Attack, targetId: neutrals[0].agent.id, reason: `Ambushing ${neutrals[0].agent.name}` };
+          return {
+            type: DecisionType.Attack,
+            targetId: neutrals[0].agent.id,
+            reason: `Ambushing ${neutrals[0].agent.name}`,
+          };
         }
         break;
       }
 
-      case "resourceful":
-      case "机智型":
-      case "社交型":
-      case "艺术型": {
+      case 'resourceful':
+      case '机智型':
+      case '社交型':
+      case '艺术型': {
         // Prefer alliances, avoid fights
         if (neutrals.length > 0 && allies.length < 2) {
-          return { type: DecisionType.Ally, targetId: neutrals[0].agent.id, reason: `Building alliance network` };
+          return {
+            type: DecisionType.Ally,
+            targetId: neutrals[0].agent.id,
+            reason: `Building alliance network`,
+          };
         }
         break;
       }
     }
 
-    return { type: DecisionType.Explore, reason: "No threats or opportunities, exploring" };
+    return { type: DecisionType.Explore, reason: 'No threats or opportunities, exploring' };
   }
 
   private parseInnerVoice(voice: string, ctx: DecisionContext): Decision | null {
     const lower = voice.toLowerCase();
     const { nearbyAgents } = ctx;
 
-    if ((lower.includes("attack") || lower.includes("fight")) && nearbyAgents.length > 0) {
+    if ((lower.includes('attack') || lower.includes('fight')) && nearbyAgents.length > 0) {
       // Try to find named target
       const named = nearbyAgents.find((a) => lower.includes(a.agent.name.toLowerCase()));
       const target = named ?? nearbyAgents[0];
-      return { type: DecisionType.Attack, targetId: target.agent.id, reason: `Inner voice: ${voice}` };
+      return {
+        type: DecisionType.Attack,
+        targetId: target.agent.id,
+        reason: `Inner voice: ${voice}`,
+      };
     }
 
-    if (lower.includes("flee") || lower.includes("run") || lower.includes("hide")) {
+    if (lower.includes('flee') || lower.includes('run') || lower.includes('hide')) {
       return { type: DecisionType.Flee, reason: `Inner voice: ${voice}` };
     }
 
-    if ((lower.includes("ally") || lower.includes("alliance") || lower.includes("friend")) && nearbyAgents.length > 0) {
+    if (
+      (lower.includes('ally') || lower.includes('alliance') || lower.includes('friend')) &&
+      nearbyAgents.length > 0
+    ) {
       const target = nearbyAgents.find((a) => !ctx.agent.enemies.includes(a.agent.id));
       if (target) {
-        return { type: DecisionType.Ally, targetId: target.agent.id, reason: `Inner voice: ${voice}` };
+        return {
+          type: DecisionType.Ally,
+          targetId: target.agent.id,
+          reason: `Inner voice: ${voice}`,
+        };
       }
     }
 
@@ -252,14 +290,16 @@ export class RuleBasedEngine implements DecisionEngine {
     const { agent, recentMemories } = ctx;
 
     // Simple reflection: summarize patterns
-    const combatCount = recentMemories.filter((m) => m.text.includes("damage") || m.text.includes("attack")).length;
-    const allianceCount = recentMemories.filter((m) => m.text.includes("alliance")).length;
+    const combatCount = recentMemories.filter(
+      (m) => m.text.includes('damage') || m.text.includes('attack'),
+    ).length;
+    const allianceCount = recentMemories.filter((m) => m.text.includes('alliance')).length;
 
     if (combatCount >= 3) {
-      return `I've been in many fights. I should ${agent.personality === "aggressive" ? "keep pressing my advantage" : "be more careful"}.`;
+      return `I've been in many fights. I should ${agent.personality === 'aggressive' ? 'keep pressing my advantage' : 'be more careful'}.`;
     }
     if (allianceCount >= 2) {
-      return "Alliances have been key to my survival. I should maintain my relationships.";
+      return 'Alliances have been key to my survival. I should maintain my relationships.';
     }
     if (agent.hp < agent.maxHp * 0.4) {
       return `I'm wounded (${agent.hp}/${agent.maxHp}). Survival is the priority right now.`;

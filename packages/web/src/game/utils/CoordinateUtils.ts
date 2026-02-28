@@ -1,5 +1,5 @@
-import * as Phaser from "phaser";
-import type { GridCoord, WorldCoord, ScreenCoord } from "../types/coordinates";
+import * as Phaser from 'phaser';
+import type { GridCoord, WorldCoord, ScreenCoord } from '../types/coordinates';
 
 /**
  * Centralized coordinate conversion utilities
@@ -76,10 +76,7 @@ export class CoordinateUtils {
    * // If camera.scrollX=500, scrollY=500, zoom=1.5:
    * // screen = { screenX: (1000-500)*1.5=750, screenY: (1000-500)*1.5=750 }
    */
-  static worldToScreen(
-    world: WorldCoord,
-    camera: Phaser.Cameras.Scene2D.Camera
-  ): ScreenCoord {
+  static worldToScreen(world: WorldCoord, camera: Phaser.Cameras.Scene2D.Camera): ScreenCoord {
     return {
       screenX: (world.worldX - camera.scrollX) * camera.zoom,
       screenY: (world.worldY - camera.scrollY) * camera.zoom,
@@ -101,10 +98,7 @@ export class CoordinateUtils {
    * // If camera.scrollX=0, scrollY=0, zoom=1:
    * // world = { worldX: 100, worldY: 200 }
    */
-  static screenToWorld(
-    screen: ScreenCoord,
-    camera: Phaser.Cameras.Scene2D.Camera
-  ): WorldCoord {
+  static screenToWorld(screen: ScreenCoord, camera: Phaser.Cameras.Scene2D.Camera): WorldCoord {
     return {
       worldX: camera.scrollX + screen.screenX / camera.zoom,
       worldY: camera.scrollY + screen.screenY / camera.zoom,
@@ -124,7 +118,7 @@ export class CoordinateUtils {
   static screenToGrid(
     screen: ScreenCoord,
     camera: Phaser.Cameras.Scene2D.Camera,
-    cellSize: number
+    cellSize: number,
   ): GridCoord {
     const world = this.screenToWorld(screen, camera);
     return this.worldToGrid(world, cellSize);
@@ -143,7 +137,7 @@ export class CoordinateUtils {
   static gridToScreen(
     grid: GridCoord,
     camera: Phaser.Cameras.Scene2D.Camera,
-    cellSize: number
+    cellSize: number,
   ): ScreenCoord {
     const world = this.gridToWorld(grid, cellSize);
     return this.worldToScreen(world, camera);
@@ -181,17 +175,8 @@ export class CoordinateUtils {
    * @param gridHeight - Grid height (exclusive upper bound)
    * @returns True if coordinate is within [0, width) × [0, height)
    */
-  static isGridInBounds(
-    grid: GridCoord,
-    gridWidth: number,
-    gridHeight: number
-  ): boolean {
-    return (
-      grid.gridX >= 0 &&
-      grid.gridX < gridWidth &&
-      grid.gridY >= 0 &&
-      grid.gridY < gridHeight
-    );
+  static isGridInBounds(grid: GridCoord, gridWidth: number, gridHeight: number): boolean {
+    return grid.gridX >= 0 && grid.gridX < gridWidth && grid.gridY >= 0 && grid.gridY < gridHeight;
   }
 
   /**
@@ -202,11 +187,7 @@ export class CoordinateUtils {
    * @param worldHeight - World height in pixels
    * @returns True if coordinate is within [0, width] × [0, height]
    */
-  static isWorldInBounds(
-    world: WorldCoord,
-    worldWidth: number,
-    worldHeight: number
-  ): boolean {
+  static isWorldInBounds(world: WorldCoord, worldWidth: number, worldHeight: number): boolean {
     return (
       world.worldX >= 0 &&
       world.worldX <= worldWidth &&
@@ -223,11 +204,7 @@ export class CoordinateUtils {
    * @param gridHeight - Grid height
    * @returns Clamped grid coordinate
    */
-  static clampGrid(
-    grid: GridCoord,
-    gridWidth: number,
-    gridHeight: number
-  ): GridCoord {
+  static clampGrid(grid: GridCoord, gridWidth: number, gridHeight: number): GridCoord {
     return {
       gridX: Phaser.Math.Clamp(grid.gridX, 0, gridWidth - 1),
       gridY: Phaser.Math.Clamp(grid.gridY, 0, gridHeight - 1),
@@ -242,11 +219,7 @@ export class CoordinateUtils {
    * @param worldHeight - World height in pixels
    * @returns Clamped world coordinate
    */
-  static clampWorld(
-    world: WorldCoord,
-    worldWidth: number,
-    worldHeight: number
-  ): WorldCoord {
+  static clampWorld(world: WorldCoord, worldWidth: number, worldHeight: number): WorldCoord {
     return {
       worldX: Phaser.Math.Clamp(world.worldX, 0, worldWidth),
       worldY: Phaser.Math.Clamp(world.worldY, 0, worldHeight),

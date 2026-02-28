@@ -1,7 +1,7 @@
-import * as Phaser from "phaser";
-import type { AgentFullState, Waypoint } from "@battle-royale/shared";
-import { SpriteDirection } from "@/constants/Assets";
-import type { AgentDisplayState } from "../scenes/types";
+import * as Phaser from 'phaser';
+import type { AgentFullState, Waypoint } from '@battle-royale/shared';
+import { SpriteDirection } from '@/constants/Assets';
+import type { AgentDisplayState } from '../scenes/types';
 
 /** 单步移动耗时（每格 1 秒） */
 const BASE_INTERPOLATION_DURATION_MS = 1000;
@@ -23,12 +23,7 @@ export class MotionState extends Phaser.Events.EventEmitter {
   }
 
   /** 根据曼哈顿距离计算本段移动耗时（每格 1000ms） */
-  private getMovementDuration(
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number
-  ): number {
+  private getMovementDuration(fromX: number, fromY: number, toX: number, toY: number): number {
     const distance = Math.abs(toX - fromX) + Math.abs(toY - fromY);
     return Math.max(1, distance) * BASE_INTERPOLATION_DURATION_MS;
   }
@@ -43,7 +38,7 @@ export class MotionState extends Phaser.Events.EventEmitter {
    */
   updateFromServer(
     agents: Map<number, AgentFullState>,
-    agentPaths: Record<number, Waypoint[]>
+    agentPaths: Record<number, Waypoint[]>,
   ): void {
     // Default facing is SpriteDirection.Right (1) — agents face right when idle
     const defaultFacing = SpriteDirection.Right;
@@ -123,7 +118,7 @@ export class MotionState extends Phaser.Events.EventEmitter {
         displayState.prevX,
         displayState.prevY,
         displayState.targetX,
-        displayState.targetY
+        displayState.targetY,
       );
 
       if (displayState.progress < 1) {
@@ -154,7 +149,7 @@ export class MotionState extends Phaser.Events.EventEmitter {
             displayState.displayY = displayState.prevY;
           } else {
             const yT = this.easeOutCubic(
-              (displayState.progress - halfProgress) / (1 - halfProgress)
+              (displayState.progress - halfProgress) / (1 - halfProgress),
             );
             displayState.displayX = displayState.targetX;
             displayState.displayY = displayState.prevY + dy * yT;

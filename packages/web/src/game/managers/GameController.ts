@@ -1,6 +1,6 @@
-import * as Phaser from "phaser";
-import { GameState } from "./GameState";
-import { NetworkService } from "./NetworkService";
+import * as Phaser from 'phaser';
+import { GameState } from './GameState';
+import { NetworkService } from './NetworkService';
 import type {
   AgentFullState,
   GameEvent,
@@ -10,7 +10,7 @@ import type {
   VoteState,
   Waypoint,
   WorldSyncState,
-} from "@battle-royale/shared";
+} from '@battle-royale/shared';
 
 /**
  * GameController is the Application/Business Logic layer.

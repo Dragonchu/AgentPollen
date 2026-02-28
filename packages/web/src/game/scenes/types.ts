@@ -1,5 +1,5 @@
-import type {AgentActionState, Waypoint} from "@battle-royale/shared";
-import type { SpriteDirection } from "@/constants/Assets";
+import type { AgentActionState, Waypoint } from '@battle-royale/shared';
+import type { SpriteDirection } from '@/constants/Assets';
 
 /**
  * 代理显示状态

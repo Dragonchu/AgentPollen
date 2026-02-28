@@ -1,8 +1,8 @@
-import { MapStorageProvider, TileMap, Tile, TileType } from "@battle-royale/shared";
+import { MapStorageProvider, TileMap, Tile, TileType } from '@battle-royale/shared';
 
 /**
  * Binary format map storage provider.
- * 
+ *
  * Format:
  * - Header (8 bytes):
  *   - [0-3]: width (uint32, little endian)
@@ -10,12 +10,12 @@ import { MapStorageProvider, TileMap, Tile, TileType } from "@battle-royale/shar
  * - Tiles (1 byte per tile):
  *   - Bits 0-1: TileType (0=Passable, 1=Blocked)
  *   - Bits 2-7: Reserved for weight/flags (future extension)
- * 
+ *
  * This format provides efficient storage (1 byte per tile + 8 byte header)
  * and is extensible for future features like variable tile weights.
  */
 export class BinaryMapStorage implements MapStorageProvider {
-  readonly name = "binary";
+  readonly name = 'binary';
 
   /**
    * Serialize a tile map to binary format.
@@ -46,7 +46,7 @@ export class BinaryMapStorage implements MapStorageProvider {
    */
   deserialize(data: Uint8Array): TileMap {
     if (data.length < 8) {
-      throw new Error("Invalid binary map data: too short");
+      throw new Error('Invalid binary map data: too short');
     }
 
     // Read header
@@ -59,7 +59,9 @@ export class BinaryMapStorage implements MapStorageProvider {
 
     const expectedSize = 8 + width * height;
     if (data.length !== expectedSize) {
-      throw new Error(`Invalid binary map data: expected ${expectedSize} bytes, got ${data.length}`);
+      throw new Error(
+        `Invalid binary map data: expected ${expectedSize} bytes, got ${data.length}`,
+      );
     }
 
     // Read tiles
@@ -88,7 +90,7 @@ export class BinaryMapStorage implements MapStorageProvider {
       // We reserve 0 to mean "no explicit weight set" so that decoding
       // can distinguish between "use default" and "explicit weight".
       const weight = Math.min(63, Math.max(1, Math.floor(tile.weight)));
-      byte |= (weight << 2);
+      byte |= weight << 2;
     }
     return byte;
   }
@@ -98,14 +100,14 @@ export class BinaryMapStorage implements MapStorageProvider {
    */
   private decodeTile(byte: number): Tile {
     const type = (byte & 0x03) as TileType;
-    const weightBits = (byte >> 2) & 0x3F;
+    const weightBits = (byte >> 2) & 0x3f;
     const tile: Tile = { type };
-    
+
     // Only set weight if it's non-zero (optimization)
     if (weightBits > 0) {
       tile.weight = weightBits;
     }
-    
+
     return tile;
   }
 
@@ -113,19 +115,22 @@ export class BinaryMapStorage implements MapStorageProvider {
    * Write a 32-bit unsigned integer to buffer (little endian).
    */
   private writeUInt32(buffer: Uint8Array, offset: number, value: number): void {
-    buffer[offset] = value & 0xFF;
-    buffer[offset + 1] = (value >> 8) & 0xFF;
-    buffer[offset + 2] = (value >> 16) & 0xFF;
-    buffer[offset + 3] = (value >> 24) & 0xFF;
+    buffer[offset] = value & 0xff;
+    buffer[offset + 1] = (value >> 8) & 0xff;
+    buffer[offset + 2] = (value >> 16) & 0xff;
+    buffer[offset + 3] = (value >> 24) & 0xff;
   }
 
   /**
    * Read a 32-bit unsigned integer from buffer (little endian).
    */
   private readUInt32(buffer: Uint8Array, offset: number): number {
-    return (buffer[offset] | 
-           (buffer[offset + 1] << 8) | 
-           (buffer[offset + 2] << 16) | 
-           (buffer[offset + 3] << 24)) >>> 0;
+    return (
+      (buffer[offset] |
+        (buffer[offset + 1] << 8) |
+        (buffer[offset + 2] << 16) |
+        (buffer[offset + 3] << 24)) >>>
+      0
+    );
   }
 }

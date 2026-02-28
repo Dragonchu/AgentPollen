@@ -14,10 +14,7 @@ declare namespace RexUI {
 
   // ── Sizer ────────────────────────────────────────────────────────────────────
   interface Sizer extends Base {
-    add(
-      gameObject: Phaser.GameObjects.GameObject | Base,
-      config?: AddConfig,
-    ): this;
+    add(gameObject: Phaser.GameObjects.GameObject | Base, config?: AddConfig): this;
     addSpace(proportion?: number): this;
     clear(destroyChildren?: boolean): this;
     remove(gameObject: Phaser.GameObjects.GameObject, destroyChild?: boolean): this;
@@ -77,7 +74,7 @@ declare namespace RexUI {
     y?: number;
     width?: number;
     height?: number;
-    orientation?: "horizontal" | "vertical" | 0 | 1;
+    orientation?: 'horizontal' | 'vertical' | 0 | 1;
     space?: Space;
     background?: Phaser.GameObjects.GameObject;
     name?: string;
@@ -153,7 +150,7 @@ declare namespace RexUI {
   }
 }
 
-declare module "phaser" {
+declare module 'phaser' {
   interface Scene {
     rexUI?: RexUI.Plugin;
   }

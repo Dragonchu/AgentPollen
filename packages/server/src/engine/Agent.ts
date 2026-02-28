@@ -9,9 +9,9 @@ import {
   Waypoint,
   ThinkingProcess,
   TileMap,
-} from "@battle-royale/shared";
-import { MemoryStream } from "./MemoryStream.js";
-import { MapGenerator } from "../pathfinding/MapGenerator.js";
+} from '@battle-royale/shared';
+import { MemoryStream } from './MemoryStream.js';
+import { MapGenerator } from '../pathfinding/MapGenerator.js';
 
 export interface AgentPerception {
   nearbyAgents: Array<{ agent: Agent; distance: number }>;
@@ -42,17 +42,17 @@ export class Agent {
   attack: number;
   defense: number;
   alive: boolean = true;
-  weapon: string = "bare fists";
+  weapon: string = 'bare fists';
   killCount: number = 0;
 
   actionState: AgentActionState = AgentActionState.Idle;
-  currentAction: string = "Surveying surroundings";
+  currentAction: string = 'Surveying surroundings';
   /**
    * Active plan — the agent's current high-level goal.
    * Aligns with GenerativeAgentsCN's plan layer: agents set a plan and pursue
    * it across ticks until they decide to change it.
    */
-  currentPlan: string = "Assess the situation and decide on a strategy.";
+  currentPlan: string = 'Assess the situation and decide on a strategy.';
   currentDecision: Decision | null = null;
   thinkingProcess: ThinkingProcess | null = null;
 
@@ -105,7 +105,7 @@ export class Agent {
 
   /** Perceive nearby agents and items within vision range */
   perceive(allAgents: Agent[], allItems: ItemState[], visionRange = 4): AgentPerception {
-    const nearbyAgents: AgentPerception["nearbyAgents"] = [];
+    const nearbyAgents: AgentPerception['nearbyAgents'] = [];
     for (const other of allAgents) {
       if (other.id === this.id || !other.alive) continue;
       const dist = Math.abs(other.x - this.x) + Math.abs(other.y - this.y);
@@ -125,7 +125,7 @@ export class Agent {
     const dy = Math.sign(ty - this.y);
     const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
     const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-    
+
     // Only move if the destination is passable
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
@@ -140,7 +140,7 @@ export class Agent {
     const dy = Math.sign(this.y - fy) || 1;
     const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
     const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-    
+
     // Only move if the destination is passable
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
@@ -157,7 +157,7 @@ export class Agent {
       const dy = Math.floor(Math.random() * 3) - 1;
       const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
       const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-      
+
       // If the destination is passable, move there
       if (MapGenerator.isPassable(tileMap, newX, newY)) {
         this.x = newX;
@@ -187,7 +187,7 @@ export class Agent {
     }
 
     const target = this.waypoints[this.currentWaypointIndex];
-    
+
     // Check if we've reached the current waypoint
     if (this.x === target.x && this.y === target.y) {
       this.currentWaypointIndex++;
@@ -198,23 +198,23 @@ export class Agent {
     // Prioritize horizontal movement if both differ
     const dx = Math.sign(target.x - this.x);
     const dy = Math.sign(target.y - this.y);
-    
+
     let newX = this.x;
     let newY = this.y;
-    
+
     if (dx !== 0) {
       newX += dx;
     } else if (dy !== 0) {
       newY += dy;
     }
-    
+
     // Validate the move is passable before applying
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
       this.y = newY;
       return true;
     }
-    
+
     // If the path is blocked, clear it and stay in place
     this.clearPath();
     return false;

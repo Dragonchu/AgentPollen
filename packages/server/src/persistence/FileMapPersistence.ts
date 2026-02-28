@@ -1,7 +1,7 @@
-import { MapStorageProvider, TileMap } from "@battle-royale/shared";
-import { BinaryMapStorage } from "../storage/BinaryMapStorage.js";
-import * as fs from "fs";
-import * as path from "path";
+import { MapStorageProvider, TileMap } from '@battle-royale/shared';
+import { BinaryMapStorage } from '../storage/BinaryMapStorage.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Simple file-based map persistence using the binary storage provider.
@@ -11,10 +11,10 @@ export class FileMapPersistence {
   private storage: MapStorageProvider;
   private mapsDir: string;
 
-  constructor(storage?: MapStorageProvider, mapsDir: string = "./maps") {
+  constructor(storage?: MapStorageProvider, mapsDir: string = './maps') {
     this.storage = storage ?? new BinaryMapStorage();
     this.mapsDir = mapsDir;
-    
+
     // Ensure maps directory exists
     if (!fs.existsSync(this.mapsDir)) {
       fs.mkdirSync(this.mapsDir, { recursive: true });
@@ -27,7 +27,9 @@ export class FileMapPersistence {
   private validateName(name: string): void {
     // Only allow alphanumeric characters, underscores, and hyphens
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-      throw new Error(`Invalid map name: "${name}". Only alphanumeric characters, underscores, and hyphens are allowed.`);
+      throw new Error(
+        `Invalid map name: "${name}". Only alphanumeric characters, underscores, and hyphens are allowed.`,
+      );
     }
   }
 
@@ -69,8 +71,8 @@ export class FileMapPersistence {
   list(): string[] {
     return fs
       .readdirSync(this.mapsDir)
-      .filter(f => f.endsWith(".map"))
-      .map(f => f.replace(".map", ""));
+      .filter((f) => f.endsWith('.map'))
+      .map((f) => f.replace('.map', ''));
   }
 
   /**

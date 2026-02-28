@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { TileMap, TileType, Tile, Waypoint } from "@battle-royale/shared";
+import { readFileSync } from 'node:fs';
+import { TileMap, TileType, Tile, Waypoint } from '@battle-royale/shared';
 
 /**
  * Compact collision format stored in server/data/village_collision.json.
@@ -27,7 +27,7 @@ export class TiledMapLoader {
    * @param filePath Absolute path to village_collision.json
    */
   static loadFromFile(filePath: string): { tileMap: TileMap; spawnPoints: Waypoint[] } {
-    const raw = readFileSync(filePath, "utf-8");
+    const raw = readFileSync(filePath, 'utf-8');
     const data: VillageCollisionData = JSON.parse(raw);
     return TiledMapLoader.fromCollisionData(data);
   }
@@ -35,9 +35,12 @@ export class TiledMapLoader {
   /**
    * Convert raw collision data to the game's TileMap.
    */
-  static fromCollisionData(data: VillageCollisionData): { tileMap: TileMap; spawnPoints: Waypoint[] } {
+  static fromCollisionData(data: VillageCollisionData): {
+    tileMap: TileMap;
+    spawnPoints: Waypoint[];
+  } {
     const tiles: Tile[][] = data.tiles.map((row) =>
-      row.map((cell): Tile => ({ type: cell !== 0 ? TileType.Blocked : TileType.Passable }))
+      row.map((cell): Tile => ({ type: cell !== 0 ? TileType.Blocked : TileType.Passable })),
     );
 
     const tileMap: TileMap = {
@@ -47,7 +50,9 @@ export class TiledMapLoader {
     };
 
     if (!data.spawnPoints || data.spawnPoints.length === 0) {
-      console.warn("[TiledMapLoader] No spawn points found in collision data. Agents will use random passable tiles.");
+      console.warn(
+        '[TiledMapLoader] No spawn points found in collision data. Agents will use random passable tiles.',
+      );
     }
 
     return { tileMap, spawnPoints: data.spawnPoints ?? [] };

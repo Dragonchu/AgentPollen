@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI from 'openai';
 import {
   DecisionEngine,
   DecisionContext,
@@ -6,8 +6,8 @@ import {
   Decision,
   DecisionType,
   ThinkingProcess,
-} from "@battle-royale/shared";
-import { RuleBasedEngine } from "./RuleBasedEngine.js";
+} from '@battle-royale/shared';
+import { RuleBasedEngine } from './RuleBasedEngine.js';
 
 /**
  * LLM-based decision engine using DeepSeek.
@@ -41,7 +41,7 @@ export interface LLMEngineConfig {
 }
 
 export class LLMEngine implements DecisionEngine {
-  readonly name = "llm-deepseek";
+  readonly name = 'llm-deepseek';
   private config: Required<LLMEngineConfig> & { temperature: number };
   private client: OpenAI;
   private fallbackEngine: RuleBasedEngine;
@@ -50,8 +50,8 @@ export class LLMEngine implements DecisionEngine {
 
   constructor(config: LLMEngineConfig) {
     this.config = {
-      model: "deepseek-chat", // Valid models: deepseek-chat, deepseek-reasoner
-      baseURL: "https://api.deepseek.com",
+      model: 'deepseek-chat', // Valid models: deepseek-chat, deepseek-reasoner
+      baseURL: 'https://api.deepseek.com',
       maxConcurrency: 10,
       temperature: 0.7,
       ...config,
@@ -59,9 +59,7 @@ export class LLMEngine implements DecisionEngine {
 
     // Validate and clamp maxConcurrency to prevent deadlocks
     if (isNaN(this.config.maxConcurrency) || this.config.maxConcurrency < 1) {
-      console.warn(
-        `Invalid maxConcurrency (${this.config.maxConcurrency}), clamping to 1`
-      );
+      console.warn(`Invalid maxConcurrency (${this.config.maxConcurrency}), clamping to 1`);
       this.config.maxConcurrency = 1;
     }
 
@@ -86,7 +84,7 @@ export class LLMEngine implements DecisionEngine {
       // Use the parsed decision's reason to ensure consistency
       const thinking: ThinkingProcess = {
         action: this.formatDecisionAction(decision, ctx),
-        reasoning: decision.reason || "LLM decision",
+        reasoning: decision.reason || 'LLM decision',
         timestamp: Date.now(),
       };
       decision.thinking = thinking;
@@ -97,7 +95,7 @@ export class LLMEngine implements DecisionEngine {
       this.releaseLock();
       console.warn(
         `LLM decision failed for ${ctx.agent.name}, using fallback:`,
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
       return this.fallbackEngine.decide(ctx);
     }
@@ -116,7 +114,7 @@ export class LLMEngine implements DecisionEngine {
       this.releaseLock();
       console.warn(
         `LLM reflection failed for ${ctx.agent.name}, using fallback:`,
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
       return this.fallbackEngine.reflect(ctx);
     }
@@ -140,39 +138,45 @@ export class LLMEngine implements DecisionEngine {
   private async callLLM(prompt: string, maxTokens: number): Promise<string> {
     const completion = await this.client.chat.completions.create({
       model: this.config.model,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: 'user', content: prompt }],
       max_tokens: maxTokens,
       temperature: this.config.temperature,
     });
 
-    return completion.choices[0]?.message?.content ?? "";
+    return completion.choices[0]?.message?.content ?? '';
   }
 
   private buildDecisionPrompt(ctx: DecisionContext): string {
-    const { agent, nearbyAgents, nearbyItems, worldState, recentMemories, innerVoice, currentPlan } = ctx;
+    const {
+      agent,
+      nearbyAgents,
+      nearbyItems,
+      worldState,
+      recentMemories,
+      innerVoice,
+      currentPlan,
+    } = ctx;
 
     const memoryText = recentMemories
       .slice(-5)
       .map((m) => `- ${m.text}`)
-      .join("\n");
+      .join('\n');
 
     const nearbyAgentText = nearbyAgents
-      .map((a) => 
-        `${a.agent.name} (HP: ${a.agent.hp}/${a.agent.maxHp}, dist: ${a.distance})`
-      )
-      .join(", ");
+      .map((a) => `${a.agent.name} (HP: ${a.agent.hp}/${a.agent.maxHp}, dist: ${a.distance})`)
+      .join(', ');
 
-    const nearbyItemText = nearbyItems.map((i) => i.type).join(", ");
+    const nearbyItemText = nearbyItems.map((i) => i.type).join(', ');
 
     const allyNames = nearbyAgents
       .filter((a) => agent.alliances.includes(a.agent.id))
       .map((a) => a.agent.name)
-      .join(", ");
+      .join(', ');
 
     const enemyNames = nearbyAgents
       .filter((a) => agent.enemies.includes(a.agent.id))
       .map((a) => a.agent.name)
-      .join(", ");
+      .join(', ');
 
     return `You are ${agent.name}, a ${agent.personality} fighter in a battle royale.
 
@@ -183,15 +187,15 @@ YOUR STATUS:
 - Position: (${agent.x}, ${agent.y})
 - Current Plan: ${currentPlan}
 
-NEARBY AGENTS: ${nearbyAgentText || "none"}
-ALLIES: ${allyNames || "none"}
-ENEMIES: ${enemyNames || "none"}
-NEARBY ITEMS: ${nearbyItemText || "none"}
+NEARBY AGENTS: ${nearbyAgentText || 'none'}
+ALLIES: ${allyNames || 'none'}
+ENEMIES: ${enemyNames || 'none'}
+NEARBY ITEMS: ${nearbyItemText || 'none'}
 
 RECENT MEMORIES:
 ${memoryText}
 
-${innerVoice ? `INNER VOICE (player suggestion): "${innerVoice}"\n` : ""}
+${innerVoice ? `INNER VOICE (player suggestion): "${innerVoice}"\n` : ''}
 WORLD INFO:
 - Alive: ${worldState.aliveCount}
 - Border: ${worldState.shrinkBorder}
@@ -231,9 +235,7 @@ PLAN: Collect weapons then seek combat.`;
   private buildReflectionPrompt(ctx: ReflectionContext): string {
     const { agent, recentMemories } = ctx;
 
-    const memoryText = recentMemories
-      .map((m) => `- ${m.text}`)
-      .join("\n");
+    const memoryText = recentMemories.map((m) => `- ${m.text}`).join('\n');
 
     return `You are ${agent.name}, a ${agent.personality} fighter.
 
@@ -249,30 +251,30 @@ Examples:
   }
 
   private parseDecision(response: string, ctx: DecisionContext): Decision {
-    const lines = response.trim().split("\n");
-    let actionLine = "";
-    let reasonLine = "";
-    let planLine = "";
+    const lines = response.trim().split('\n');
+    let actionLine = '';
+    let reasonLine = '';
+    let planLine = '';
 
     for (const line of lines) {
-      if (line.toUpperCase().startsWith("ACTION:")) {
+      if (line.toUpperCase().startsWith('ACTION:')) {
         actionLine = line.substring(7).trim();
-      } else if (line.toUpperCase().startsWith("REASON:")) {
+      } else if (line.toUpperCase().startsWith('REASON:')) {
         reasonLine = line.substring(7).trim();
-      } else if (line.toUpperCase().startsWith("PLAN:")) {
+      } else if (line.toUpperCase().startsWith('PLAN:')) {
         planLine = line.substring(5).trim();
       }
     }
 
     const actionLower = actionLine.toLowerCase();
-    const reason = reasonLine || "LLM decision";
+    const reason = reasonLine || 'LLM decision';
     const newPlan = planLine || undefined;
 
     // Parse attack action
-    if (actionLower.startsWith("attack")) {
+    if (actionLower.startsWith('attack')) {
       const targetName = this.extractTargetName(actionLine);
       const target = ctx.nearbyAgents.find(
-        (a) => a.agent.name.toLowerCase() === targetName.toLowerCase()
+        (a) => a.agent.name.toLowerCase() === targetName.toLowerCase(),
       );
       if (target) {
         return { type: DecisionType.Attack, targetId: target.agent.id, reason, newPlan };
@@ -280,27 +282,33 @@ Examples:
     }
 
     // Parse ally action
-    if (actionLower.startsWith("ally")) {
+    if (actionLower.startsWith('ally')) {
       const targetName = this.extractTargetName(actionLine);
-      const target = ctx.nearbyAgents.find((a) => a.agent.name.toLowerCase() === targetName.toLowerCase());
+      const target = ctx.nearbyAgents.find(
+        (a) => a.agent.name.toLowerCase() === targetName.toLowerCase(),
+      );
       if (target) {
         return { type: DecisionType.Ally, targetId: target.agent.id, reason, newPlan };
       }
     }
 
     // Parse betray action
-    if (actionLower.startsWith("betray")) {
+    if (actionLower.startsWith('betray')) {
       const targetName = this.extractTargetName(actionLine);
-      const target = ctx.nearbyAgents.find((a) => a.agent.name.toLowerCase() === targetName.toLowerCase());
+      const target = ctx.nearbyAgents.find(
+        (a) => a.agent.name.toLowerCase() === targetName.toLowerCase(),
+      );
       if (target) {
         return { type: DecisionType.Betray, targetId: target.agent.id, reason, newPlan };
       }
     }
 
     // Parse loot action
-    if (actionLower.startsWith("loot") && ctx.nearbyItems.length > 0) {
+    if (actionLower.startsWith('loot') && ctx.nearbyItems.length > 0) {
       const itemType = this.extractTargetName(actionLine);
-      const item = ctx.nearbyItems.find((i) => i.type.toLowerCase().includes(itemType.toLowerCase()));
+      const item = ctx.nearbyItems.find((i) =>
+        i.type.toLowerCase().includes(itemType.toLowerCase()),
+      );
       if (item) {
         return { type: DecisionType.Loot, targetId: item.id, reason, newPlan };
       }
@@ -308,53 +316,53 @@ Examples:
     }
 
     // Parse flee action
-    if (actionLower.includes("flee") || actionLower.includes("run")) {
+    if (actionLower.includes('flee') || actionLower.includes('run')) {
       return { type: DecisionType.Flee, reason, newPlan };
     }
 
     // Parse rest action
-    if (actionLower.includes("rest") || actionLower.includes("recover")) {
+    if (actionLower.includes('rest') || actionLower.includes('recover')) {
       return { type: DecisionType.Rest, reason, newPlan };
     }
 
     // Default to explore
-    return { type: DecisionType.Explore, reason: reason || "Exploring", newPlan };
+    return { type: DecisionType.Explore, reason: reason || 'Exploring', newPlan };
   }
 
   private extractTargetName(actionLine: string): string {
     const match = actionLine.match(/\[([^\]]+)\]/);
     if (match) return match[1];
 
-    const words = actionLine.split(" ");
-    return words.slice(1).join(" ").trim();
+    const words = actionLine.split(' ');
+    return words.slice(1).join(' ').trim();
   }
 
   private formatDecisionAction(decision: Decision, ctx: DecisionContext): string {
     switch (decision.type) {
       case DecisionType.Attack: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `attack ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `attack ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Ally: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `ally ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `ally ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Betray: {
-        const target = ctx.nearbyAgents.find(a => a.agent.id === decision.targetId);
-        return `betray ${target?.agent.name ?? "target"}`;
+        const target = ctx.nearbyAgents.find((a) => a.agent.id === decision.targetId);
+        return `betray ${target?.agent.name ?? 'target'}`;
       }
       case DecisionType.Loot: {
-        const item = ctx.nearbyItems.find(i => i.id === decision.targetId);
-        return `loot ${item?.type ?? "item"}`;
+        const item = ctx.nearbyItems.find((i) => i.id === decision.targetId);
+        return `loot ${item?.type ?? 'item'}`;
       }
       case DecisionType.Flee:
-        return "flee";
+        return 'flee';
       case DecisionType.Explore:
-        return "explore";
+        return 'explore';
       case DecisionType.Rest:
-        return "rest";
+        return 'rest';
       default:
-        return "unknown action";
+        return 'unknown action';
     }
   }
 }

@@ -1,8 +1,8 @@
-import * as Phaser from "phaser";
-import { CELL_SIZE } from "../scenes/gameConstants";
-import { CoordinateUtils } from "../utils/CoordinateUtils";
-import type { GridCoord, WorldCoord } from "../types/coordinates";
-import type { MotionState } from "./MotionState";
+import * as Phaser from 'phaser';
+import { CELL_SIZE } from '../scenes/gameConstants';
+import { CoordinateUtils } from '../utils/CoordinateUtils';
+import type { GridCoord, WorldCoord } from '../types/coordinates';
+import type { MotionState } from './MotionState';
 
 /**
  * CameraManager handles camera movement, zooming, and viewport management
@@ -63,7 +63,6 @@ export class CameraManager {
   /** When set, pointer events over UI will not start drag or stop follow */
   private pointerOverUICheck: ((x: number, y: number) => boolean) | null = null;
 
-
   constructor(scene: Phaser.Scene, motionState?: MotionState) {
     this.scene = scene;
     this.camera = scene.cameras.main;
@@ -88,7 +87,7 @@ export class CameraManager {
    * Ensures agent aligns with the visual center of the viewport.
    */
   private getBrowserWindowCenterInCanvas(): { x: number; y: number } {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       const { width, height } = this.getViewportPixelSize();
       return { x: width / 2, y: height / 2 };
     }
@@ -176,7 +175,7 @@ export class CameraManager {
     this.uiCamera = this.scene.cameras.add(0, 0, width, height);
     this.uiCamera.setScroll(0, 0);
     this.uiCamera.setZoom(1);
-    this.uiCamera.setName("uiCamera");
+    this.uiCamera.setName('uiCamera');
   }
 
   /**
@@ -221,7 +220,7 @@ export class CameraManager {
    * Setup listener for window/canvas resize events
    */
   private setupResizeListener(): void {
-    this.scene.scale.on("resize", this.onResize, this);
+    this.scene.scale.on('resize', this.onResize, this);
   }
 
   /**
@@ -236,7 +235,9 @@ export class CameraManager {
     } else {
       // Otherwise, set a default zoom and wait for tilemap
       this.camera.setZoom(1);
-      console.warn("CameraManager initialized before world dimensions were set. Camera will be configured when tilemap is received.");
+      console.warn(
+        'CameraManager initialized before world dimensions were set. Camera will be configured when tilemap is received.',
+      );
     }
 
     // Setup input handling
@@ -248,13 +249,13 @@ export class CameraManager {
    */
   private setupInputHandlers(): void {
     // Mouse wheel zoom
-    this.scene.input.on("wheel", this.onMouseWheel, this);
+    this.scene.input.on('wheel', this.onMouseWheel, this);
 
     // Mouse drag for panning
-    this.scene.input.on("pointerdown", this.onPointerDown, this);
-    this.scene.input.on("pointermove", this.onPointerMove, this);
-    this.scene.input.on("pointerup", this.onPointerUp, this);
-    this.scene.input.on("pointerleave", this.onPointerUp, this);
+    this.scene.input.on('pointerdown', this.onPointerDown, this);
+    this.scene.input.on('pointermove', this.onPointerMove, this);
+    this.scene.input.on('pointerup', this.onPointerUp, this);
+    this.scene.input.on('pointerleave', this.onPointerUp, this);
 
     // Keyboard for panning
     const keys = this.scene.input.keyboard?.createCursorKeys();
@@ -263,15 +264,15 @@ export class CameraManager {
     }
 
     // R key to reset camera
-    const rKey = this.scene.input.keyboard?.addKey("R");
+    const rKey = this.scene.input.keyboard?.addKey('R');
     if (rKey) {
-      rKey.on("down", () => this.resetCamera());
+      rKey.on('down', () => this.resetCamera());
     }
 
     // P key to toggle PiP camera
-    const pKey = this.scene.input.keyboard?.addKey("P");
+    const pKey = this.scene.input.keyboard?.addKey('P');
     if (pKey) {
-      pKey.on("down", () => this.toggleDualCamera());
+      pKey.on('down', () => this.toggleDualCamera());
     }
   }
 
@@ -285,46 +286,44 @@ export class CameraManager {
   /**
    * Setup keyboard panning with arrow keys
    */
-  private setupKeyboardPanning(
-    _keys: Phaser.Types.Input.Keyboard.CursorKeys
-  ): void {
-    this.scene.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+  private setupKeyboardPanning(_keys: Phaser.Types.Input.Keyboard.CursorKeys): void {
+    this.scene.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       switch (event.key.toLowerCase()) {
-        case "arrowup":
-        case "w":
+        case 'arrowup':
+        case 'w':
           this.panKeys.up = true;
           break;
-        case "arrowdown":
-        case "s":
+        case 'arrowdown':
+        case 's':
           this.panKeys.down = true;
           break;
-        case "arrowleft":
-        case "a":
+        case 'arrowleft':
+        case 'a':
           this.panKeys.left = true;
           break;
-        case "arrowright":
-        case "d":
+        case 'arrowright':
+        case 'd':
           this.panKeys.right = true;
           break;
       }
     });
 
-    this.scene.input.keyboard?.on("keyup", (event: KeyboardEvent) => {
+    this.scene.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
       switch (event.key.toLowerCase()) {
-        case "arrowup":
-        case "w":
+        case 'arrowup':
+        case 'w':
           this.panKeys.up = false;
           break;
-        case "arrowdown":
-        case "s":
+        case 'arrowdown':
+        case 's':
           this.panKeys.down = false;
           break;
-        case "arrowleft":
-        case "a":
+        case 'arrowleft':
+        case 'a':
           this.panKeys.left = false;
           break;
-        case "arrowright":
-        case "d":
+        case 'arrowright':
+        case 'd':
           this.panKeys.right = false;
           break;
       }
@@ -338,9 +337,8 @@ export class CameraManager {
     pointer: Phaser.Input.Pointer,
     _gameObjects: Phaser.GameObjects.GameObject[],
     _deltaX: number,
-    deltaY: number
+    deltaY: number,
   ): void {
-
     // Exit follow mode when user manually zooms
     if (this.followingAgentId !== null) {
       this.stopFollowing();
@@ -358,11 +356,7 @@ export class CameraManager {
 
     // 3. Calculate new zoom level
     const zoomDelta = deltaY > 0 ? -this.ZOOM_SPEED : this.ZOOM_SPEED;
-    const newZoom = Phaser.Math.Clamp(
-      oldZoom + zoomDelta,
-      this.minZoom,
-      this.MAX_ZOOM
-    );
+    const newZoom = Phaser.Math.Clamp(oldZoom + zoomDelta, this.minZoom, this.MAX_ZOOM);
 
     // 4. Update camera zoom
     this.camera.setZoom(newZoom);
@@ -467,12 +461,12 @@ export class CameraManager {
         const scrollX = Phaser.Math.Clamp(
           worldPos.worldX - centerX / zoom,
           0,
-          this.worldWidth - viewportWidth
+          this.worldWidth - viewportWidth,
         );
         const scrollY = Phaser.Math.Clamp(
           worldPos.worldY - centerY / zoom,
           0,
-          this.worldHeight - viewportHeight
+          this.worldHeight - viewportHeight,
         );
 
         this.camera.setScroll(scrollX, scrollY);
@@ -494,16 +488,8 @@ export class CameraManager {
     const viewportHeight = vh / zoom;
 
     // Clamp to world bounds
-    const clampedX = Phaser.Math.Clamp(
-      x,
-      0,
-      this.worldWidth - viewportWidth
-    );
-    const clampedY = Phaser.Math.Clamp(
-      y,
-      0,
-      this.worldHeight - viewportHeight
-    );
+    const clampedX = Phaser.Math.Clamp(x, 0, this.worldWidth - viewportWidth);
+    const clampedY = Phaser.Math.Clamp(y, 0, this.worldHeight - viewportHeight);
 
     camera.setScroll(clampedX, clampedY);
   }
@@ -515,20 +501,14 @@ export class CameraManager {
    * Convert screen coordinates to world coordinates
    */
   screenToWorld(screenX: number, screenY: number): WorldCoord {
-    return CoordinateUtils.screenToWorld(
-      { screenX, screenY },
-      this.camera
-    );
+    return CoordinateUtils.screenToWorld({ screenX, screenY }, this.camera);
   }
 
   /**
    * Convert world coordinates to screen coordinates (canvas).
    */
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-    const screen = CoordinateUtils.worldToScreen(
-      { worldX, worldY },
-      this.camera
-    );
+    const screen = CoordinateUtils.worldToScreen({ worldX, worldY }, this.camera);
     return { x: screen.screenX, y: screen.screenY };
   }
 
@@ -536,11 +516,7 @@ export class CameraManager {
    * Convert screen coordinates (canvas) to grid coordinates.
    */
   screenToGrid(screenX: number, screenY: number): GridCoord {
-    return CoordinateUtils.screenToGrid(
-      { screenX, screenY },
-      this.camera,
-      CELL_SIZE
-    );
+    return CoordinateUtils.screenToGrid({ screenX, screenY }, this.camera, CELL_SIZE);
   }
 
   // ============ Camera Control ============
@@ -557,10 +533,7 @@ export class CameraManager {
     const viewportWidth = vw / camera.zoom;
     const viewportHeight = vh / camera.zoom;
 
-    this.setCameraPosition(
-      centerX - viewportWidth / 2,
-      centerY - viewportHeight / 2
-    );
+    this.setCameraPosition(centerX - viewportWidth / 2, centerY - viewportHeight / 2);
   }
 
   /**
@@ -582,7 +555,7 @@ export class CameraManager {
    */
   followAgent(agentId: number, zoom?: number, duration: number = 400): void {
     if (!this.motionState) {
-      console.warn("Cannot follow agent: MotionState not set");
+      console.warn('Cannot follow agent: MotionState not set');
       return;
     }
 
@@ -615,16 +588,8 @@ export class CameraManager {
 
     const scrollXRaw = worldPos.worldX - centerX / targetZoom;
     const scrollYRaw = worldPos.worldY - centerY / targetZoom;
-    const scrollX = Phaser.Math.Clamp(
-      scrollXRaw,
-      0,
-      this.worldWidth - viewportWidth
-    );
-    const scrollY = Phaser.Math.Clamp(
-      scrollYRaw,
-      0,
-      this.worldHeight - viewportHeight
-    );
+    const scrollX = Phaser.Math.Clamp(scrollXRaw, 0, this.worldWidth - viewportWidth);
+    const scrollY = Phaser.Math.Clamp(scrollYRaw, 0, this.worldHeight - viewportHeight);
 
     // Animate zoom and position simultaneously
     this.scene.tweens.add({
@@ -633,7 +598,7 @@ export class CameraManager {
       scrollX,
       scrollY,
       duration,
-      ease: "Power2",
+      ease: 'Power2',
     });
   }
 
@@ -679,12 +644,12 @@ export class CameraManager {
     const scrollX = Phaser.Math.Clamp(
       targetX - viewportWidth / 2,
       0,
-      this.worldWidth - viewportWidth
+      this.worldWidth - viewportWidth,
     );
     const scrollY = Phaser.Math.Clamp(
       targetY - viewportHeight / 2,
       0,
-      this.worldHeight - viewportHeight
+      this.worldHeight - viewportHeight,
     );
 
     this.scene.tweens.add({
@@ -692,7 +657,7 @@ export class CameraManager {
       scrollX,
       scrollY,
       duration,
-      ease: "Power2",
+      ease: 'Power2',
     });
   }
 
@@ -773,12 +738,7 @@ export class CameraManager {
     const pipY = this.scene.scale.height - this.pipCameraHeight - this.pipCameraPadding;
 
     // Create the PiP camera
-    this.pipCamera = this.scene.cameras.add(
-      pipX,
-      pipY,
-      this.pipCameraWidth,
-      this.pipCameraHeight
-    );
+    this.pipCamera = this.scene.cameras.add(pipX, pipY, this.pipCameraWidth, this.pipCameraHeight);
 
     // Set up PiP camera properties
     this.pipCamera.setZoom(2); // 2x zoom for close-up view
@@ -835,14 +795,14 @@ export class CameraManager {
     }
 
     // Create new label text
-    this.pipLabelText = this.scene.add.text(x + 5, y + 5, "Close-Up", {
-      fontSize: "14px",
-      fontFamily: "Arial",
-      color: "#00ff00",
-      fontStyle: "bold",
+    this.pipLabelText = this.scene.add.text(x + 5, y + 5, 'Close-Up', {
+      fontSize: '14px',
+      fontFamily: 'Arial',
+      color: '#00ff00',
+      fontStyle: 'bold',
     });
     this.pipLabelText.setDepth(10001);
-    
+
     // Make main camera ignore the border and label
     this.camera.ignore([this.pipBorderGraphics, this.pipLabelText]);
   }
@@ -863,12 +823,12 @@ export class CameraManager {
       const scrollX = Phaser.Math.Clamp(
         worldX - viewportWidth / 2,
         0,
-        this.worldWidth - viewportWidth
+        this.worldWidth - viewportWidth,
       );
       const scrollY = Phaser.Math.Clamp(
         worldY - viewportHeight / 2,
         0,
-        this.worldHeight - viewportHeight
+        this.worldHeight - viewportHeight,
       );
 
       this.pipCamera.setScroll(scrollX, scrollY);
@@ -881,7 +841,7 @@ export class CameraManager {
   onResize(): void {
     // Validate dimensions before recalculating
     if (this.scene.scale.width === 0 || this.scene.scale.height === 0) {
-      console.warn("CameraManager.onResize() called with invalid camera dimensions");
+      console.warn('CameraManager.onResize() called with invalid camera dimensions');
       return;
     }
 
@@ -950,13 +910,13 @@ export class CameraManager {
    * Cleanup
    */
   destroy(): void {
-    this.scene.input.off("wheel", this.onMouseWheel, this);
-    this.scene.input.off("pointerdown", this.onPointerDown, this);
-    this.scene.input.off("pointermove", this.onPointerMove, this);
-    this.scene.input.off("pointerup", this.onPointerUp, this);
-    this.scene.input.off("pointerleave", this.onPointerUp, this);
+    this.scene.input.off('wheel', this.onMouseWheel, this);
+    this.scene.input.off('pointerdown', this.onPointerDown, this);
+    this.scene.input.off('pointermove', this.onPointerMove, this);
+    this.scene.input.off('pointerup', this.onPointerUp, this);
+    this.scene.input.off('pointerleave', this.onPointerUp, this);
 
-    this.scene.scale.off("resize", this.onResize, this);
+    this.scene.scale.off('resize', this.onResize, this);
 
     if (this.uiCamera) {
       this.scene.cameras.remove(this.uiCamera);
