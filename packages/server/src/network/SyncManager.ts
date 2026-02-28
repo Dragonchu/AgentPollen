@@ -1,12 +1,12 @@
-import { Server, Socket } from "socket.io";
+import { Server, Socket } from 'socket.io';
 import {
   ServerToClientEvents,
   ClientToServerEvents,
   Vote,
   Waypoint,
   SocketEvents,
-} from "@battle-royale/shared";
-import { World } from "../engine/World.js";
+} from '@battle-royale/shared';
+import { World } from '../engine/World.js';
 
 type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type IOSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -87,7 +87,11 @@ export class SyncManager {
   }
 
   /** Send thinking history to a single socket */
-  private async sendThinkingHistory(socket: IOSocket, agentId: number, limit: number = 10): Promise<void> {
+  private async sendThinkingHistory(
+    socket: IOSocket,
+    agentId: number,
+    limit: number = 10,
+  ): Promise<void> {
     const history = await this.world.getThinkingHistory(agentId, limit);
     socket.emit(SocketEvents.THINKING_HISTORY, { agentId, history });
   }

@@ -4,27 +4,53 @@ import type {
   ThinkingProcess,
   VoteState,
   WorldSyncState,
-} from "@battle-royale/shared";
-import * as Phaser from "phaser";
-import { CELL_SIZE } from "../scenes/gameConstants";
-import { buildAgentRow } from "../ui/items/agentRow";
-import { buildEventRow } from "../ui/items/eventRow";
-import { THEME } from "../ui/theme";
-import { CoordinateUtils } from "../utils/CoordinateUtils";
-import type { CameraManager } from "./CameraManager";
-import type { GameController } from "./GameController";
-import type { MotionState } from "./MotionState";
+} from '@battle-royale/shared';
+import * as Phaser from 'phaser';
+import { CELL_SIZE } from '../scenes/gameConstants';
+import { buildAgentRow } from '../ui/items/agentRow';
+import { buildEventRow } from '../ui/items/eventRow';
+import { THEME } from '../ui/theme';
+import { CoordinateUtils } from '../utils/CoordinateUtils';
+import type { CameraManager } from './CameraManager';
+import type { GameController } from './GameController';
+import type { MotionState } from './MotionState';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const HEADER_H = 48;
 const SIDEBAR_W = 200;
 const RIGHT_W = 280;
 const PAD = 8;
+/** Depth for the dedicated panel-background Graphics (behind all rexUI elements). */
+const BG_DEPTH = -1;
 
-const TEXT_STYLE_TITLE = { fontSize: THEME.font.title, color: THEME.css.foreground, fontFamily: "monospace", fontStyle: "bold" } as const;
-const TEXT_STYLE_BODY  = { fontSize: THEME.font.body,  color: THEME.css.foreground, fontFamily: "monospace" } as const;
-const TEXT_STYLE_SMALL = { fontSize: THEME.font.small, color: THEME.css.mutedForeground, fontFamily: "monospace" } as const;
-const TEXT_STYLE_LABEL = { fontSize: THEME.font.label, color: THEME.css.primary,   fontFamily: "monospace", fontStyle: "bold" } as const;
+const TEXT_STYLE_TITLE = {
+  fontSize: THEME.font.title,
+  color: THEME.css.foreground,
+  fontFamily: 'monospace',
+  fontStyle: 'bold',
+} as const;
+const TEXT_STYLE_BODY = {
+  fontSize: THEME.font.body,
+  color: THEME.css.foreground,
+  fontFamily: 'monospace',
+} as const;
+const TEXT_STYLE_SMALL = {
+  fontSize: THEME.font.small,
+  color: THEME.css.mutedForeground,
+  fontFamily: 'monospace',
+} as const;
+const TEXT_STYLE_TOGGLE = {
+  fontSize: THEME.font.body,
+  color: THEME.css.mutedForeground,
+  fontFamily: 'monospace',
+  fontStyle: 'bold',
+} as const;
+const TEXT_STYLE_LABEL = {
+  fontSize: THEME.font.label,
+  color: THEME.css.primary,
+  fontFamily: 'monospace',
+  fontStyle: 'bold',
+} as const;
 
 /**
  * UICoordinator builds and maintains the full rexUI layout tree.
@@ -40,10 +66,15 @@ export class UICoordinator {
   private readonly cameraManager: CameraManager;
   private readonly motionState: MotionState;
 
-  private rexUI!: NonNullable<Phaser.Scene["rexUI"]>;
+  private rexUI!: NonNullable<Phaser.Scene['rexUI']>;
 
   // ── Root ─────────────────────────────────────────────────────────────────────
   private mainSizer!: RexUI.Sizer;
+
+  /** Dedicated graphics layer for opaque panel backgrounds.
+   *  Rendered only by the UI camera — a single object that is trivially
+   *  ignored by the world camera, unlike the many rexUI child objects. */
+  private panelBgGfx!: Phaser.GameObjects.Graphics;
 
   // ── Header refs ──────────────────────────────────────────────────────────────
   private liveCircle!: Phaser.GameObjects.Arc;
@@ -52,9 +83,9 @@ export class UICoordinator {
   private aliveText!: Phaser.GameObjects.Text;
 
   // ── Collapse state ────────────────────────────────────────────────────────────
-  private sidebarCollapsed = true;
-  private votePanelCollapsed = true;
-  private eventPanelCollapsed = true;
+  private sidebarCollapsed = false;
+  private votePanelCollapsed = false;
+  private eventPanelCollapsed = false;
 
   // ── Sidebar refs ─────────────────────────────────────────────────────────────
   private agentListContent: RexUI.Sizer | null = null;
@@ -65,7 +96,7 @@ export class UICoordinator {
   private readonly DOUBLE_CLICK_MS = 300;
 
   // ── Vote panel refs ───────────────────────────────────────────────────────────
-  private readonly VOTE_ACTIONS = ["Attack", "Defend", "Heal"] as const;
+  private readonly VOTE_ACTIONS = ['Attack', 'Defend', 'Heal'] as const;
   private voteCountdownText: Phaser.GameObjects.Text | null = null;
   private voteCountdownBar: RexUI.LineProgress | null = null;
   private voteCountTexts = new Map<string, Phaser.GameObjects.Text>();
@@ -81,7 +112,10 @@ export class UICoordinator {
   private eventListPanel: RexUI.ScrollablePanel | null = null;
 
   // ── Thinking bubbles (one per agent) ─────────────────────────────────────────
-  private thinkingBubbles = new Map<number, { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; hasText: boolean }>();
+  private thinkingBubbles = new Map<
+    number,
+    { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; hasText: boolean }
+  >();
 
   constructor(
     scene: Phaser.Scene,
@@ -110,15 +144,16 @@ export class UICoordinator {
 
   destroy(): void {
     const gs = this.gameController.getGameState();
-    gs.off("state:world:updated", this.onWorldUpdated, this);
-    gs.off("state:agents:updated", this.onAgentsUpdated, this);
-    gs.off("state:agent:selected", this.onAgentSelected, this);
-    gs.off("state:events:updated", this.onEventsUpdated, this);
-    gs.off("state:votes:updated", this.onVotesUpdated, this);
-    gs.off("state:thinking:updated", this.onThinkingUpdated, this);
-    this.scene.scale.off("resize", this.onResize, this);
+    gs.off('state:world:updated', this.onWorldUpdated, this);
+    gs.off('state:agents:updated', this.onAgentsUpdated, this);
+    gs.off('state:agent:selected', this.onAgentSelected, this);
+    gs.off('state:events:updated', this.onEventsUpdated, this);
+    gs.off('state:votes:updated', this.onVotesUpdated, this);
+    gs.off('state:thinking:updated', this.onThinkingUpdated, this);
+    this.scene.scale.off('resize', this.onResize, this);
 
     this.mainSizer?.destroy();
+    this.panelBgGfx?.destroy();
     for (const { container } of this.thinkingBubbles.values()) {
       container.destroy();
     }
@@ -130,69 +165,157 @@ export class UICoordinator {
   private buildLayout(): void {
     const { width: w, height: h } = this.scene.scale;
 
-    const header    = this.buildHeader();
-    const sidebar   = this.buildSidebar();
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
+
+    const header = this.buildHeader();
+    const sidebar = this.buildSidebar();
     const rightPanel = this.buildRightPanel();
 
     const body = this.rexUI.add
-      .sizer({ orientation: "horizontal", space: { item: 0 } })
-      .add(sidebar,    { proportion: 0, expand: true })
+      .sizer({ orientation: 'horizontal', space: { item: 0 } })
+      .add(sidebar, { proportion: 0, expand: true })
       .addSpace(1)
       .add(rightPanel, { proportion: 0, expand: true });
 
     this.mainSizer = this.rexUI.add
-      .sizer({ x: w / 2, y: h / 2, width: w, height: h, orientation: "vertical", space: { item: 0 } })
+      .sizer({
+        x: w / 2,
+        y: h / 2,
+        width: w,
+        height: h,
+        orientation: 'vertical',
+        space: { item: 0 },
+      })
       .add(header, { proportion: 0, expand: true })
       .add(body, { proportion: 1, expand: true });
 
     this.mainSizer.layout();
 
-    this.cameraManager.getWorldCamera().ignore(
-      this.mainSizer,
-    );
+    // Draw opaque panel backgrounds on a single Graphics object that the
+    // world camera ignores.  This is far more reliable than trying to make
+    // the world camera ignore every individual rexUI child game object.
+    this.drawPanelBackgrounds();
+
+    this.ignoreNewUIChildren(childrenBefore);
+  }
+
+  /**
+   * Draw opaque background rectangles for every visible UI panel.
+   * Uses a single Phaser.GameObjects.Graphics rendered only by the UI camera.
+   */
+  private drawPanelBackgrounds(): void {
+    if (this.panelBgGfx) {
+      this.panelBgGfx.destroy();
+    }
+
+    const { width: w, height: h } = this.scene.scale;
+    const g = this.scene.add.graphics();
+    g.setDepth(BG_DEPTH); // behind all rexUI elements
+
+    // Header
+    g.fillStyle(THEME.colors.background, 0.95);
+    g.fillRect(0, 0, w, HEADER_H);
+
+    // Sidebar
+    if (!this.sidebarCollapsed) {
+      g.fillStyle(THEME.colors.secondary, 0.95);
+      g.fillRoundedRect(0, HEADER_H, SIDEBAR_W, h - HEADER_H, THEME.spacing.radius);
+    }
+
+    // Right panel
+    g.fillStyle(THEME.colors.secondary, 0.95);
+    g.fillRoundedRect(w - RIGHT_W, HEADER_H, RIGHT_W, h - HEADER_H, THEME.spacing.radius);
+
+    this.cameraManager.getWorldCamera().ignore(g);
+    this.cameraManager.getPipCamera()?.ignore(g);
+    this.panelBgGfx = g;
+  }
+
+  /**
+   * Ignore all scene children created since `childrenBefore` from the world camera.
+   * rexUI creates individual scene-level game objects (texts, roundRectangles, etc.)
+   * that are NOT automatically handled by Phaser Camera.ignore() on the sizer alone.
+   */
+  private ignoreNewUIChildren(childrenBefore: Set<Phaser.GameObjects.GameObject>): void {
+    const worldCamera = this.cameraManager.getWorldCamera();
+    for (const child of this.scene.children.list) {
+      if (!childrenBefore.has(child)) {
+        worldCamera.ignore(child);
+      }
+    }
+  }
+
+  /**
+   * Create an invisible rexUI roundRectangle used only as a sizing anchor
+   * for sizer backgrounds.  Actual visible backgrounds are drawn by
+   * {@link drawPanelBackgrounds}.
+   */
+  private invisibleBg(w: number, h: number): RexUI.RoundRectangle {
+    return this.rexUI.add.roundRectangle(0, 0, w, h, 0, 0x000000, 0);
   }
 
   private buildHeader(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, 0, HEADER_H, 0, THEME.colors.background, 0.95);
+    const bg = this.invisibleBg(0, HEADER_H);
 
     this.liveCircle = this.scene.add.arc(0, 0, 5, 0, 360, false, THEME.colors.destructive);
-    const title      = this.scene.add.text(0, 0, "⚔ AI BATTLE ROYALE", TEXT_STYLE_TITLE);
-    this.phaseText   = this.scene.add.text(0, 0, "WAITING", TEXT_STYLE_SMALL);
-    this.timerText   = this.scene.add.text(0, 0, "00:00", TEXT_STYLE_TITLE);
-    this.aliveText   = this.scene.add.text(0, 0, "0 alive", TEXT_STYLE_SMALL);
+    const title = this.scene.add.text(0, 0, '⚔ AI BATTLE ROYALE', TEXT_STYLE_TITLE);
+    this.phaseText = this.scene.add.text(0, 0, 'WAITING', TEXT_STYLE_SMALL);
+    this.timerText = this.scene.add.text(0, 0, '00:00', TEXT_STYLE_TITLE);
+    this.aliveText = this.scene.add.text(0, 0, '0 alive', TEXT_STYLE_SMALL);
 
     return this.rexUI.add
-      .sizer({ height: HEADER_H, orientation: "horizontal", background: bg, space: { left: PAD * 2, right: PAD * 2, item: PAD * 2 } })
-      .add(this.liveCircle as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
-      .add(title,           { proportion: 0, align: "center" })
+      .sizer({
+        height: HEADER_H,
+        orientation: 'horizontal',
+        background: bg,
+        space: { left: PAD * 2, right: PAD * 2, item: PAD * 2 },
+      })
+      .add(this.liveCircle as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      })
+      .add(title, { proportion: 0, align: 'center' })
       .addSpace(1)
-      .add(this.phaseText,  { proportion: 0, align: "center" })
+      .add(this.phaseText, { proportion: 0, align: 'center' })
       .addSpace(1)
-      .add(this.timerText,  { proportion: 0, align: "center" })
-      .add(this.aliveText,  { proportion: 0, align: "center", padding: { left: PAD } });
+      .add(this.timerText, { proportion: 0, align: 'center' })
+      .add(this.aliveText, { proportion: 0, align: 'center', padding: { left: PAD } });
   }
 
   private buildSidebar(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
-    const titleText = this.scene.add.text(0, 0, "AGENTS", TEXT_STYLE_LABEL);
+    const bg = this.invisibleBg(SIDEBAR_W, 0);
+    const titleText = this.scene.add.text(0, 0, 'AGENTS', TEXT_STYLE_LABEL);
 
-    const chevron   = this.sidebarCollapsed ? "▶" : "▼";
-    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: "pointer" })
-      .on("pointerdown", () => { this.sidebarCollapsed = !this.sidebarCollapsed; this.rebuildLayout(); });
+    const chevron = this.sidebarCollapsed ? '▶' : '▼';
+    const toggleBtn = this.scene.add
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        this.rebuildLayout();
+      });
 
     const headerRow = this.rexUI.add
-      .sizer({ orientation: "horizontal", space: { item: PAD } })
-      .add(titleText,  { proportion: 1, align: "left" })
-      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
+      .sizer({ orientation: 'horizontal', space: { item: PAD } })
+      .add(titleText, { proportion: 1, align: 'left' })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      });
 
     const sizer = this.rexUI.add
-      .sizer({ width: SIDEBAR_W, orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .sizer({
+        width: SIDEBAR_W,
+        orientation: 'vertical',
+        background: bg,
+        space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD },
+      })
       .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
 
     if (!this.sidebarCollapsed) {
-      this.agentListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 2 } });
-      this.agentListPanel   = this.rexUI.add.scrollablePanel({
+      this.agentListContent = this.rexUI.add.sizer({ orientation: 'vertical', space: { item: 2 } });
+      this.agentListPanel = this.rexUI.add.scrollablePanel({
         width: SIDEBAR_W - PAD * 2,
         scrollMode: 0,
         panel: { child: this.agentListContent, mask: { padding: 1 } },
@@ -203,83 +326,110 @@ export class UICoordinator {
       sizer.add(this.agentListPanel, { proportion: 1, expand: true });
     } else {
       this.agentListContent = null;
-      this.agentListPanel   = null;
+      this.agentListPanel = null;
     }
 
     return sizer;
   }
 
   private buildRightPanel(): RexUI.Sizer {
-    const votePanel  = this.buildVotePanel();
+    const votePanel = this.buildVotePanel();
     const statsPanel = this.buildStatsPanel();
     const eventPanel = this.buildEventPanel();
 
     return this.rexUI.add
-      .sizer({ width: RIGHT_W, orientation: "vertical", space: { item: PAD } })
-      .add(votePanel  as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
+      .sizer({ width: RIGHT_W, orientation: 'vertical', space: { item: PAD } })
+      .add(votePanel as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
       .add(statsPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true })
       .add(eventPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
   }
 
   private buildVotePanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
-    const titleText = this.scene.add.text(0, 0, "VOTE", TEXT_STYLE_LABEL);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
+    const titleText = this.scene.add.text(0, 0, 'VOTE', TEXT_STYLE_LABEL);
 
-    const chevron   = this.votePanelCollapsed ? "▶" : "▼";
-    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: "pointer" })
-      .on("pointerdown", () => { this.votePanelCollapsed = !this.votePanelCollapsed; this.rebuildLayout(); });
+    const chevron = this.votePanelCollapsed ? '▶' : '▼';
+    const toggleBtn = this.scene.add
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.votePanelCollapsed = !this.votePanelCollapsed;
+        this.rebuildLayout();
+      });
 
     const headerRow = this.rexUI.add
-      .sizer({ orientation: "horizontal", space: { item: PAD } })
-      .add(titleText,  { proportion: 1, align: "left" })
-      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
+      .sizer({ orientation: 'horizontal', space: { item: PAD } })
+      .add(titleText, { proportion: 1, align: 'left' })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      });
 
     const sizer = this.rexUI.add
-      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .sizer({
+        orientation: 'vertical',
+        background: bg,
+        space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD },
+      })
       .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
 
     if (!this.votePanelCollapsed) {
-      this.voteCountdownText = this.scene.add.text(0, 0, "—", TEXT_STYLE_SMALL);
-      this.voteCountdownBar  = this.rexUI.add.lineProgress({
-        width: RIGHT_W - PAD * 4, height: 6,
-        value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
+      this.voteCountdownText = this.scene.add.text(0, 0, '—', TEXT_STYLE_SMALL);
+      this.voteCountdownBar = this.rexUI.add.lineProgress({
+        width: RIGHT_W - PAD * 4,
+        height: 6,
+        value: 0,
+        trackColor: THEME.colors.border,
+        barColor: THEME.colors.primary,
       });
 
-      const cardRow = this.rexUI.add.sizer({ orientation: "horizontal", space: { item: PAD } });
+      const cardRow = this.rexUI.add.sizer({ orientation: 'horizontal', space: { item: PAD } });
       for (const action of this.VOTE_ACTIONS) {
-        const countText  = this.scene.add.text(0, 0, "0", { ...TEXT_STYLE_TITLE, color: THEME.css.primary });
-        const labelText  = this.scene.add.text(0, 0, action, TEXT_STYLE_SMALL);
-        const cardBg     = this.rexUI.add.roundRectangle(0, 0, 0, 48, 4, THEME.colors.secondary, 1);
+        const countText = this.scene.add.text(0, 0, '0', {
+          ...TEXT_STYLE_TITLE,
+          color: THEME.css.primary,
+        });
+        const labelText = this.scene.add.text(0, 0, action, TEXT_STYLE_SMALL);
+        const cardBg = this.rexUI.add.roundRectangle(0, 0, 0, 48, 4, THEME.colors.secondary, 1);
 
         this.voteCountTexts.set(action, countText);
 
-        (cardBg as unknown as Phaser.GameObjects.GameObject & {
-          setInteractive(c?: object): Phaser.GameObjects.GameObject;
-          on(e: string, cb: () => void): Phaser.GameObjects.GameObject;
-        })
-          .setInteractive({ cursor: "pointer" })
-          .on("pointerdown", () => {
+        (
+          cardBg as unknown as Phaser.GameObjects.GameObject & {
+            setInteractive(c?: object): Phaser.GameObjects.GameObject;
+            on(e: string, cb: () => void): Phaser.GameObjects.GameObject;
+          }
+        )
+          .setInteractive({ cursor: 'pointer' })
+          .on('pointerdown', () => {
             const agent = this.gameController.getSelectedAgent();
             if (!agent?.alive) return;
             this.gameController.submitVote(agent.id, action);
           });
 
         const card = this.rexUI.add
-          .sizer({ orientation: "vertical", background: cardBg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 4 } })
-          .add(countText, { proportion: 0, align: "center" })
-          .add(labelText, { proportion: 0, align: "center" });
+          .sizer({
+            orientation: 'vertical',
+            background: cardBg,
+            space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 4 },
+          })
+          .add(countText, { proportion: 0, align: 'center' })
+          .add(labelText, { proportion: 0, align: 'center' });
 
         cardRow.add(card as unknown as Phaser.GameObjects.GameObject, { proportion: 1 });
       }
 
       sizer
-        .add(this.voteCountdownText,  { proportion: 0, align: "left" })
-        .add(this.voteCountdownBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
+        .add(this.voteCountdownText, { proportion: 0, align: 'left' })
+        .add(this.voteCountdownBar as unknown as Phaser.GameObjects.GameObject, {
+          proportion: 0,
+          align: 'center',
+        })
         .add(cardRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
     } else {
       this.voteCountdownText = null;
-      this.voteCountdownBar  = null;
+      this.voteCountdownBar = null;
       this.voteCountTexts.clear();
     }
 
@@ -287,63 +437,97 @@ export class UICoordinator {
   }
 
   private buildStatsPanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
-    const titleText = this.scene.add.text(0, 0, "AGENT STATS", TEXT_STYLE_LABEL);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
+    const titleText = this.scene.add.text(0, 0, 'AGENT STATS', TEXT_STYLE_LABEL);
 
-    this.statsNameText = this.scene.add.text(0, 0, "Select an agent", TEXT_STYLE_BODY);
-    this.statsInfoText = this.scene.add.text(0, 0, "", TEXT_STYLE_SMALL);
+    this.statsNameText = this.scene.add.text(0, 0, 'Select an agent', TEXT_STYLE_BODY);
+    this.statsInfoText = this.scene.add.text(0, 0, '', TEXT_STYLE_SMALL);
 
     this.hpBar = this.rexUI.add.lineProgress({
-      width: RIGHT_W - PAD * 4, height: 8,
-      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
+      width: RIGHT_W - PAD * 4,
+      height: 8,
+      value: 0,
+      trackColor: THEME.colors.border,
+      barColor: THEME.colors.primary,
     });
     this.shieldBar = this.rexUI.add.lineProgress({
-      width: RIGHT_W - PAD * 4, height: 8,
-      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.accent,
+      width: RIGHT_W - PAD * 4,
+      height: 8,
+      value: 0,
+      trackColor: THEME.colors.border,
+      barColor: THEME.colors.accent,
     });
 
     return this.rexUI.add
-      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 6 } })
-      .add(titleText,         { proportion: 0, align: "left" })
-      .add(this.statsNameText, { proportion: 0, align: "left" })
-      .add(this.statsInfoText, { proportion: 0, align: "left" })
-      .add(this.scene.add.text(0, 0, "HP",     TEXT_STYLE_SMALL), { proportion: 0, align: "left" })
-      .add(this.hpBar    as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
-      .add(this.scene.add.text(0, 0, "SHIELD", TEXT_STYLE_SMALL), { proportion: 0, align: "left" })
-      .add(this.shieldBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
+      .sizer({
+        orientation: 'vertical',
+        background: bg,
+        space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 6 },
+      })
+      .add(titleText, { proportion: 0, align: 'left' })
+      .add(this.statsNameText, { proportion: 0, align: 'left' })
+      .add(this.statsInfoText, { proportion: 0, align: 'left' })
+      .add(this.scene.add.text(0, 0, 'HP', TEXT_STYLE_SMALL), { proportion: 0, align: 'left' })
+      .add(this.hpBar as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      })
+      .add(this.scene.add.text(0, 0, 'SHIELD', TEXT_STYLE_SMALL), { proportion: 0, align: 'left' })
+      .add(this.shieldBar as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      });
   }
 
   private buildEventPanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
-    const titleText = this.scene.add.text(0, 0, "EVENTS", TEXT_STYLE_LABEL);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
+    const titleText = this.scene.add.text(0, 0, 'EVENTS', TEXT_STYLE_LABEL);
 
-    const chevron   = this.eventPanelCollapsed ? "▶" : "▼";
-    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
-      .setInteractive({ cursor: "pointer" })
-      .on("pointerdown", () => { this.eventPanelCollapsed = !this.eventPanelCollapsed; this.rebuildLayout(); });
+    const chevron = this.eventPanelCollapsed ? '▶' : '▼';
+    const toggleBtn = this.scene.add
+      .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
+      .setPadding(4, 2, 4, 2)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.eventPanelCollapsed = !this.eventPanelCollapsed;
+        this.rebuildLayout();
+      });
 
     const headerRow = this.rexUI.add
-      .sizer({ orientation: "horizontal", space: { item: PAD } })
-      .add(titleText,  { proportion: 1, align: "left" })
-      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
+      .sizer({ orientation: 'horizontal', space: { item: PAD } })
+      .add(titleText, { proportion: 1, align: 'left' })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 0,
+        align: 'center',
+      });
 
     const sizer = this.rexUI.add
-      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .sizer({
+        orientation: 'vertical',
+        background: bg,
+        space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD },
+      })
       .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
 
     if (!this.eventPanelCollapsed) {
-      this.eventListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 4 } });
-      this.eventListPanel   = this.rexUI.add.scrollablePanel({
+      this.eventListContent = this.rexUI.add.sizer({ orientation: 'vertical', space: { item: 4 } });
+      this.eventListPanel = this.rexUI.add.scrollablePanel({
         width: RIGHT_W - PAD * 2,
         scrollMode: 0,
-        panel: { child: this.eventListContent as unknown as Phaser.GameObjects.GameObject, mask: { padding: 1 } },
+        panel: {
+          child: this.eventListContent as unknown as Phaser.GameObjects.GameObject,
+          mask: { padding: 1 },
+        },
         slider: false,
         mouseWheelScroller: { focus: false, speed: 0.3 },
       });
-      sizer.add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+      sizer.add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, {
+        proportion: 1,
+        expand: true,
+      });
     } else {
       this.eventListContent = null;
-      this.eventListPanel   = null;
+      this.eventListPanel = null;
     }
 
     return sizer;
@@ -357,18 +541,16 @@ export class UICoordinator {
       .setOrigin(0.5, 0.5);
 
     const text = this.scene.add
-      .text(0, 0, "", {
+      .text(0, 0, '', {
         fontSize: THEME.font.small,
         color: THEME.css.foreground,
-        fontFamily: "monospace",
+        fontFamily: 'monospace',
         wordWrap: { width: 240 },
-        align: "center",
+        align: 'center',
       })
       .setOrigin(0.5, 0.5);
 
-    const container = this.scene.add
-      .container(0, 0, [bg, text])
-      .setVisible(false);
+    const container = this.scene.add.container(0, 0, [bg, text]).setVisible(false);
 
     this.cameraManager.getWorldCamera().ignore(container);
     this.cameraManager.getPipCamera()?.ignore(container);
@@ -406,12 +588,12 @@ export class UICoordinator {
 
   private subscribeEvents(): void {
     const gs = this.gameController.getGameState();
-    gs.on("state:world:updated",   this.onWorldUpdated,   this);
-    gs.on("state:agents:updated",  this.onAgentsUpdated,  this);
-    gs.on("state:agent:selected",  this.onAgentSelected,  this);
-    gs.on("state:events:updated",  this.onEventsUpdated,  this);
-    gs.on("state:votes:updated",   this.onVotesUpdated,   this);
-    gs.on("state:thinking:updated", this.onThinkingUpdated, this);
+    gs.on('state:world:updated', this.onWorldUpdated, this);
+    gs.on('state:agents:updated', this.onAgentsUpdated, this);
+    gs.on('state:agent:selected', this.onAgentSelected, this);
+    gs.on('state:events:updated', this.onEventsUpdated, this);
+    gs.on('state:votes:updated', this.onVotesUpdated, this);
+    gs.on('state:thinking:updated', this.onThinkingUpdated, this);
   }
 
   // ── Event handlers ────────────────────────────────────────────────────────────
@@ -420,7 +602,7 @@ export class UICoordinator {
     this.phaseText.setText(world.phase.toUpperCase());
     const m = Math.floor(world.tick / 60);
     const s = world.tick % 60;
-    this.timerText.setText(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    this.timerText.setText(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
     this.aliveText.setText(`${world.aliveCount} alive`);
   }
 
@@ -448,25 +630,27 @@ export class UICoordinator {
     }
 
     if (!this.agentListContent) return;
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
     this.agentListContent.clear(true);
     for (const agent of sorted) {
       const row = buildAgentRow(
-        this.scene, this.rexUI, agent,
+        this.scene,
+        this.rexUI,
+        agent,
         agent.id === this.selectedAgentId,
         () => this.handleAgentRowClick(agent.id),
       );
-      this.agentListContent.add(
-        row,
-        { proportion: 0, expand: true },
-      );
+      this.agentListContent.add(row, { proportion: 0, expand: true });
     }
     this.mainSizer.layout();
+    this.ignoreNewUIChildren(childrenBefore);
   }
 
   private handleAgentRowClick(agentId: number): void {
     const now = Date.now();
     const isDouble =
-      this.lastAgentListClickedId === agentId && now - this.lastAgentListClickTime < this.DOUBLE_CLICK_MS;
+      this.lastAgentListClickedId === agentId &&
+      now - this.lastAgentListClickTime < this.DOUBLE_CLICK_MS;
 
     if (isDouble) {
       this.gameController.selectAgent(agentId);
@@ -475,7 +659,6 @@ export class UICoordinator {
       this.lastAgentListClickTime = 0;
     } else {
       this.gameController.selectAgent(agentId);
-      this.cameraManager.followAgent(agentId, 1.5);
       this.lastAgentListClickedId = agentId;
       this.lastAgentListClickTime = now;
     }
@@ -485,17 +668,17 @@ export class UICoordinator {
     this.selectedAgentId = agent?.id ?? null;
 
     if (!agent) {
-      this.statsNameText.setText("Select an agent");
-      this.statsInfoText.setText("");
+      this.statsNameText.setText('Select an agent');
+      this.statsInfoText.setText('');
       this.hpBar.setValue(0);
       this.shieldBar.setValue(0);
       return;
     }
 
-    this.statsNameText.setText(`${agent.name} ${agent.alive ? "🟢" : "🔴"}`);
+    this.statsNameText.setText(`${agent.name} ${agent.alive ? '🟢' : '🔴'}`);
     this.statsInfoText.setText(`ATK ${agent.attack}  DEF ${agent.defense}  ${agent.killCount}💀`);
     this.hpBar.setValue(Math.max(0, Math.min(1, agent.hp / agent.maxHp)));
-    this.shieldBar.setValue(Math.max(0, Math.min(1, (agent.defense * 5) / 100)));
+    this.shieldBar.setValue(Math.max(0, Math.min(1, agent.defense / 20)));
 
     // Refresh sidebar to update selection highlight
     this.onAgentsUpdated(this.gameController.getAgents());
@@ -503,12 +686,14 @@ export class UICoordinator {
 
   private onEventsUpdated(events: GameEvent[]): void {
     if (!this.eventListContent || !this.eventListPanel) return;
+    const childrenBefore = new Set<Phaser.GameObjects.GameObject>(this.scene.children.list);
     const latest = events.slice(-50).reverse();
     this.eventListContent.clear(true);
     for (const event of latest) {
       this.eventListContent.add(buildEventRow(this.scene, event), { proportion: 0, expand: true });
     }
     this.eventListPanel.layout();
+    this.ignoreNewUIChildren(childrenBefore);
   }
 
   private onVotesUpdated(voteState: VoteState): void {
@@ -534,13 +719,12 @@ export class UICoordinator {
       if (!bubble) continue;
       const latest = history[0];
       if (latest) {
-        const preview = latest.reasoning.length > 60
-          ? `${latest.reasoning.slice(0, 60)}…`
-          : latest.reasoning;
+        const preview =
+          latest.reasoning.length > 60 ? `${latest.reasoning.slice(0, 60)}…` : latest.reasoning;
         bubble.text.setText(`${latest.action}\n${preview}`);
         bubble.hasText = true;
       } else {
-        bubble.text.setText("");
+        bubble.text.setText('');
         bubble.hasText = false;
         bubble.container.setVisible(false);
       }
@@ -561,7 +745,7 @@ export class UICoordinator {
       const gridPos = displayState
         ? { gridX: displayState.displayX, gridY: displayState.displayY }
         : { gridX: agent.x, gridY: agent.y };
-      const worldPos  = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
+      const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
       const screenPos = this.cameraManager.worldToScreen(worldPos.worldX, worldPos.worldY);
       bubble.container.setPosition(screenPos.x, screenPos.y - 80).setVisible(true);
     }
@@ -570,7 +754,7 @@ export class UICoordinator {
   // ── Resize ────────────────────────────────────────────────────────────────────
 
   private setupResize(): void {
-    this.scene.scale.on("resize", this.onResize, this);
+    this.scene.scale.on('resize', this.onResize, this);
   }
 
   private onResize(gameSize: Phaser.Structs.Size): void {
@@ -578,6 +762,7 @@ export class UICoordinator {
       .setPosition(gameSize.width / 2, gameSize.height / 2)
       .setMinSize(gameSize.width, gameSize.height)
       .layout();
+    this.drawPanelBackgrounds();
     this.cameraManager.onResize();
   }
 
@@ -590,7 +775,7 @@ export class UICoordinator {
       duration: 1000,
       yoyo: true,
       repeat: -1,
-      ease: "Sine.inOut",
+      ease: 'Sine.inOut',
     });
   }
 

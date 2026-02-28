@@ -1,5 +1,5 @@
-import { AgentTemplate, DEFAULT_AGENT_TEMPLATES } from "@battle-royale/shared";
-import { Agent } from "./Agent.js";
+import { AgentTemplate, DEFAULT_AGENT_TEMPLATES } from '@battle-royale/shared';
+import { Agent } from './Agent.js';
 
 /**
  * Factory for creating agents.

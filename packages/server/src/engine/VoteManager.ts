@@ -1,4 +1,4 @@
-import { Vote, VoteOption, VoteState } from "@battle-royale/shared";
+import { Vote, VoteOption, VoteState } from '@battle-royale/shared';
 
 /**
  * Manages player voting with time-windowed aggregation.
@@ -50,7 +50,7 @@ export class VoteManager {
   tick(): { resolved: boolean; state: VoteState } {
     const now = Date.now();
     const elapsed = now - this.windowStartTime;
-    const timeRemaining = Math.max(0, this.windowDurationMs - elapsed);
+    const _timeRemaining = Math.max(0, this.windowDurationMs - elapsed);
 
     let resolved = false;
 
@@ -77,7 +77,7 @@ export class VoteManager {
 
       // Find the winning action
       let maxVotes = 0;
-      let winningAction = "";
+      let winningAction = '';
       for (const [action, count] of actionCounts) {
         if (count > maxVotes) {
           maxVotes = count;

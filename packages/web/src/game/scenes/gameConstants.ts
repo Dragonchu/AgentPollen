@@ -1,6 +1,6 @@
 /**
  * 游戏场景相关常量
- * 格子大小与 GenerativeAgentsCN tilemap 的 tile size 对齐（32px）
+ * 格子大小与 tilemap 的 tile size 对齐（32px）
  */
 
 // 格子大小：与 Tiled tilemap 的 tile size 一致（32px）

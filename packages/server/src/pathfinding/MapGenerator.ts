@@ -1,4 +1,4 @@
-import { TileMap, Tile, TileType } from "@battle-royale/shared";
+import { TileMap, Tile, TileType } from '@battle-royale/shared';
 
 /**
  * Utility for generating tile-based maps with obstacles.
@@ -27,7 +27,7 @@ export class MapGenerator {
    */
   static addRandomObstacles(map: TileMap, density: number = 0.1, seed?: number): void {
     const rng = seed !== undefined ? this.seededRandom(seed) : Math.random;
-    
+
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         if (rng() < density) {
@@ -80,7 +80,7 @@ export class MapGenerator {
    * Seeded random number generator for reproducible maps.
    */
   private static seededRandom(seed: number): () => number {
-    return function() {
+    return function () {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };

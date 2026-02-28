@@ -1,37 +1,37 @@
-import * as Phaser from "phaser";
-import type { AgentFullState, ItemState, TileMap } from "@battle-royale/shared";
-import { AgentActionState, TileType } from "@battle-royale/shared";
-import { ASSETS, SpriteDirection } from "@/constants/Assets";
-import { CELL_SIZE } from "../scenes/gameConstants";
-import type { AgentDisplayState, Direction } from "../scenes/types";
-import { CoordinateUtils } from "../utils/CoordinateUtils";
-import type { GameState } from "./GameState";
-import type { MotionState } from "./MotionState";
-import type { CameraManager } from "./CameraManager";
+import * as Phaser from 'phaser';
+import type { AgentFullState, ItemState, TileMap } from '@battle-royale/shared';
+import { AgentActionState, TileType } from '@battle-royale/shared';
+import { ASSETS } from '@/constants/Assets';
+import { CELL_SIZE } from '../scenes/gameConstants';
+import type { AgentDisplayState } from '../scenes/types';
+import { CoordinateUtils } from '../utils/CoordinateUtils';
+import type { GameState } from './GameState';
+import type { MotionState } from './MotionState';
+import type { CameraManager } from './CameraManager';
 
 /** Scale factor applied to 32×32 character sprites for better visibility. */
 const AGENT_SPRITE_SCALE = 1.25;
 
-/** Phaser atlas frame keys for 4-directional character animations (GenerativeAgentsCN convention). */
+/** Phaser atlas frame keys for 4-directional character animations. */
 const AGENT_FRAME = {
-  down:       "down",
-  downWalk:   ["down-walk.000", "down-walk.001", "down-walk.002", "down-walk.003"],
-  left:       "left",
-  leftWalk:   ["left-walk.000", "left-walk.001", "left-walk.002", "left-walk.003"],
-  right:      "right",
-  rightWalk:  ["right-walk.000", "right-walk.001", "right-walk.002", "right-walk.003"],
-  up:         "up",
-  upWalk:     ["up-walk.000", "up-walk.001", "up-walk.002", "up-walk.003"],
+  down: 'down',
+  downWalk: ['down-walk.000', 'down-walk.001', 'down-walk.002', 'down-walk.003'],
+  left: 'left',
+  leftWalk: ['left-walk.000', 'left-walk.001', 'left-walk.002', 'left-walk.003'],
+  right: 'right',
+  rightWalk: ['right-walk.000', 'right-walk.001', 'right-walk.002', 'right-walk.003'],
+  up: 'up',
+  upWalk: ['up-walk.000', 'up-walk.001', 'up-walk.002', 'up-walk.003'],
 };
 
 /** Movement direction derived from dx/dy. */
-type FacingDir = "down" | "up" | "left" | "right";
+type FacingDir = 'down' | 'up' | 'left' | 'right';
 
 /**
  * WorldRenderer is responsible for all world-space rendering:
  * the Phaser tilemap (village map), item sprites, and agent sprites.
  *
- * Character sprites use the GenerativeAgentsCN atlas format (32×32, 4-directional).
+ * Character sprites use the atlas format (32×32, 4-directional).
  * The Tiled tilemap replaces the old tileSprite/obstacle approach for faithful
  * visual alignment with the server-side collision map.
  *
@@ -51,7 +51,7 @@ export class WorldRenderer {
   /** Last known facing direction per agent — preserved when idle. */
   private agentFacings = new Map<number, FacingDir>();
 
-  /** Phaser tilemap object (village map from GenerativeAgentsCN) */
+  /** Phaser tilemap object */
   private tiledMap: Phaser.Tilemaps.Tilemap | null = null;
   /** Fallback obstacle graphics used when the Phaser tilemap is unavailable. */
   private obstacleGraphics: Phaser.GameObjects.Graphics | null = null;
@@ -72,9 +72,9 @@ export class WorldRenderer {
   }
 
   create(): void {
-    this.gameState.on("state:tilemap:updated", this.onTilemapUpdated, this);
-    this.motionState.on("motion:updated", this.onMotionStatesChanged, this);
-    this.motionState.on("motion:frame-updated", this.onMotionStatesChanged, this);
+    this.gameState.on('state:tilemap:updated', this.onTilemapUpdated, this);
+    this.motionState.on('motion:updated', this.onMotionStatesChanged, this);
+    this.motionState.on('motion:frame-updated', this.onMotionStatesChanged, this);
   }
 
   /** Called every frame from GameScene.update() after motionState.tick(). */
@@ -84,9 +84,9 @@ export class WorldRenderer {
   }
 
   destroy(): void {
-    this.gameState.off("state:tilemap:updated", this.onTilemapUpdated, this);
-    this.motionState.off("motion:updated", this.onMotionStatesChanged, this);
-    this.motionState.off("motion:frame-updated", this.onMotionStatesChanged, this);
+    this.gameState.off('state:tilemap:updated', this.onTilemapUpdated, this);
+    this.motionState.off('motion:updated', this.onMotionStatesChanged, this);
+    this.motionState.off('motion:frame-updated', this.onMotionStatesChanged, this);
 
     for (const s of this.agentSprites.values()) s.destroy();
     this.agentSprites.clear();
@@ -125,18 +125,20 @@ export class WorldRenderer {
     this.motionStates = motionStates;
   }
 
-  // ─── Village Tilemap (GenerativeAgentsCN) ──────────────────────────────────
+  // ─── Village Tilemap ──────────────────────────────────
 
   /**
-   * Construct the Phaser tilemap from the pre-loaded GenerativeAgentsCN assets.
-   * Layer order and tileset names match the original GenerativeAgentsCN frontend.
+   * Construct the Phaser tilemap from the pre-loaded tilemap assets.
+   * Layer order and tileset names match the original tilemap format.
    * The "Collisions" layer is rendered as a semi-transparent overlay so players
    * can see which tiles are blocked.
    * @returns true if successful, false if assets are unavailable
    */
   private buildVillageTilemap(): boolean {
     if (!this.scene.cache.tilemap.exists(ASSETS.IMAGES.VILLAGE_TILEMAP)) {
-      console.warn("[WorldRenderer] Village tilemap not yet loaded – using fallback obstacle rendering.");
+      console.warn(
+        '[WorldRenderer] Village tilemap not yet loaded – using fallback obstacle rendering.',
+      );
       return false;
     }
 
@@ -145,35 +147,35 @@ export class WorldRenderer {
 
     // Add all visual tilesets
     const tilesets = [
-      map.addTilesetImage("CuteRPG_Field_B",   ASSETS.IMAGES.TILESET_FIELD_B),
-      map.addTilesetImage("CuteRPG_Field_C",   ASSETS.IMAGES.TILESET_FIELD_C),
-      map.addTilesetImage("CuteRPG_Harbor_C",  ASSETS.IMAGES.TILESET_HARBOR_C),
-      map.addTilesetImage("CuteRPG_Village_B", ASSETS.IMAGES.TILESET_VILLAGE_B),
-      map.addTilesetImage("CuteRPG_Forest_B",  ASSETS.IMAGES.TILESET_FOREST_B),
-      map.addTilesetImage("CuteRPG_Desert_C",  ASSETS.IMAGES.TILESET_DESERT_C),
-      map.addTilesetImage("CuteRPG_Mountains_B", ASSETS.IMAGES.TILESET_MOUNTAINS_B),
-      map.addTilesetImage("CuteRPG_Desert_B",  ASSETS.IMAGES.TILESET_DESERT_B),
-      map.addTilesetImage("CuteRPG_Forest_C",  ASSETS.IMAGES.TILESET_FOREST_C),
-      map.addTilesetImage("Room_Builder_32x32", ASSETS.IMAGES.TILESET_WALLS),
-      map.addTilesetImage("interiors_pt1", ASSETS.IMAGES.TILESET_INTERIORS_1),
-      map.addTilesetImage("interiors_pt2", ASSETS.IMAGES.TILESET_INTERIORS_2),
-      map.addTilesetImage("interiors_pt3", ASSETS.IMAGES.TILESET_INTERIORS_3),
-      map.addTilesetImage("interiors_pt4", ASSETS.IMAGES.TILESET_INTERIORS_4),
-      map.addTilesetImage("interiors_pt5", ASSETS.IMAGES.TILESET_INTERIORS_5),
+      map.addTilesetImage('CuteRPG_Field_B', ASSETS.IMAGES.TILESET_FIELD_B),
+      map.addTilesetImage('CuteRPG_Field_C', ASSETS.IMAGES.TILESET_FIELD_C),
+      map.addTilesetImage('CuteRPG_Harbor_C', ASSETS.IMAGES.TILESET_HARBOR_C),
+      map.addTilesetImage('CuteRPG_Village_B', ASSETS.IMAGES.TILESET_VILLAGE_B),
+      map.addTilesetImage('CuteRPG_Forest_B', ASSETS.IMAGES.TILESET_FOREST_B),
+      map.addTilesetImage('CuteRPG_Desert_C', ASSETS.IMAGES.TILESET_DESERT_C),
+      map.addTilesetImage('CuteRPG_Mountains_B', ASSETS.IMAGES.TILESET_MOUNTAINS_B),
+      map.addTilesetImage('CuteRPG_Desert_B', ASSETS.IMAGES.TILESET_DESERT_B),
+      map.addTilesetImage('CuteRPG_Forest_C', ASSETS.IMAGES.TILESET_FOREST_C),
+      map.addTilesetImage('Room_Builder_32x32', ASSETS.IMAGES.TILESET_WALLS),
+      map.addTilesetImage('interiors_pt1', ASSETS.IMAGES.TILESET_INTERIORS_1),
+      map.addTilesetImage('interiors_pt2', ASSETS.IMAGES.TILESET_INTERIORS_2),
+      map.addTilesetImage('interiors_pt3', ASSETS.IMAGES.TILESET_INTERIORS_3),
+      map.addTilesetImage('interiors_pt4', ASSETS.IMAGES.TILESET_INTERIORS_4),
+      map.addTilesetImage('interiors_pt5', ASSETS.IMAGES.TILESET_INTERIORS_5),
     ].filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
-    // Visual layers (ordered bottom-to-top as in GenerativeAgentsCN)
+    // Visual layers
     const visualLayers = [
-      "Bottom Ground",
-      "Exterior Ground",
-      "Exterior Decoration L1",
-      "Exterior Decoration L2",
-      "Interior Ground",
-      "Wall",
-      "Interior Furniture L1",
-      "Interior Furniture L2 ",
-      "Foreground L1",
-      "Foreground L2",
+      'Bottom Ground',
+      'Exterior Ground',
+      'Exterior Decoration L1',
+      'Exterior Decoration L2',
+      'Interior Ground',
+      'Wall',
+      'Interior Furniture L1',
+      'Interior Furniture L2 ',
+      'Foreground L1',
+      'Foreground L2',
     ];
 
     for (const layerName of visualLayers) {
@@ -181,7 +183,7 @@ export class WorldRenderer {
       if (layer) {
         this.cameraManager.ignoreInUICamera(layer);
         // Foreground layers render above agents
-        if (layerName.startsWith("Foreground")) {
+        if (layerName.startsWith('Foreground')) {
           layer.setDepth(2);
         }
       }
@@ -190,14 +192,12 @@ export class WorldRenderer {
     // ── Collisions layer: render as semi-transparent obstacle overlay ──────────
     // The "blocks" tileset name in tilemap.json maps to blocks_1.png.
     // This is the only tileset needed for the Collisions layer.
-    const blocksTileset = map.addTilesetImage("blocks", ASSETS.IMAGES.TILESET_BLOCKS);
+    const blocksTileset = map.addTilesetImage('blocks', ASSETS.IMAGES.TILESET_BLOCKS);
     if (blocksTileset) {
-      const collisionsLayer = map.createLayer("Collisions", blocksTileset, 0, 0);
+      const collisionsLayer = map.createLayer('Collisions', blocksTileset, 0, 0);
       if (collisionsLayer) {
-        // Semi-transparent overlay so players can see which tiles are blocked
-        // without hiding the visual map underneath.
         collisionsLayer.setAlpha(0.35);
-        collisionsLayer.setDepth(1);
+        collisionsLayer.setDepth(0.5);
         this.cameraManager.ignoreInUICamera(collisionsLayer);
       }
     }
@@ -225,7 +225,7 @@ export class WorldRenderer {
       }
     }
 
-    gfx.setDepth(1);
+    gfx.setDepth(0.5);
     this.cameraManager.ignoreInUICamera(gfx);
     this.obstacleGraphics = gfx;
   }
@@ -293,10 +293,12 @@ export class WorldRenderer {
       }
 
       // Determine facing from movement, preserving previous direction when idle
-      const prevFacing = this.agentFacings.get(id) ?? "down";
+      const prevFacing = this.agentFacings.get(id) ?? 'down';
       const facing = this.getFacing(
-        displayState.prevX, displayState.prevY,
-        displayState.targetX, displayState.targetY,
+        displayState.prevX,
+        displayState.prevY,
+        displayState.targetX,
+        displayState.targetY,
         prevFacing,
       );
       this.agentFacings.set(id, facing);
@@ -328,17 +330,17 @@ export class WorldRenderer {
 
   /**
    * Create per-character 4-directional animations if not yet registered.
-   * Mirrors the GenerativeAgentsCN animation setup (left/right/up/down walk + idle).
+   * Mirrors the character animation setup (left/right/up/down walk + idle).
    */
   private createCharacterAnimations(spriteKey: string): void {
     const anims = this.scene.anims;
     const frameRate = 6;
 
     const dirs: Array<{ dir: FacingDir; frames: string[] }> = [
-      { dir: "down",  frames: AGENT_FRAME.downWalk },
-      { dir: "left",  frames: AGENT_FRAME.leftWalk },
-      { dir: "right", frames: AGENT_FRAME.rightWalk },
-      { dir: "up",    frames: AGENT_FRAME.upWalk },
+      { dir: 'down', frames: AGENT_FRAME.downWalk },
+      { dir: 'left', frames: AGENT_FRAME.leftWalk },
+      { dir: 'right', frames: AGENT_FRAME.rightWalk },
+      { dir: 'up', frames: AGENT_FRAME.upWalk },
     ];
 
     for (const { dir, frames } of dirs) {
@@ -391,15 +393,12 @@ export class WorldRenderer {
     // No movement — keep the last known direction
     if (dx === 0 && dy === 0) return currentFacing;
     if (Math.abs(dx) >= Math.abs(dy)) {
-      return dx > 0 ? "right" : "left";
+      return dx > 0 ? 'right' : 'left';
     }
-    return dy > 0 ? "down" : "up";
+    return dy > 0 ? 'down' : 'up';
   }
 
-  private safePlayAnimation(
-    sprite: Phaser.GameObjects.Sprite | undefined,
-    animKey: string,
-  ): void {
+  private safePlayAnimation(sprite: Phaser.GameObjects.Sprite | undefined, animKey: string): void {
     if (!sprite || sprite.scene !== this.scene) return;
     if (!this.scene.anims.exists(animKey)) return;
     if (sprite.anims.currentAnim?.key === animKey) return;
@@ -408,10 +407,5 @@ export class WorldRenderer {
     } catch (e) {
       console.debug(`Failed to play animation ${animKey}:`, e);
     }
-  }
-
-  /** @deprecated Legacy helper retained for type compatibility */
-  private getDirectionFromMovement(fromX: number, toX: number): Direction {
-    return toX < fromX ? SpriteDirection.Left : SpriteDirection.Right;
   }
 }

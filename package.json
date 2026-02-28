@@ -7,8 +7,19 @@
     "dev": "pnpm --filter shared build && concurrently \"pnpm --filter shared dev\" \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
     "dev:server": "pnpm --filter server dev",
     "dev:web": "pnpm --filter web dev",
-    "build": "pnpm --filter shared build && pnpm --filter server build && pnpm --filter web build",
-    "clean": "rm -rf packages/*/dist packages/*/node_modules packages/*/.next packages/*/*.tsbuildinfo node_modules"
+    "build": "pnpm run lint && pnpm --filter shared build && pnpm --filter server build && pnpm --filter web build",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules packages/*/.next packages/*/*.tsbuildinfo node_modules",
+    "lint": "eslint 'packages/*/src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint 'packages/*/src/**/*.{ts,tsx}' --fix",
+    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
+    "format:check": "prettier --check 'packages/*/src/**/*.{ts,tsx}'",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/*/src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "^3.1.0",
@@ -16,6 +27,11 @@
     "@typescript-eslint/parser": "^7.18.0",
     "concurrently": "^9.1.0",
     "eslint": "^8.57.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
     "typescript": "^5.7.0"
   }
 }

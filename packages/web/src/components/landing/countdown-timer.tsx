@@ -1,10 +1,10 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from 'react';
 
 interface TimeBlock {
-  value: string
-  label: string
+  value: string;
+  label: string;
 }
 
 function TimeUnit({ value, label }: TimeBlock) {
@@ -20,7 +20,8 @@ function TimeUnit({ value, label }: TimeBlock) {
           <div
             className="absolute inset-0 opacity-10"
             style={{
-              background: "repeating-linear-gradient(0deg, transparent, transparent 2px, hsla(195, 100%, 50%, 0.05) 2px, hsla(195, 100%, 50%, 0.05) 4px)",
+              background:
+                'repeating-linear-gradient(0deg, transparent, transparent 2px, hsla(195, 100%, 50%, 0.05) 2px, hsla(195, 100%, 50%, 0.05) 4px)',
             }}
           />
 
@@ -33,50 +34,56 @@ function TimeUnit({ value, label }: TimeBlock) {
           <span
             className="font-mono text-3xl sm:text-4xl md:text-5xl font-bold text-primary tracking-wider"
             style={{
-              textShadow: "0 0 10px hsl(195 100% 50% / 0.8), 0 0 30px hsl(195 100% 50% / 0.4), 0 0 60px hsl(195 100% 50% / 0.2)",
+              textShadow:
+                '0 0 10px hsl(195 100% 50% / 0.8), 0 0 30px hsl(195 100% 50% / 0.4), 0 0 60px hsl(195 100% 50% / 0.2)',
             }}
           >
             {value}
           </span>
         </div>
       </div>
-      <span className="font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </span>
     </div>
-  )
+  );
 }
 
 function Separator() {
   return (
     <div className="flex flex-col gap-3 pb-6">
       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-neon" />
-      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-neon" style={{ animationDelay: "0.5s" }} />
+      <div
+        className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-neon"
+        style={{ animationDelay: '0.5s' }}
+      />
     </div>
-  )
+  );
 }
 
 export function CountdownTimer() {
-  const [mounted, setMounted] = useState(false)
+  const [mounted, setMounted] = useState(false);
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0,
-  })
+  });
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted) return;
 
-    const targetDate = new Date()
-    targetDate.setDate(targetDate.getDate() + 7)
-    targetDate.setHours(0, 0, 0, 0)
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 7);
+    targetDate.setHours(0, 0, 0, 0);
 
     const updateTimer = () => {
-      const now = new Date().getTime()
-      const distance = targetDate.getTime() - now
+      const now = new Date().getTime();
+      const distance = targetDate.getTime() - now;
 
       if (distance > 0) {
         setTimeLeft({
@@ -84,16 +91,16 @@ export function CountdownTimer() {
           hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
           minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
           seconds: Math.floor((distance % (1000 * 60)) / 1000),
-        })
+        });
       }
-    }
+    };
 
-    updateTimer()
-    const interval = setInterval(updateTimer, 1000)
-    return () => clearInterval(interval)
-  }, [mounted])
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [mounted]);
 
-  const pad = (n: number) => n.toString().padStart(2, "0")
+  const pad = (n: number) => n.toString().padStart(2, '0');
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -103,7 +110,7 @@ export function CountdownTimer() {
         <span
           className="font-mono text-xs sm:text-sm uppercase tracking-[0.3em] text-primary/80"
           style={{
-            textShadow: "0 0 8px hsl(195 100% 50% / 0.5)",
+            textShadow: '0 0 8px hsl(195 100% 50% / 0.5)',
           }}
         >
           Arena Opens In
@@ -129,13 +136,13 @@ export function CountdownTimer() {
         <div
           className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-neon"
           style={{
-            animationDuration: "1.5s",
-            boxShadow: "0 0 6px hsl(25 100% 50% / 0.6)",
+            animationDuration: '1.5s',
+            boxShadow: '0 0 6px hsl(25 100% 50% / 0.6)',
           }}
         />
         <div className="h-px w-20 sm:w-32 bg-accent/20" />
         <div className="w-2 h-2 rotate-45 border border-accent/40" />
       </div>
     </div>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 import {
   WorldConfig,
   WorldSyncState,
@@ -18,12 +18,12 @@ import {
   TileMap,
   PathfindingEngine,
   Waypoint,
-} from "@battle-royale/shared";
-import { Agent } from "./Agent.js";
-import { AgentFactory } from "./AgentFactory.js";
-import { VoteManager } from "./VoteManager.js";
-import { MapGenerator } from "../pathfinding/MapGenerator.js";
-import { ThinkingHistoryStorage } from "../persistence/ThinkingHistoryStorage.js";
+} from '@battle-royale/shared';
+import { Agent } from './Agent.js';
+import { AgentFactory } from './AgentFactory.js';
+import { VoteManager } from './VoteManager.js';
+import { MapGenerator } from '../pathfinding/MapGenerator.js';
+import { ThinkingHistoryStorage } from '../persistence/ThinkingHistoryStorage.js';
 
 /**
  * The game world. Manages the simulation loop.
@@ -46,7 +46,7 @@ export class World {
   winner: Agent | null = null;
   pendingEvents: GameEvent[] = [];
   tileMap: TileMap;
-  
+
   /** Zone center coordinates (randomized each game) */
   zoneCenterX: number = 0;
   zoneCenterY: number = 0;
@@ -60,11 +60,12 @@ export class World {
   private voteManager: VoteManager;
   private thinkingHistoryStorage: ThinkingHistoryStorage;
   private nextItemId = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
   /** Previous tick state for delta computation */
   private prevAgentStates: Map<number, string> = new Map();
-  
+
   /** Agent paths to broadcast to clients */
   agentPaths: Map<number, Waypoint[]> = new Map();
 
@@ -72,24 +73,28 @@ export class World {
   private spawnPoints: Waypoint[] = [];
 
   constructor(
-    config: Partial<WorldConfig>, 
-    engine: DecisionEngine, 
+    config: Partial<WorldConfig>,
+    engine: DecisionEngine,
     pathfinder: PathfindingEngine,
     thinkingStorage: ThinkingHistoryStorage,
     factory?: AgentFactory,
     /** Optional pre-loaded village tilemap (replaces random obstacle generation) */
-    villageMap?: { tileMap: TileMap; spawnPoints: Waypoint[] }
+    villageMap?: { tileMap: TileMap; spawnPoints: Waypoint[] },
   ) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
     this.decisionEngine = engine;
     this.pathfindingEngine = pathfinder;
     this.thinkingHistoryStorage = thinkingStorage;
-    this.agentFactory = factory ?? new AgentFactory(this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined);
+    this.agentFactory =
+      factory ??
+      new AgentFactory(
+        this.config.agentTemplates.length > 0 ? this.config.agentTemplates : undefined,
+      );
     this.voteManager = new VoteManager(this.config.votingWindowMs);
     this.sessionId = randomUUID();
 
     if (villageMap) {
-      // Use the GenerativeAgentsCN village tilemap for realistic terrain
+      // Use the village tilemap for realistic terrain
       this.tileMap = villageMap.tileMap;
       this.spawnPoints = villageMap.spawnPoints;
       // Override gridSize to match tilemap dimensions
@@ -108,7 +113,9 @@ export class World {
         const agent = this.agents.find((a) => a.id === agentId);
         if (agent?.alive) {
           agent.hearInnerVoice(action);
-          this.emitEvent(GameEventType.Vote, `Players whispered to ${agent.name}: "${action}"`, [agentId]);
+          this.emitEvent(GameEventType.Vote, `Players whispered to ${agent.name}: "${action}"`, [
+            agentId,
+          ]);
         }
       }
     });
@@ -119,7 +126,7 @@ export class World {
     // Start a new thinking history session for this run to avoid late writes
     // from previous runs repopulating a cleared session.
     this.sessionId = randomUUID();
-    
+
     // Clear thinking history for the current (new) session
     await this.thinkingHistoryStorage.clearSession(this.sessionId);
 
@@ -151,7 +158,7 @@ export class World {
     if (this.spawnPoints.length > 0 && this.config.agentCount > this.spawnPoints.length) {
       console.warn(
         `[World] agentCount (${this.config.agentCount}) exceeds available spawn points ` +
-        `(${this.spawnPoints.length}). Extra agents will use random passable tiles.`
+          `(${this.spawnPoints.length}). Extra agents will use random passable tiles.`,
       );
     }
 
@@ -178,12 +185,12 @@ export class World {
           attempts++;
           if (attempts >= maxAttempts) {
             throw new Error(
-              `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts.`
+              `Failed to find passable spawn location for agent ${i} after ${maxAttempts} attempts.`,
             );
           }
         } while (!MapGenerator.isPassable(this.tileMap, x, y));
       }
-      
+
       agents.push(this.agentFactory.createAgent(x, y));
     }
     this.agents = agents;
@@ -210,10 +217,10 @@ export class World {
     if (this.tick % 10 === 0) this.spawnItems(3);
 
     // 3. Process votes
-    const voteResult = this.voteManager.tick();
+    const _voteResult = this.voteManager.tick();
 
     // 4. Agent loop: perceive → retrieve → plan → execute → reflect
-    //    Aligns with GenerativeAgentsCN's cognitive cycle.
+
     const shuffled = this.agents.filter((a) => a.alive).sort(() => Math.random() - 0.5);
     for (const agent of shuffled) {
       if (!agent.alive) continue;
@@ -240,9 +247,11 @@ export class World {
       // Store thinking process if available
       if (decision.thinking) {
         agent.thinkingProcess = decision.thinking;
-        this.thinkingHistoryStorage.store(this.sessionId, agent.id, decision.thinking).catch((err) => {
-          console.error(`Failed to store thinking process for agent ${agent.id}:`, err);
-        });
+        this.thinkingHistoryStorage
+          .store(this.sessionId, agent.id, decision.thinking)
+          .catch((err) => {
+            console.error(`Failed to store thinking process for agent ${agent.id}:`, err);
+          });
       }
 
       // Step 5 — Execute the decision
@@ -300,7 +309,7 @@ export class World {
         // Explore: move randomly but multiple steps
         this.moveRandomSteps(agent);
         agent.actionState = AgentActionState.Exploring;
-        agent.currentAction = decision.reason ?? "Exploring";
+        agent.currentAction = decision.reason ?? 'Exploring';
         // Clear path since agent is not using pathfinding
         this.agentPaths.delete(agent.id);
         break;
@@ -321,13 +330,24 @@ export class World {
       agent.actionState = AgentActionState.Fighting;
       agent.currentAction = `Fighting ${target.name}`;
 
-      this.emitEvent(GameEventType.Combat, `${agent.name} hit ${target.name} for ${dmg} damage`, [agent.id, target.id]);
+      this.emitEvent(GameEventType.Combat, `${agent.name} hit ${target.name} for ${dmg} damage`, [
+        agent.id,
+        target.id,
+      ]);
 
       if (!target.alive) {
         agent.killCount++;
         this.aliveCount--;
-        this.emitEvent(GameEventType.Kill, `${agent.name} eliminated ${target.name}! (${this.aliveCount} remain)`, [agent.id, target.id]);
-        agent.memory.add(`I eliminated ${target.name}. Kill count: ${agent.killCount}`, 9, MemoryType.Observation);
+        this.emitEvent(
+          GameEventType.Kill,
+          `${agent.name} eliminated ${target.name}! (${this.aliveCount} remain)`,
+          [agent.id, target.id],
+        );
+        agent.memory.add(
+          `I eliminated ${target.name}. Kill count: ${agent.killCount}`,
+          9,
+          MemoryType.Observation,
+        );
         // Remove dead agent from all alliances
         for (const a of this.agents) a.alliances.delete(target.id);
         // Clear any remaining path data for the eliminated agent
@@ -352,11 +372,21 @@ export class World {
         agent.alliances.add(target.id);
         target.alliances.add(agent.id);
         agent.memory.add(`I formed an alliance with ${target.name}`, 7, MemoryType.Observation);
-        target.memory.add(`${agent.name} proposed an alliance and I accepted`, 7, MemoryType.Observation);
-        this.emitEvent(GameEventType.Alliance, `${agent.name} and ${target.name} formed an alliance!`, [agent.id, target.id]);
+        target.memory.add(
+          `${agent.name} proposed an alliance and I accepted`,
+          7,
+          MemoryType.Observation,
+        );
+        this.emitEvent(
+          GameEventType.Alliance,
+          `${agent.name} and ${target.name} formed an alliance!`,
+          [agent.id, target.id],
+        );
       }
       agent.actionState = AgentActionState.Allying;
-      agent.currentAction = accepted ? `Allied with ${target.name}` : `Alliance rejected by ${target.name}`;
+      agent.currentAction = accepted
+        ? `Allied with ${target.name}`
+        : `Alliance rejected by ${target.name}`;
     } else {
       this.moveAgentToward(agent, target.x, target.y);
       agent.actionState = AgentActionState.Allying;
@@ -380,12 +410,20 @@ export class World {
     agent.actionState = AgentActionState.Betraying;
     agent.currentAction = `Betrayed ${target.name}!`;
 
-    this.emitEvent(GameEventType.Betrayal, `${agent.name} BETRAYED ${target.name}! ${dmg} damage!`, [agent.id, target.id]);
+    this.emitEvent(
+      GameEventType.Betrayal,
+      `${agent.name} BETRAYED ${target.name}! ${dmg} damage!`,
+      [agent.id, target.id],
+    );
 
     if (!target.alive) {
       agent.killCount++;
       this.aliveCount--;
-      this.emitEvent(GameEventType.Kill, `${agent.name} eliminated ${target.name} through betrayal! (${this.aliveCount} remain)`, [agent.id, target.id]);
+      this.emitEvent(
+        GameEventType.Kill,
+        `${agent.name} eliminated ${target.name} through betrayal! (${this.aliveCount} remain)`,
+        [agent.id, target.id],
+      );
       // Clear any remaining path data for the eliminated agent
       this.agentPaths.delete(target.id);
     }
@@ -407,15 +445,19 @@ export class World {
     } else {
       this.moveAgentToward(agent, item.x, item.y);
       agent.actionState = AgentActionState.Looting;
-      agent.currentAction = "Moving to item";
+      agent.currentAction = 'Moving to item';
     }
   }
 
   private executeFlee(agent: Agent): void {
     const perception = agent.perceive(this.agents, this.items);
     if (perception.nearbyAgents.length > 0) {
-      let avgX = 0, avgY = 0;
-      for (const a of perception.nearbyAgents) { avgX += a.agent.x; avgY += a.agent.y; }
+      let avgX = 0,
+        avgY = 0;
+      for (const a of perception.nearbyAgents) {
+        avgX += a.agent.x;
+        avgY += a.agent.y;
+      }
       avgX /= perception.nearbyAgents.length;
       avgY /= perception.nearbyAgents.length;
       // Move away multiple steps
@@ -424,8 +466,8 @@ export class World {
       this.moveRandomSteps(agent);
     }
     agent.actionState = AgentActionState.Fleeing;
-    agent.currentAction = "Fleeing!";
-    agent.memory.add("I fled from danger", 5, MemoryType.Observation);
+    agent.currentAction = 'Fleeing!';
+    agent.memory.add('I fled from danger', 5, MemoryType.Observation);
     // Clear path since agent is not using pathfinding
     this.agentPaths.delete(agent.id);
   }
@@ -510,7 +552,11 @@ export class World {
     if (this.tick % this.config.shrinkIntervalTicks === 0) {
       if (this.shrinkBorder > this.config.minZoneSize) {
         this.shrinkBorder -= 1;
-        this.emitEvent(GameEventType.ZoneShrink, `Safe zone shrinks! Border: ${this.shrinkBorder}`, []);
+        this.emitEvent(
+          GameEventType.ZoneShrink,
+          `Safe zone shrinks! Border: ${this.shrinkBorder}`,
+          [],
+        );
       }
     }
 
@@ -522,19 +568,22 @@ export class World {
     // Calculate damage scaling based on zone size (more damage as zone gets smaller)
     const initialBorder = this.tileMap.width; // use actual map width as initial border
     const zoneSizeRange = initialBorder - this.config.minZoneSize;
-    const zoneProgress = zoneSizeRange > 0 
-      ? 1 - (this.shrinkBorder - this.config.minZoneSize) / zoneSizeRange
-      : 1;
+    const zoneProgress =
+      zoneSizeRange > 0 ? 1 - (this.shrinkBorder - this.config.minZoneSize) / zoneSizeRange : 1;
     const damageMultiplier = 1 + Math.floor(zoneProgress * 4); // 1x (early) to 5x (late)
     const zoneDamage = this.config.zoneDamageBase * damageMultiplier;
 
     for (const agent of this.agents) {
       if (!agent.alive) continue;
       if (Math.abs(agent.x - cx) > half || Math.abs(agent.y - cy) > half) {
-        agent.takeDamage(zoneDamage, "zone");
+        agent.takeDamage(zoneDamage, 'zone');
         if (!agent.alive) {
           this.aliveCount--;
-          this.emitEvent(GameEventType.Kill, `${agent.name} eliminated by the zone! (${this.aliveCount} remain)`, [agent.id]);
+          this.emitEvent(
+            GameEventType.Kill,
+            `${agent.name} eliminated by the zone! (${this.aliveCount} remain)`,
+            [agent.id],
+          );
         }
       }
     }
@@ -543,26 +592,28 @@ export class World {
   // --- Items ---
 
   private spawnItems(count: number): void {
-    const weapons = ["knife", "sword", "bow", "spear", "axe", "mace"];
+    const weapons = ['knife', 'sword', 'bow', 'spear', 'axe', 'mace'];
     const mapWidth = this.tileMap.width;
     const mapHeight = this.tileMap.height;
     itemLoop: for (let i = 0; i < count; i++) {
       const idx = Math.floor(Math.random() * weapons.length);
-      
+
       let x: number, y: number;
       let attempts = 0;
       const maxAttempts = mapWidth * mapHeight * 2;
-      
+
       do {
         x = Math.floor(Math.random() * mapWidth);
         y = Math.floor(Math.random() * mapHeight);
         attempts++;
         if (attempts >= maxAttempts) {
-          console.warn(`Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`);
+          console.warn(
+            `Could not find passable location for item ${i} after ${maxAttempts} attempts, skipping`,
+          );
           continue itemLoop;
         }
       } while (!MapGenerator.isPassable(this.tileMap, x, y));
-      
+
       this.items.push({
         id: this.nextItemId++,
         x,
@@ -575,7 +626,11 @@ export class World {
 
   // --- Context builders ---
 
-  private buildDecisionContext(agent: Agent, perception: Agent["perceive"] extends (...args: any[]) => infer R ? R : never): DecisionContext {
+  private buildDecisionContext(
+    agent: Agent,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    perception: Agent['perceive'] extends (...args: any[]) => infer R ? R : never,
+  ): DecisionContext {
     const innerVoiceMemories = agent.memory
       .getRecent(5)
       .filter((m) => m.type === MemoryType.InnerVoice && Date.now() - m.timestamp < 30000);
@@ -589,7 +644,10 @@ export class World {
       nearbyItems: perception.nearbyItems,
       worldState: this.getWorldState(),
       recentMemories: agent.memory.getRecent(10),
-      innerVoice: innerVoiceMemories.length > 0 ? innerVoiceMemories[0].text.replace("[Inner Voice] ", "") : null,
+      innerVoice:
+        innerVoiceMemories.length > 0
+          ? innerVoiceMemories[0].text.replace('[Inner Voice] ', '')
+          : null,
       currentPlan: agent.currentPlan,
     };
   }
@@ -599,14 +657,16 @@ export class World {
   private emitEvent(type: GameEventType, message: string, agentIds: number[]): void {
     const event: GameEvent = { type, tick: this.tick, message, agentIds, timestamp: Date.now() };
     this.pendingEvents.push(event);
-    this.emit("event", event);
+    this.emit('event', event);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, listener: (...args: any[]) => void): void {
     if (!this.eventListeners.has(event)) this.eventListeners.set(event, []);
     this.eventListeners.get(event)!.push(listener);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private emit(event: string, ...args: any[]): void {
     for (const listener of this.eventListeners.get(event) ?? []) {
       listener(...args);
@@ -622,7 +682,7 @@ export class World {
   /**
    * Get thinking process history for a specific agent.
    * Returns the most recent thinking processes, newest first.
-   * 
+   *
    * @param agentId - Agent identifier
    * @param limit - Maximum number of entries to return (default: 10)
    * @returns Array of thinking processes

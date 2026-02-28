@@ -1,11 +1,11 @@
-import { PathfindingEngine, TileMap, Waypoint, Path, TileType } from "@battle-royale/shared";
+import { PathfindingEngine, TileMap, Waypoint, Path, TileType } from '@battle-royale/shared';
 
 /**
  * A* pathfinding algorithm implementation.
  * Finds the shortest path between two points on a tile-based map.
  */
 export class AStarPathfinder implements PathfindingEngine {
-  readonly name = "astar";
+  readonly name = 'astar';
 
   /**
    * Find a path from start to goal using A* algorithm.
@@ -47,7 +47,7 @@ export class AStarPathfinder implements PathfindingEngine {
     // A* main loop
     while (openSet.size > 0) {
       // Find node in openSet with lowest fScore
-      let currentKey = "";
+      let currentKey = '';
       let lowestF = Infinity;
       for (const key of openSet) {
         const f = fScore.get(key) ?? Infinity;
@@ -57,7 +57,7 @@ export class AStarPathfinder implements PathfindingEngine {
         }
       }
 
-      if (currentKey === "") break;
+      if (currentKey === '') break;
 
       const current = this.fromKey(currentKey);
 
@@ -119,14 +119,17 @@ export class AStarPathfinder implements PathfindingEngine {
     const neighbors: Waypoint[] = [];
     const directions = [
       { x: 0, y: -1 }, // up
-      { x: 1, y: 0 },  // right
-      { x: 0, y: 1 },  // down
+      { x: 1, y: 0 }, // right
+      { x: 0, y: 1 }, // down
       { x: -1, y: 0 }, // left
     ];
 
     for (const dir of directions) {
       const neighbor = { x: pos.x + dir.x, y: pos.y + dir.y };
-      if (this.isValid(map, neighbor) && map.tiles[neighbor.y][neighbor.x].type !== TileType.Blocked) {
+      if (
+        this.isValid(map, neighbor) &&
+        map.tiles[neighbor.y][neighbor.x].type !== TileType.Blocked
+      ) {
         neighbors.push(neighbor);
       }
     }
@@ -159,7 +162,7 @@ export class AStarPathfinder implements PathfindingEngine {
    * Parse a waypoint from a string key.
    */
   private fromKey(key: string): Waypoint {
-    const [x, y] = key.split(",").map(Number);
+    const [x, y] = key.split(',').map(Number);
     return { x, y };
   }
 }

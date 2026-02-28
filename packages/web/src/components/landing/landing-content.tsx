@@ -1,12 +1,12 @@
-"use client"
+'use client';
 
-import { ArenaCanvas } from "@/components/landing/arena-canvas"
-import { NavBar } from "@/components/landing/nav-bar"
-import { HeroSection } from "@/components/landing/hero-section"
-import { FeaturesSection } from "@/components/landing/features-section"
-import { AgentsShowcase } from "@/components/landing/agents-showcase"
-import { LeaderboardSection } from "@/components/landing/leaderboard-section"
-import { Footer } from "@/components/landing/footer"
+import { ArenaCanvas } from '@/components/landing/arena-canvas';
+import { NavBar } from '@/components/landing/nav-bar';
+import { HeroSection } from '@/components/landing/hero-section';
+import { FeaturesSection } from '@/components/landing/features-section';
+import { AgentsShowcase } from '@/components/landing/agents-showcase';
+import { LeaderboardSection } from '@/components/landing/leaderboard-section';
+import { Footer } from '@/components/landing/footer';
 
 export default function LandingContent() {
   return (
@@ -34,5 +34,5 @@ export default function LandingContent() {
       <LeaderboardSection />
       <Footer />
     </main>
-  )
+  );
 }

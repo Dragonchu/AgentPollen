@@ -1,11 +1,14 @@
-"use client"
+'use client';
 
-import { CountdownTimer } from "./countdown-timer"
-import { LiveVotingDashboard } from "./live-voting-dashboard"
+import { CountdownTimer } from './countdown-timer';
+import { LiveVotingDashboard } from './live-voting-dashboard';
 
 export function HeroSection() {
   return (
-    <section id="arena" className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-20 md:py-24">
+    <section
+      id="arena"
+      className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-20 md:py-24"
+    >
       {/* Top status bar */}
       <div className="absolute top-16 md:top-20 left-4 right-4 flex items-center justify-between pointer-events-none">
         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded border border-border/20 bg-background/20 backdrop-blur-sm">
@@ -16,7 +19,7 @@ export function HeroSection() {
         </div>
         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded border border-border/20 bg-background/20 backdrop-blur-sm">
           <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-            Season 1 {"·"} Round 47
+            Season 1 {'·'} Round 47
           </span>
         </div>
       </div>
@@ -37,7 +40,7 @@ export function HeroSection() {
             <span
               className="block"
               style={{
-                textShadow: "0 0 40px hsl(195 100% 50% / 0.3), 0 0 80px hsl(195 100% 50% / 0.1)",
+                textShadow: '0 0 40px hsl(195 100% 50% / 0.3), 0 0 80px hsl(195 100% 50% / 0.1)',
               }}
             >
               WHISPER
@@ -61,7 +64,7 @@ export function HeroSection() {
             <a
               href="#rules"
               className="px-6 py-2.5 rounded border border-accent/30 bg-accent/5 font-mono text-xs uppercase tracking-[0.15em] text-accent hover:bg-accent/10 hover:border-accent/50 transition-all"
-              style={{ boxShadow: "0 0 12px hsl(25 100% 50% / 0.1)" }}
+              style={{ boxShadow: '0 0 12px hsl(25 100% 50% / 0.1)' }}
             >
               How It Works
             </a>
@@ -85,5 +88,5 @@ export function HeroSection() {
         </div>
       </div>
     </section>
-  )
+  );
 }
