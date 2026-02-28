@@ -378,6 +378,7 @@ export class UICoordinator {
   // ── Layout rebuild (for collapse/expand) ─────────────────────────────────────
 
   private rebuildLayout(): void {
+    this.scene.tweens.killTweensOf(this.liveCircle);
     this.mainSizer?.destroy();
     this.buildLayout();
     this.startLiveAnimation();
@@ -388,12 +389,17 @@ export class UICoordinator {
     const gs = this.gameController.getGameState();
     const world = gs.getWorld();
     if (world) this.onWorldUpdated(world);
-    this.onAgentsUpdated(gs.getAgents());
     const events = gs.getEvents();
     if (events.length) this.onEventsUpdated(events);
     const votes = gs.getVotes();
     if (votes) this.onVotesUpdated(votes);
-    this.onAgentSelected(gs.getSelectedAgent());
+    const selectedAgent = gs.getSelectedAgent();
+    if (selectedAgent) {
+      // onAgentSelected handles refreshing the agents sidebar with selection highlight
+      this.onAgentSelected(selectedAgent);
+    } else {
+      this.onAgentsUpdated(gs.getAgents());
+    }
   }
 
   // ── Event subscriptions ───────────────────────────────────────────────────────
