@@ -51,9 +51,14 @@ export class UICoordinator {
   private timerText!: Phaser.GameObjects.Text;
   private aliveText!: Phaser.GameObjects.Text;
 
+  // ── Collapse state ────────────────────────────────────────────────────────────
+  private sidebarCollapsed = true;
+  private votePanelCollapsed = true;
+  private eventPanelCollapsed = true;
+
   // ── Sidebar refs ─────────────────────────────────────────────────────────────
-  private agentListContent!: RexUI.Sizer;
-  private agentListPanel!: RexUI.ScrollablePanel;
+  private agentListContent: RexUI.Sizer | null = null;
+  private agentListPanel: RexUI.ScrollablePanel | null = null;
   private selectedAgentId: number | null = null;
   private lastAgentListClickTime = 0;
   private lastAgentListClickedId: number | null = null;
@@ -61,8 +66,8 @@ export class UICoordinator {
 
   // ── Vote panel refs ───────────────────────────────────────────────────────────
   private readonly VOTE_ACTIONS = ["Attack", "Defend", "Heal"] as const;
-  private voteCountdownText!: Phaser.GameObjects.Text;
-  private voteCountdownBar!: RexUI.LineProgress;
+  private voteCountdownText: Phaser.GameObjects.Text | null = null;
+  private voteCountdownBar: RexUI.LineProgress | null = null;
   private voteCountTexts = new Map<string, Phaser.GameObjects.Text>();
 
   // ── Agent stats refs ──────────────────────────────────────────────────────────
@@ -72,8 +77,8 @@ export class UICoordinator {
   private shieldBar!: RexUI.LineProgress;
 
   // ── Event feed refs ───────────────────────────────────────────────────────────
-  private eventListContent!: RexUI.Sizer;
-  private eventListPanel!: RexUI.ScrollablePanel;
+  private eventListContent: RexUI.Sizer | null = null;
+  private eventListPanel: RexUI.ScrollablePanel | null = null;
 
   // ── Thinking bubbles (one per agent) ─────────────────────────────────────────
   private thinkingBubbles = new Map<number, { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; hasText: boolean }>();
@@ -168,27 +173,40 @@ export class UICoordinator {
   }
 
   private buildSidebar(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, 0, THEME.colors.background, 0.9);
+    const bg        = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
     const titleText = this.scene.add.text(0, 0, "AGENTS", TEXT_STYLE_LABEL);
 
-    this.agentListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 2 } });
+    const chevron   = this.sidebarCollapsed ? "▶" : "▼";
+    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
+      .setInteractive({ cursor: "pointer" })
+      .on("pointerdown", () => { this.sidebarCollapsed = !this.sidebarCollapsed; this.rebuildLayout(); });
 
-    this.agentListPanel = this.rexUI.add.scrollablePanel({
-      width: SIDEBAR_W - PAD * 2,
-      scrollMode: 0,
-      panel: {
-        child: this.agentListContent,
-        mask: { padding: 1 },
-      },
-      slider: false,
-      mouseWheelScroller: { focus: false, speed: 0.3 },
-      space: { panel: 4 },
-    });
+    const headerRow = this.rexUI.add
+      .sizer({ orientation: "horizontal", space: { item: PAD } })
+      .add(titleText,  { proportion: 1, align: "left" })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
 
-    return this.rexUI.add
+    const sizer = this.rexUI.add
       .sizer({ width: SIDEBAR_W, orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
-      .add(titleText, { proportion: 0, align: "left" })
-      .add(this.agentListPanel, { proportion: 1, expand: true });
+      .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+
+    if (!this.sidebarCollapsed) {
+      this.agentListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 2 } });
+      this.agentListPanel   = this.rexUI.add.scrollablePanel({
+        width: SIDEBAR_W - PAD * 2,
+        scrollMode: 0,
+        panel: { child: this.agentListContent, mask: { padding: 1 } },
+        slider: false,
+        mouseWheelScroller: { focus: false, speed: 0.3 },
+        space: { panel: 4 },
+      });
+      sizer.add(this.agentListPanel, { proportion: 1, expand: true });
+    } else {
+      this.agentListContent = null;
+      this.agentListPanel   = null;
+    }
+
+    return sizer;
   }
 
   private buildRightPanel(): RexUI.Sizer {
@@ -204,52 +222,72 @@ export class UICoordinator {
   }
 
   private buildVotePanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
     const titleText = this.scene.add.text(0, 0, "VOTE", TEXT_STYLE_LABEL);
 
-    this.voteCountdownText = this.scene.add.text(0, 0, "—", TEXT_STYLE_SMALL);
-    this.voteCountdownBar  = this.rexUI.add.lineProgress({
-      width: RIGHT_W - PAD * 4, height: 6,
-      value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
-    });
+    const chevron   = this.votePanelCollapsed ? "▶" : "▼";
+    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
+      .setInteractive({ cursor: "pointer" })
+      .on("pointerdown", () => { this.votePanelCollapsed = !this.votePanelCollapsed; this.rebuildLayout(); });
 
-    const cardRow = this.rexUI.add.sizer({ orientation: "horizontal", space: { item: PAD } });
-    for (const action of this.VOTE_ACTIONS) {
-      const countText  = this.scene.add.text(0, 0, "0", { ...TEXT_STYLE_TITLE, color: THEME.css.primary });
-      const labelText  = this.scene.add.text(0, 0, action, TEXT_STYLE_SMALL);
-      const cardBg     = this.rexUI.add.roundRectangle(0, 0, 0, 48, 4, THEME.colors.secondary, 1);
+    const headerRow = this.rexUI.add
+      .sizer({ orientation: "horizontal", space: { item: PAD } })
+      .add(titleText,  { proportion: 1, align: "left" })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
 
-      this.voteCountTexts.set(action, countText);
+    const sizer = this.rexUI.add
+      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
+      .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
 
-      (cardBg as unknown as Phaser.GameObjects.GameObject & {
-        setInteractive(c?: object): Phaser.GameObjects.GameObject;
-        on(e: string, cb: () => void): Phaser.GameObjects.GameObject;
-      })
-        .setInteractive({ cursor: "pointer" })
-        .on("pointerdown", () => {
-          const agent = this.gameController.getSelectedAgent();
-          if (!agent?.alive) return;
-          this.gameController.submitVote(agent.id, action);
-        });
+    if (!this.votePanelCollapsed) {
+      this.voteCountdownText = this.scene.add.text(0, 0, "—", TEXT_STYLE_SMALL);
+      this.voteCountdownBar  = this.rexUI.add.lineProgress({
+        width: RIGHT_W - PAD * 4, height: 6,
+        value: 0, trackColor: THEME.colors.border, barColor: THEME.colors.primary,
+      });
 
-      const card = this.rexUI.add
-        .sizer({ orientation: "vertical", background: cardBg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 4 } })
-        .add(countText, { proportion: 0, align: "center" })
-        .add(labelText, { proportion: 0, align: "center" });
+      const cardRow = this.rexUI.add.sizer({ orientation: "horizontal", space: { item: PAD } });
+      for (const action of this.VOTE_ACTIONS) {
+        const countText  = this.scene.add.text(0, 0, "0", { ...TEXT_STYLE_TITLE, color: THEME.css.primary });
+        const labelText  = this.scene.add.text(0, 0, action, TEXT_STYLE_SMALL);
+        const cardBg     = this.rexUI.add.roundRectangle(0, 0, 0, 48, 4, THEME.colors.secondary, 1);
 
-      cardRow.add(card as unknown as Phaser.GameObjects.GameObject, { proportion: 1 });
+        this.voteCountTexts.set(action, countText);
+
+        (cardBg as unknown as Phaser.GameObjects.GameObject & {
+          setInteractive(c?: object): Phaser.GameObjects.GameObject;
+          on(e: string, cb: () => void): Phaser.GameObjects.GameObject;
+        })
+          .setInteractive({ cursor: "pointer" })
+          .on("pointerdown", () => {
+            const agent = this.gameController.getSelectedAgent();
+            if (!agent?.alive) return;
+            this.gameController.submitVote(agent.id, action);
+          });
+
+        const card = this.rexUI.add
+          .sizer({ orientation: "vertical", background: cardBg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: 4 } })
+          .add(countText, { proportion: 0, align: "center" })
+          .add(labelText, { proportion: 0, align: "center" });
+
+        cardRow.add(card as unknown as Phaser.GameObjects.GameObject, { proportion: 1 });
+      }
+
+      sizer
+        .add(this.voteCountdownText,  { proportion: 0, align: "left" })
+        .add(this.voteCountdownBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
+        .add(cardRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+    } else {
+      this.voteCountdownText = null;
+      this.voteCountdownBar  = null;
+      this.voteCountTexts.clear();
     }
 
-    return this.rexUI.add
-      .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
-      .add(titleText,               { proportion: 0, align: "left" })
-      .add(this.voteCountdownText,  { proportion: 0, align: "left" })
-      .add(this.voteCountdownBar as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" })
-      .add(cardRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+    return sizer;
   }
 
   private buildStatsPanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
     const titleText = this.scene.add.text(0, 0, "AGENT STATS", TEXT_STYLE_LABEL);
 
     this.statsNameText = this.scene.add.text(0, 0, "Select an agent", TEXT_STYLE_BODY);
@@ -276,23 +314,39 @@ export class UICoordinator {
   }
 
   private buildEventPanel(): RexUI.Sizer {
-    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.background, 0.9);
+    const bg        = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, THEME.spacing.radius, THEME.colors.secondary, 0.95);
     const titleText = this.scene.add.text(0, 0, "EVENTS", TEXT_STYLE_LABEL);
 
-    this.eventListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 4 } });
+    const chevron   = this.eventPanelCollapsed ? "▶" : "▼";
+    const toggleBtn = this.scene.add.text(0, 0, chevron, TEXT_STYLE_SMALL)
+      .setInteractive({ cursor: "pointer" })
+      .on("pointerdown", () => { this.eventPanelCollapsed = !this.eventPanelCollapsed; this.rebuildLayout(); });
 
-    this.eventListPanel = this.rexUI.add.scrollablePanel({
-      width: RIGHT_W - PAD * 2,
-      scrollMode: 0,
-      panel: { child: this.eventListContent as unknown as Phaser.GameObjects.GameObject, mask: { padding: 1 } },
-      slider: false,
-      mouseWheelScroller: { focus: false, speed: 0.3 },
-    });
+    const headerRow = this.rexUI.add
+      .sizer({ orientation: "horizontal", space: { item: PAD } })
+      .add(titleText,  { proportion: 1, align: "left" })
+      .add(toggleBtn as unknown as Phaser.GameObjects.GameObject, { proportion: 0, align: "center" });
 
-    return this.rexUI.add
+    const sizer = this.rexUI.add
       .sizer({ orientation: "vertical", background: bg, space: { left: PAD, right: PAD, top: PAD, bottom: PAD, item: PAD } })
-      .add(titleText, { proportion: 0, align: "left" })
-      .add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+      .add(headerRow as unknown as Phaser.GameObjects.GameObject, { proportion: 0, expand: true });
+
+    if (!this.eventPanelCollapsed) {
+      this.eventListContent = this.rexUI.add.sizer({ orientation: "vertical", space: { item: 4 } });
+      this.eventListPanel   = this.rexUI.add.scrollablePanel({
+        width: RIGHT_W - PAD * 2,
+        scrollMode: 0,
+        panel: { child: this.eventListContent as unknown as Phaser.GameObjects.GameObject, mask: { padding: 1 } },
+        slider: false,
+        mouseWheelScroller: { focus: false, speed: 0.3 },
+      });
+      sizer.add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
+    } else {
+      this.eventListContent = null;
+      this.eventListPanel   = null;
+    }
+
+    return sizer;
   }
 
   private buildThinkingBubbleForAgent(agentId: number): void {
@@ -319,6 +373,33 @@ export class UICoordinator {
     this.cameraManager.getWorldCamera().ignore(container);
     this.cameraManager.getPipCamera()?.ignore(container);
     this.thinkingBubbles.set(agentId, { container, text, hasText: false });
+  }
+
+  // ── Layout rebuild (for collapse/expand) ─────────────────────────────────────
+
+  private rebuildLayout(): void {
+    this.scene.tweens.killTweensOf(this.liveCircle);
+    this.mainSizer?.destroy();
+    this.buildLayout();
+    this.startLiveAnimation();
+    this.restoreState();
+  }
+
+  private restoreState(): void {
+    const gs = this.gameController.getGameState();
+    const world = gs.getWorld();
+    if (world) this.onWorldUpdated(world);
+    const events = gs.getEvents();
+    if (events.length) this.onEventsUpdated(events);
+    const votes = gs.getVotes();
+    if (votes) this.onVotesUpdated(votes);
+    const selectedAgent = gs.getSelectedAgent();
+    if (selectedAgent) {
+      // onAgentSelected handles refreshing the agents sidebar with selection highlight
+      this.onAgentSelected(selectedAgent);
+    } else {
+      this.onAgentsUpdated(gs.getAgents());
+    }
   }
 
   // ── Event subscriptions ───────────────────────────────────────────────────────
@@ -366,6 +447,7 @@ export class UICoordinator {
       }
     }
 
+    if (!this.agentListContent) return;
     this.agentListContent.clear(true);
     for (const agent of sorted) {
       const row = buildAgentRow(
@@ -420,6 +502,7 @@ export class UICoordinator {
   }
 
   private onEventsUpdated(events: GameEvent[]): void {
+    if (!this.eventListContent || !this.eventListPanel) return;
     const latest = events.slice(-50).reverse();
     this.eventListContent.clear(true);
     for (const event of latest) {
@@ -429,6 +512,7 @@ export class UICoordinator {
   }
 
   private onVotesUpdated(voteState: VoteState): void {
+    if (!this.voteCountdownText || !this.voteCountdownBar) return;
     const remaining = voteState.timeRemainingMs / 1000;
     this.voteCountdownText.setText(`${remaining.toFixed(1)}s remaining`);
     this.voteCountdownBar.setValue(Math.max(0, Math.min(1, remaining / 60)));
