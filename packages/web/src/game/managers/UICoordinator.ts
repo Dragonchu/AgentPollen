@@ -69,6 +69,11 @@ export class UICoordinator {
   // ── Root ─────────────────────────────────────────────────────────────────────
   private mainSizer!: RexUI.Sizer;
 
+  /** Dedicated graphics layer for opaque panel backgrounds.
+   *  Rendered only by the UI camera — a single object that is trivially
+   *  ignored by the world camera, unlike the many rexUI child objects. */
+  private panelBgGfx!: Phaser.GameObjects.Graphics;
+
   // ── Header refs ──────────────────────────────────────────────────────────────
   private liveCircle!: Phaser.GameObjects.Arc;
   private phaseText!: Phaser.GameObjects.Text;
@@ -146,6 +151,7 @@ export class UICoordinator {
     this.scene.scale.off('resize', this.onResize, this);
 
     this.mainSizer?.destroy();
+    this.panelBgGfx?.destroy();
     for (const { container } of this.thinkingBubbles.values()) {
       container.destroy();
     }
@@ -183,7 +189,44 @@ export class UICoordinator {
 
     this.mainSizer.layout();
 
+    // Draw opaque panel backgrounds on a single Graphics object that the
+    // world camera ignores.  This is far more reliable than trying to make
+    // the world camera ignore every individual rexUI child game object.
+    this.drawPanelBackgrounds();
+
     this.ignoreNewUIChildren(childrenBefore);
+  }
+
+  /**
+   * Draw opaque background rectangles for every visible UI panel.
+   * Uses a single Phaser.GameObjects.Graphics rendered only by the UI camera.
+   */
+  private drawPanelBackgrounds(): void {
+    if (this.panelBgGfx) {
+      this.panelBgGfx.destroy();
+    }
+
+    const { width: w, height: h } = this.scene.scale;
+    const g = this.scene.add.graphics();
+    g.setDepth(-1); // behind all rexUI elements
+
+    // Header
+    g.fillStyle(THEME.colors.background, 0.95);
+    g.fillRect(0, 0, w, HEADER_H);
+
+    // Sidebar
+    if (!this.sidebarCollapsed) {
+      g.fillStyle(THEME.colors.secondary, 0.95);
+      g.fillRoundedRect(0, HEADER_H, SIDEBAR_W, h - HEADER_H, THEME.spacing.radius);
+    }
+
+    // Right panel
+    g.fillStyle(THEME.colors.secondary, 0.95);
+    g.fillRoundedRect(w - RIGHT_W, HEADER_H, RIGHT_W, h - HEADER_H, THEME.spacing.radius);
+
+    this.cameraManager.getWorldCamera().ignore(g);
+    this.cameraManager.getPipCamera()?.ignore(g);
+    this.panelBgGfx = g;
   }
 
   /**
@@ -201,7 +244,7 @@ export class UICoordinator {
   }
 
   private buildHeader(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, 0, HEADER_H, 0, THEME.colors.background, 0.95);
+    const bg = this.rexUI.add.roundRectangle(0, 0, 0, HEADER_H, 0, 0x000000, 0);
 
     this.liveCircle = this.scene.add.arc(0, 0, 5, 0, 360, false, THEME.colors.destructive);
     const title = this.scene.add.text(0, 0, '⚔ AI BATTLE ROYALE', TEXT_STYLE_TITLE);
@@ -229,15 +272,7 @@ export class UICoordinator {
   }
 
   private buildSidebar(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(
-      0,
-      0,
-      SIDEBAR_W,
-      0,
-      THEME.spacing.radius,
-      THEME.colors.secondary,
-      0.95,
-    );
+    const bg = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, 0, 0x000000, 0);
     const titleText = this.scene.add.text(0, 0, 'AGENTS', TEXT_STYLE_LABEL);
 
     const chevron = this.sidebarCollapsed ? '▶' : '▼';
@@ -299,15 +334,7 @@ export class UICoordinator {
   }
 
   private buildVotePanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(
-      0,
-      0,
-      RIGHT_W - PAD,
-      0,
-      THEME.spacing.radius,
-      THEME.colors.secondary,
-      0.95,
-    );
+    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
     const titleText = this.scene.add.text(0, 0, 'VOTE', TEXT_STYLE_LABEL);
 
     const chevron = this.votePanelCollapsed ? '▶' : '▼';
@@ -399,15 +426,7 @@ export class UICoordinator {
   }
 
   private buildStatsPanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(
-      0,
-      0,
-      RIGHT_W - PAD,
-      0,
-      THEME.spacing.radius,
-      THEME.colors.secondary,
-      0.95,
-    );
+    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
     const titleText = this.scene.add.text(0, 0, 'AGENT STATS', TEXT_STYLE_LABEL);
 
     this.statsNameText = this.scene.add.text(0, 0, 'Select an agent', TEXT_STYLE_BODY);
@@ -450,15 +469,7 @@ export class UICoordinator {
   }
 
   private buildEventPanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(
-      0,
-      0,
-      RIGHT_W - PAD,
-      0,
-      THEME.spacing.radius,
-      THEME.colors.secondary,
-      0.95,
-    );
+    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
     const titleText = this.scene.add.text(0, 0, 'EVENTS', TEXT_STYLE_LABEL);
 
     const chevron = this.eventPanelCollapsed ? '▶' : '▼';
@@ -740,6 +751,7 @@ export class UICoordinator {
       .setPosition(gameSize.width / 2, gameSize.height / 2)
       .setMinSize(gameSize.width, gameSize.height)
       .layout();
+    this.drawPanelBackgrounds();
     this.cameraManager.onResize();
   }
 
