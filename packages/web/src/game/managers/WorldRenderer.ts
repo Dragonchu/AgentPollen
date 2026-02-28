@@ -1,9 +1,9 @@
 import * as Phaser from 'phaser';
 import type { AgentFullState, ItemState, TileMap } from '@battle-royale/shared';
 import { AgentActionState, TileType } from '@battle-royale/shared';
-import { ASSETS, SpriteDirection } from '@/constants/Assets';
+import { ASSETS } from '@/constants/Assets';
 import { CELL_SIZE } from '../scenes/gameConstants';
-import type { AgentDisplayState, Direction } from '../scenes/types';
+import type { AgentDisplayState } from '../scenes/types';
 import { CoordinateUtils } from '../utils/CoordinateUtils';
 import type { GameState } from './GameState';
 import type { MotionState } from './MotionState';
@@ -196,10 +196,8 @@ export class WorldRenderer {
     if (blocksTileset) {
       const collisionsLayer = map.createLayer('Collisions', blocksTileset, 0, 0);
       if (collisionsLayer) {
-        // Semi-transparent overlay so players can see which tiles are blocked
-        // without hiding the visual map underneath.
         collisionsLayer.setAlpha(0.35);
-        collisionsLayer.setDepth(1);
+        collisionsLayer.setDepth(0.5);
         this.cameraManager.ignoreInUICamera(collisionsLayer);
       }
     }
@@ -227,7 +225,7 @@ export class WorldRenderer {
       }
     }
 
-    gfx.setDepth(1);
+    gfx.setDepth(0.5);
     this.cameraManager.ignoreInUICamera(gfx);
     this.obstacleGraphics = gfx;
   }
@@ -409,10 +407,5 @@ export class WorldRenderer {
     } catch (e) {
       console.debug(`Failed to play animation ${animKey}:`, e);
     }
-  }
-
-  /** @deprecated Legacy helper retained for type compatibility */
-  private getDirectionFromMovement(fromX: number, toX: number): Direction {
-    return toX < fromX ? SpriteDirection.Left : SpriteDirection.Right;
   }
 }

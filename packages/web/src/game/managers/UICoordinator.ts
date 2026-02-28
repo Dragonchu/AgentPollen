@@ -604,13 +604,11 @@ export class UICoordinator {
       now - this.lastAgentListClickTime < this.DOUBLE_CLICK_MS;
 
     if (isDouble) {
-      this.gameController.selectAgent(agentId);
       this.cameraManager.followAgent(agentId, 1.5);
       this.lastAgentListClickedId = null;
       this.lastAgentListClickTime = 0;
     } else {
       this.gameController.selectAgent(agentId);
-      this.cameraManager.followAgent(agentId, 1.5);
       this.lastAgentListClickedId = agentId;
       this.lastAgentListClickTime = now;
     }
@@ -630,7 +628,7 @@ export class UICoordinator {
     this.statsNameText.setText(`${agent.name} ${agent.alive ? '🟢' : '🔴'}`);
     this.statsInfoText.setText(`ATK ${agent.attack}  DEF ${agent.defense}  ${agent.killCount}💀`);
     this.hpBar.setValue(Math.max(0, Math.min(1, agent.hp / agent.maxHp)));
-    this.shieldBar.setValue(Math.max(0, Math.min(1, (agent.defense * 5) / 100)));
+    this.shieldBar.setValue(Math.max(0, Math.min(1, agent.defense / 20)));
 
     // Refresh sidebar to update selection highlight
     this.onAgentsUpdated(this.gameController.getAgents());
