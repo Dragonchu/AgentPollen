@@ -244,7 +244,7 @@ export class UICoordinator {
     const toggleBtn = this.scene.add
       .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
       .setPadding(4, 2, 4, 2)
-      .setInteractive({ cursor: 'pointer', useHandCursor: true })
+      .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         this.sidebarCollapsed = !this.sidebarCollapsed;
         this.rebuildLayout();
@@ -314,7 +314,7 @@ export class UICoordinator {
     const toggleBtn = this.scene.add
       .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
       .setPadding(4, 2, 4, 2)
-      .setInteractive({ cursor: 'pointer', useHandCursor: true })
+      .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         this.votePanelCollapsed = !this.votePanelCollapsed;
         this.rebuildLayout();
@@ -465,7 +465,7 @@ export class UICoordinator {
     const toggleBtn = this.scene.add
       .text(0, 0, chevron, TEXT_STYLE_TOGGLE)
       .setPadding(4, 2, 4, 2)
-      .setInteractive({ cursor: 'pointer', useHandCursor: true })
+      .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         this.eventPanelCollapsed = !this.eventPanelCollapsed;
         this.rebuildLayout();
