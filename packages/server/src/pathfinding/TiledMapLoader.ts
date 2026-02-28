@@ -3,7 +3,7 @@ import { TileMap, TileType, Tile, Waypoint } from '@battle-royale/shared';
 
 /**
  * Compact collision format stored in server/data/village_collision.json.
- * Generated from the GenerativeAgentsCN tilemap.json Collisions layer.
+ * Generated from the tilemap.json Collisions layer.
  */
 interface VillageCollisionData {
   width: number;
@@ -17,7 +17,7 @@ interface VillageCollisionData {
 /**
  * Loads village collision data and converts it to the game's TileMap format.
  *
- * The source data is derived from the GenerativeAgentsCN tilemap.json
+ * The source data is derived from the tilemap.json
  * "Collisions" layer so that the server-side pathfinding and boundary checks
  * are aligned with the visual map rendered on the client.
  */

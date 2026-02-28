@@ -58,25 +58,19 @@ export interface ThinkingHistoryStorage {
  * - Testing without persistence
  */
 export class NullThinkingHistoryStorage implements ThinkingHistoryStorage {
-  async store(_sessionId: string, _agentId: number, _thinking: ThinkingProcess): Promise<void> {
-    // No-op: thinking process is discarded
-  }
+  async store(_sessionId: string, _agentId: number, _thinking: ThinkingProcess): Promise<void> {}
 
   async getHistory(
     _sessionId: string,
     _agentId: number,
     _limit?: number,
   ): Promise<ThinkingProcess[]> {
-    // Always returns empty array
     return [];
   }
 
-  async clearSession(_sessionId: string): Promise<void> {
-    // No-op: nothing to clear
-  }
+  async clearSession(_sessionId: string): Promise<void> {}
 
   async getCount(_sessionId: string, _agentId: number): Promise<number> {
-    // Always returns 0
     return 0;
   }
 }
@@ -104,10 +98,8 @@ export class InMemoryThinkingHistoryStorage implements ThinkingHistoryStorage {
   private sessionAccessTimes = new Map<string, number>();
 
   async store(sessionId: string, agentId: number, thinking: ThinkingProcess): Promise<void> {
-    // Update session access time
     this.sessionAccessTimes.set(sessionId, Date.now());
 
-    // Evict oldest session if limit exceeded
     if (
       this.storage.size >= InMemoryThinkingHistoryStorage.MAX_SESSIONS &&
       !this.storage.has(sessionId)
@@ -115,26 +107,22 @@ export class InMemoryThinkingHistoryStorage implements ThinkingHistoryStorage {
       this.evictOldestSession();
     }
 
-    // Get or create session storage
     let sessionStorage = this.storage.get(sessionId);
     if (!sessionStorage) {
       sessionStorage = new Map<number, ThinkingProcess[]>();
       this.storage.set(sessionId, sessionStorage);
     }
 
-    // Get or create agent history
     let agentHistory = sessionStorage.get(agentId);
     if (!agentHistory) {
       agentHistory = [];
       sessionStorage.set(agentId, agentHistory);
     }
 
-    // Add new thinking process (newest at the end)
     agentHistory.push(thinking);
 
-    // Enforce per-agent limit (keep most recent)
     if (agentHistory.length > InMemoryThinkingHistoryStorage.MAX_ENTRIES_PER_AGENT) {
-      agentHistory.shift(); // Remove oldest
+      agentHistory.shift();
     }
   }
 

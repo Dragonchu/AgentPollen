@@ -8,14 +8,8 @@ import {
 } from '@battle-royale/shared';
 
 /**
- * Rule-based decision engine for MVP.
+ * Rule-based decision engine.
  * Implements the DecisionEngine interface with simple heuristics.
- *
- * To upgrade to LLM:
- * 1. Create a new class implementing DecisionEngine
- * 2. In `decide()`, format the context as a prompt and call Claude/GPT
- * 3. Parse the LLM response into a Decision
- * 4. Register the new engine in World constructor
  */
 export class RuleBasedEngine implements DecisionEngine {
   readonly name = 'rule-based';
@@ -130,7 +124,7 @@ export class RuleBasedEngine implements DecisionEngine {
 
   /**
    * Derive a high-level plan from the current decision.
-   * Mirrors GenerativeAgentsCN's plan generation where agents set a multi-tick goal.
+   * Plans are multi-tick goals derived from the current decision.
    */
   private derivePlan(decision: Decision, ctx: DecisionContext): string {
     const { worldState } = ctx;

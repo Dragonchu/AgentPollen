@@ -54,7 +54,7 @@ export interface AgentFullState extends AgentSyncState {
   alliances: number[];
   enemies: number[];
   currentAction: string;
-  /** Current plan — the agent's active goal (aligns with GenerativeAgentsCN plan layer) */
+  /** Current plan — the agent's active goal */
   currentPlan: string;
   /** Sprite atlas key identifying which character texture to render */
   spriteKey: string;
@@ -288,7 +288,7 @@ export interface DecisionContext {
   innerVoice: string | null;
   /**
    * The agent's current active plan.
-   * Aligned with GenerativeAgentsCN's plan retrieval step:
+   * Plan retrieval step:
    * the decision engine receives the current plan and may propose a new one
    * via Decision.newPlan.
    */
@@ -307,7 +307,7 @@ export interface Decision {
   reason?: string; // for logging / display
   /**
    * If set, the agent will adopt this as its new plan.
-   * Mirrors GenerativeAgentsCN's plan revision mechanism.
+   * Plan revision mechanism.
    */
   newPlan?: string;
   /** Thinking process behind this decision */
@@ -400,7 +400,7 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
 };
 
 /**
- * Default agent templates aligned with GenerativeAgentsCN characters.
+ * Default agent templates.
  * Each agent maps to a character texture from the village assets.
  */
 export const DEFAULT_AGENT_TEMPLATES: AgentTemplate[] = [

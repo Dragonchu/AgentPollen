@@ -46,7 +46,7 @@ export class GameScene extends Phaser.Scene {
   preload(): void {
     const BASE = '/assets/village';
 
-    // ── Village tilemap (GenerativeAgentsCN) ──────────────────────────────────
+    // ── Village tilemap ──────────────────────────────────
     this.load.tilemapTiledJSON(ASSETS.IMAGES.VILLAGE_TILEMAP, `${BASE}/tilemap/tilemap.json`);
 
     // Tilesets
@@ -67,7 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_4, `${BASE}/tilemap/interiors_pt4.png`);
     this.load.image(ASSETS.IMAGES.TILESET_INTERIORS_5, `${BASE}/tilemap/interiors_pt5.png`);
 
-    // ── Character sprite atlases (GenerativeAgentsCN, 32×32, 4-directional) ──
+    // ── Character sprite atlases (32×32, 4-directional) ──
     const atlasJson = ASSETS.SPRITE_ATLAS_JSON;
     for (const name of ASSETS.AGENT_SPRITES) {
       this.load.atlas(name, `${BASE}/agents/${name}/texture.png`, atlasJson);

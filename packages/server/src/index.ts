@@ -157,7 +157,7 @@ async function main() {
   // 4. Create thinking history storage (plugin)
   const thinkingStorage = createThinkingStorage();
 
-  // 5. Load village tilemap (GenerativeAgentsCN map alignment)
+  // 5. Load village tilemap
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const collisionPath = resolve(__dirname, '../data/village_collision.json');
   let villageMap: VillageMapData | undefined;

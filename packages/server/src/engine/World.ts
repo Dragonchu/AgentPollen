@@ -94,7 +94,7 @@ export class World {
     this.sessionId = randomUUID();
 
     if (villageMap) {
-      // Use the GenerativeAgentsCN village tilemap for realistic terrain
+      // Use the village tilemap for realistic terrain
       this.tileMap = villageMap.tileMap;
       this.spawnPoints = villageMap.spawnPoints;
       // Override gridSize to match tilemap dimensions
@@ -220,7 +220,7 @@ export class World {
     const _voteResult = this.voteManager.tick();
 
     // 4. Agent loop: perceive → retrieve → plan → execute → reflect
-    //    Aligns with GenerativeAgentsCN's cognitive cycle.
+
     const shuffled = this.agents.filter((a) => a.alive).sort(() => Math.random() - 0.5);
     for (const agent of shuffled) {
       if (!agent.alive) continue;

@@ -49,7 +49,7 @@ export class Agent {
   currentAction: string = 'Surveying surroundings';
   /**
    * Active plan — the agent's current high-level goal.
-   * Aligns with GenerativeAgentsCN's plan layer: agents set a plan and pursue
+   * Agents set a plan and pursue
    * it across ticks until they decide to change it.
    */
   currentPlan: string = 'Assess the situation and decide on a strategy.';
@@ -94,12 +94,12 @@ export class Agent {
 
   /**
    * Set a new plan and record it in memory.
-   * Aligned with GenerativeAgentsCN's plan layer — plans are high-level goals
+   * Plans are high-level goals
    * that persist across ticks until the agent decides to revise them.
    */
   setNewPlan(plan: string): void {
     this.currentPlan = plan;
-    // Use Chinese prefix "[计划]" to align with GenerativeAgentsCN's plan memory convention.
+
     this.memory.add(`[计划] ${plan}`, 6, MemoryType.Plan);
   }
 

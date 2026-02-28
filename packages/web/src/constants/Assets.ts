@@ -7,8 +7,8 @@ export enum SpriteDirection {
 /**
  * 游戏资产键名常量
  *
- * 精灵资产优先使用 GenerativeAgentsCN 的角色素材（CuteRPG 风格 32×32 精灵）。
- * Tilemap 资产使用 GenerativeAgentsCN 的 village tilemap 及对应图集。
+ * 精灵资产优先使用角色素材（CuteRPG 风格 32×32 精灵）。
+ * Tilemap 资产使用 village tilemap 及对应图集。
  */
 export const ASSETS = {
   IMAGES: {
@@ -16,7 +16,7 @@ export const ASSETS = {
     ROCK2: 'rock2',
     GOLD_RESOURCE: 'gold_resource',
 
-    // ── Village tilemap tilesets (GenerativeAgentsCN) ──
+    // ── Village tilemap tilesets ──
     VILLAGE_TILEMAP: 'village_map',
     TILESET_FIELD_B: 'CuteRPG_Field_B',
     TILESET_FIELD_C: 'CuteRPG_Field_C',

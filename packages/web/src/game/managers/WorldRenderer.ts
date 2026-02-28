@@ -12,7 +12,7 @@ import type { CameraManager } from './CameraManager';
 /** Scale factor applied to 32×32 character sprites for better visibility. */
 const AGENT_SPRITE_SCALE = 1.25;
 
-/** Phaser atlas frame keys for 4-directional character animations (GenerativeAgentsCN convention). */
+/** Phaser atlas frame keys for 4-directional character animations. */
 const AGENT_FRAME = {
   down: 'down',
   downWalk: ['down-walk.000', 'down-walk.001', 'down-walk.002', 'down-walk.003'],
@@ -31,7 +31,7 @@ type FacingDir = 'down' | 'up' | 'left' | 'right';
  * WorldRenderer is responsible for all world-space rendering:
  * the Phaser tilemap (village map), item sprites, and agent sprites.
  *
- * Character sprites use the GenerativeAgentsCN atlas format (32×32, 4-directional).
+ * Character sprites use the atlas format (32×32, 4-directional).
  * The Tiled tilemap replaces the old tileSprite/obstacle approach for faithful
  * visual alignment with the server-side collision map.
  *
@@ -51,7 +51,7 @@ export class WorldRenderer {
   /** Last known facing direction per agent — preserved when idle. */
   private agentFacings = new Map<number, FacingDir>();
 
-  /** Phaser tilemap object (village map from GenerativeAgentsCN) */
+  /** Phaser tilemap object */
   private tiledMap: Phaser.Tilemaps.Tilemap | null = null;
   /** Fallback obstacle graphics used when the Phaser tilemap is unavailable. */
   private obstacleGraphics: Phaser.GameObjects.Graphics | null = null;
@@ -125,11 +125,11 @@ export class WorldRenderer {
     this.motionStates = motionStates;
   }
 
-  // ─── Village Tilemap (GenerativeAgentsCN) ──────────────────────────────────
+  // ─── Village Tilemap ──────────────────────────────────
 
   /**
-   * Construct the Phaser tilemap from the pre-loaded GenerativeAgentsCN assets.
-   * Layer order and tileset names match the original GenerativeAgentsCN frontend.
+   * Construct the Phaser tilemap from the pre-loaded tilemap assets.
+   * Layer order and tileset names match the original tilemap format.
    * The "Collisions" layer is rendered as a semi-transparent overlay so players
    * can see which tiles are blocked.
    * @returns true if successful, false if assets are unavailable
@@ -164,7 +164,7 @@ export class WorldRenderer {
       map.addTilesetImage('interiors_pt5', ASSETS.IMAGES.TILESET_INTERIORS_5),
     ].filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
-    // Visual layers (ordered bottom-to-top as in GenerativeAgentsCN)
+    // Visual layers
     const visualLayers = [
       'Bottom Ground',
       'Exterior Ground',
@@ -332,7 +332,7 @@ export class WorldRenderer {
 
   /**
    * Create per-character 4-directional animations if not yet registered.
-   * Mirrors the GenerativeAgentsCN animation setup (left/right/up/down walk + idle).
+   * Mirrors the character animation setup (left/right/up/down walk + idle).
    */
   private createCharacterAnimations(spriteKey: string): void {
     const anims = this.scene.anims;
