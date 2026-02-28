@@ -604,6 +604,7 @@ export class UICoordinator {
       now - this.lastAgentListClickTime < this.DOUBLE_CLICK_MS;
 
     if (isDouble) {
+      this.gameController.selectAgent(agentId);
       this.cameraManager.followAgent(agentId, 1.5);
       this.lastAgentListClickedId = null;
       this.lastAgentListClickTime = 0;
