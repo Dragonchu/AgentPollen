@@ -559,7 +559,7 @@ export class CameraManager {
       return;
     }
 
-    // Get agent display state from MotionState
+    // Validate that the agent has a known position before entering follow mode
     const displayState = this.motionState.getDisplayState(agentId);
 
     if (!displayState) {
@@ -567,36 +567,17 @@ export class CameraManager {
       return;
     }
 
-    const gridPos: GridCoord = {
-      gridX: displayState.displayX,
-      gridY: displayState.displayY,
-    };
-
     this.followingAgentId = agentId;
     this.followZoom = zoom ?? 1.5;
 
-    // Convert grid position to world coordinates (center of cell)
-    const worldPos = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
-
-    // Calculate target scroll position using TARGET zoom (not current zoom)
-    // Center = browser window center (converted to canvas coords) so agent aligns with viewport center
-    const targetZoom = this.followZoom;
-    const { width: vw, height: vh } = this.getViewportPixelSize();
-    const { x: centerX, y: centerY } = this.getBrowserWindowCenterInCanvas();
-    const viewportWidth = vw / targetZoom;
-    const viewportHeight = vh / targetZoom;
-
-    const scrollXRaw = worldPos.worldX - centerX / targetZoom;
-    const scrollYRaw = worldPos.worldY - centerY / targetZoom;
-    const scrollX = Phaser.Math.Clamp(scrollXRaw, 0, this.worldWidth - viewportWidth);
-    const scrollY = Phaser.Math.Clamp(scrollYRaw, 0, this.worldHeight - viewportHeight);
-
-    // Animate zoom and position simultaneously
+    // Only animate the zoom level. The scroll position is recalculated every
+    // frame inside update() based on the current (interpolating) zoom, which
+    // keeps the agent sprite precisely centred.  Tweening scrollX/scrollY
+    // together with zoom caused the agent to drift off-centre during the
+    // animation because scroll depends non-linearly on zoom.
     this.scene.tweens.add({
       targets: this.camera,
       zoom: this.followZoom,
-      scrollX,
-      scrollY,
       duration,
       ease: 'Power2',
     });
