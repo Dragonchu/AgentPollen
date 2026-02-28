@@ -1,6 +1,7 @@
 import type {
   AgentFullState,
   GameEvent,
+  ThinkingProcess,
   VoteState,
   WorldSyncState,
 } from "@battle-royale/shared";
@@ -74,9 +75,8 @@ export class UICoordinator {
   private eventListContent!: RexUI.Sizer;
   private eventListPanel!: RexUI.ScrollablePanel;
 
-  // ── Thinking bubble ───────────────────────────────────────────────────────────
-  private thinkingContainer!: Phaser.GameObjects.Container;
-  private thinkingText!: Phaser.GameObjects.Text;
+  // ── Thinking bubbles (one per agent) ─────────────────────────────────────────
+  private thinkingBubbles = new Map<number, { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; hasText: boolean }>();
 
   constructor(
     scene: Phaser.Scene,
@@ -94,7 +94,6 @@ export class UICoordinator {
   create(): void {
     this.rexUI = this.scene.rexUI!;
     this.buildLayout();
-    this.buildThinkingBubble();
     this.subscribeEvents();
     this.setupResize();
     this.startLiveAnimation();
@@ -112,11 +111,13 @@ export class UICoordinator {
     gs.off("state:events:updated", this.onEventsUpdated, this);
     gs.off("state:votes:updated", this.onVotesUpdated, this);
     gs.off("state:thinking:updated", this.onThinkingUpdated, this);
-    this.motionState.off("motion:frame-updated", this.onMotionFrameUpdated, this);
     this.scene.scale.off("resize", this.onResize, this);
 
     this.mainSizer?.destroy();
-    this.thinkingContainer?.destroy();
+    for (const { container } of this.thinkingBubbles.values()) {
+      container.destroy();
+    }
+    this.thinkingBubbles.clear();
   }
 
   // ── Layout construction ───────────────────────────────────────────────────────
@@ -294,12 +295,14 @@ export class UICoordinator {
       .add(this.eventListPanel as unknown as Phaser.GameObjects.GameObject, { proportion: 1, expand: true });
   }
 
-  private buildThinkingBubble(): void {
+  private buildThinkingBubbleForAgent(agentId: number): void {
+    if (this.thinkingBubbles.has(agentId)) return;
+
     const bg = this.scene.add
       .rectangle(0, 0, 260, 60, THEME.colors.secondary, 0.92)
       .setOrigin(0.5, 0.5);
 
-    this.thinkingText = this.scene.add
+    const text = this.scene.add
       .text(0, 0, "", {
         fontSize: THEME.font.small,
         color: THEME.css.foreground,
@@ -309,11 +312,13 @@ export class UICoordinator {
       })
       .setOrigin(0.5, 0.5);
 
-    this.thinkingContainer = this.scene.add
-      .container(0, 0, [bg, this.thinkingText])
+    const container = this.scene.add
+      .container(0, 0, [bg, text])
       .setVisible(false);
 
-    this.cameraManager.getWorldCamera().ignore(this.thinkingContainer);
+    this.cameraManager.getWorldCamera().ignore(container);
+    this.cameraManager.getPipCamera()?.ignore(container);
+    this.thinkingBubbles.set(agentId, { container, text, hasText: false });
   }
 
   // ── Event subscriptions ───────────────────────────────────────────────────────
@@ -326,7 +331,6 @@ export class UICoordinator {
     gs.on("state:events:updated",  this.onEventsUpdated,  this);
     gs.on("state:votes:updated",   this.onVotesUpdated,   this);
     gs.on("state:thinking:updated", this.onThinkingUpdated, this);
-    this.motionState.on("motion:frame-updated", this.onMotionFrameUpdated, this);
   }
 
   // ── Event handlers ────────────────────────────────────────────────────────────
@@ -345,6 +349,22 @@ export class UICoordinator {
       if (b.killCount !== a.killCount) return b.killCount - a.killCount;
       return b.hp - a.hp;
     });
+
+    // Create bubbles for new agents, destroy for removed agents
+    const currentIds = new Set(agents.keys());
+    for (const id of this.thinkingBubbles.keys()) {
+      if (!currentIds.has(id)) {
+        this.thinkingBubbles.get(id)!.container.destroy();
+        this.thinkingBubbles.delete(id);
+      }
+    }
+    for (const agent of agents.values()) {
+      const isNew = !this.thinkingBubbles.has(agent.id);
+      this.buildThinkingBubbleForAgent(agent.id);
+      if (isNew) {
+        this.gameController.requestThinkingHistory(agent.id);
+      }
+    }
 
     this.agentListContent.clear(true);
     for (const agent of sorted) {
@@ -387,7 +407,6 @@ export class UICoordinator {
       this.statsInfoText.setText("");
       this.hpBar.setValue(0);
       this.shieldBar.setValue(0);
-      this.thinkingContainer.setVisible(false);
       return;
     }
 
@@ -425,38 +444,43 @@ export class UICoordinator {
     }
   }
 
-  private onThinkingUpdated(): void {
-    const agent = this.gameController.getSelectedAgent();
-    if (!agent) return;
-    const history = this.gameController.getAgentThinkingHistory(agent.id);
-    const latest = history[0];
-    if (latest) {
-      const preview = latest.reasoning.length > 60
-        ? `${latest.reasoning.slice(0, 60)}…`
-        : latest.reasoning;
-      this.thinkingText.setText(`${latest.action}\n${preview}`);
+  private onThinkingUpdated(thinkingHistory: Map<number, ThinkingProcess[]>): void {
+    for (const [agentId, history] of thinkingHistory) {
+      const bubble = this.thinkingBubbles.get(agentId);
+      if (!bubble) continue;
+      const latest = history[0];
+      if (latest) {
+        const preview = latest.reasoning.length > 60
+          ? `${latest.reasoning.slice(0, 60)}…`
+          : latest.reasoning;
+        bubble.text.setText(`${latest.action}\n${preview}`);
+        bubble.hasText = true;
+      } else {
+        bubble.text.setText("");
+        bubble.hasText = false;
+        bubble.container.setVisible(false);
+      }
     }
-  }
-
-  private onMotionFrameUpdated(): void {
-    this.updateThinkingBubblePosition();
   }
 
   // ── Thinking bubble ───────────────────────────────────────────────────────────
 
   private updateThinkingBubblePosition(): void {
-    const agent = this.gameController.getSelectedAgent();
-    if (!agent?.alive) {
-      this.thinkingContainer.setVisible(false);
-      return;
+    const agents = this.gameController.getAgents();
+    for (const [agentId, bubble] of this.thinkingBubbles) {
+      const agent = agents.get(agentId);
+      if (!agent?.alive || !bubble.hasText) {
+        bubble.container.setVisible(false);
+        continue;
+      }
+      const displayState = this.motionState.getDisplayState(agentId);
+      const gridPos = displayState
+        ? { gridX: displayState.displayX, gridY: displayState.displayY }
+        : { gridX: agent.x, gridY: agent.y };
+      const worldPos  = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
+      const screenPos = this.cameraManager.worldToScreen(worldPos.worldX, worldPos.worldY);
+      bubble.container.setPosition(screenPos.x, screenPos.y - 80).setVisible(true);
     }
-    const displayState = this.motionState.getDisplayState(agent.id);
-    const gridPos = displayState
-      ? { gridX: displayState.displayX, gridY: displayState.displayY }
-      : { gridX: agent.x, gridY: agent.y };
-    const worldPos  = CoordinateUtils.gridToWorld(gridPos, CELL_SIZE);
-    const screenPos = this.cameraManager.worldToScreen(worldPos.worldX, worldPos.worldY);
-    this.thinkingContainer.setPosition(screenPos.x, screenPos.y - 80).setVisible(true);
   }
 
   // ── Resize ────────────────────────────────────────────────────────────────────
