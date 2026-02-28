@@ -111,7 +111,6 @@ export class UICoordinator {
     gs.off("state:events:updated", this.onEventsUpdated, this);
     gs.off("state:votes:updated", this.onVotesUpdated, this);
     gs.off("state:thinking:updated", this.onThinkingUpdated, this);
-    this.motionState.off("motion:frame-updated", this.onMotionFrameUpdated, this);
     this.scene.scale.off("resize", this.onResize, this);
 
     this.mainSizer?.destroy();
@@ -318,6 +317,7 @@ export class UICoordinator {
       .setVisible(false);
 
     this.cameraManager.getWorldCamera().ignore(container);
+    this.cameraManager.getPipCamera()?.ignore(container);
     this.thinkingBubbles.set(agentId, { container, text, hasText: false });
   }
 
@@ -331,7 +331,6 @@ export class UICoordinator {
     gs.on("state:events:updated",  this.onEventsUpdated,  this);
     gs.on("state:votes:updated",   this.onVotesUpdated,   this);
     gs.on("state:thinking:updated", this.onThinkingUpdated, this);
-    this.motionState.on("motion:frame-updated", this.onMotionFrameUpdated, this);
   }
 
   // ── Event handlers ────────────────────────────────────────────────────────────
@@ -360,7 +359,11 @@ export class UICoordinator {
       }
     }
     for (const agent of agents.values()) {
+      const isNew = !this.thinkingBubbles.has(agent.id);
       this.buildThinkingBubbleForAgent(agent.id);
+      if (isNew) {
+        this.gameController.requestThinkingHistory(agent.id);
+      }
     }
 
     this.agentListContent.clear(true);
@@ -452,12 +455,12 @@ export class UICoordinator {
           : latest.reasoning;
         bubble.text.setText(`${latest.action}\n${preview}`);
         bubble.hasText = true;
+      } else {
+        bubble.text.setText("");
+        bubble.hasText = false;
+        bubble.container.setVisible(false);
       }
     }
-  }
-
-  private onMotionFrameUpdated(): void {
-    this.updateThinkingBubblePosition();
   }
 
   // ── Thinking bubble ───────────────────────────────────────────────────────────
