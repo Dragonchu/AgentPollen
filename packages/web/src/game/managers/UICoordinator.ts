@@ -20,6 +20,8 @@ const HEADER_H = 48;
 const SIDEBAR_W = 200;
 const RIGHT_W = 280;
 const PAD = 8;
+/** Depth for the dedicated panel-background Graphics (behind all rexUI elements). */
+const BG_DEPTH = -1;
 
 const TEXT_STYLE_TITLE = {
   fontSize: THEME.font.title,
@@ -208,7 +210,7 @@ export class UICoordinator {
 
     const { width: w, height: h } = this.scene.scale;
     const g = this.scene.add.graphics();
-    g.setDepth(-1); // behind all rexUI elements
+    g.setDepth(BG_DEPTH); // behind all rexUI elements
 
     // Header
     g.fillStyle(THEME.colors.background, 0.95);
@@ -243,8 +245,17 @@ export class UICoordinator {
     }
   }
 
+  /**
+   * Create an invisible rexUI roundRectangle used only as a sizing anchor
+   * for sizer backgrounds.  Actual visible backgrounds are drawn by
+   * {@link drawPanelBackgrounds}.
+   */
+  private invisibleBg(w: number, h: number): RexUI.RoundRectangle {
+    return this.rexUI.add.roundRectangle(0, 0, w, h, 0, 0x000000, 0);
+  }
+
   private buildHeader(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, 0, HEADER_H, 0, 0x000000, 0);
+    const bg = this.invisibleBg(0, HEADER_H);
 
     this.liveCircle = this.scene.add.arc(0, 0, 5, 0, 360, false, THEME.colors.destructive);
     const title = this.scene.add.text(0, 0, '⚔ AI BATTLE ROYALE', TEXT_STYLE_TITLE);
@@ -272,7 +283,7 @@ export class UICoordinator {
   }
 
   private buildSidebar(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, SIDEBAR_W, 0, 0, 0x000000, 0);
+    const bg = this.invisibleBg(SIDEBAR_W, 0);
     const titleText = this.scene.add.text(0, 0, 'AGENTS', TEXT_STYLE_LABEL);
 
     const chevron = this.sidebarCollapsed ? '▶' : '▼';
@@ -334,7 +345,7 @@ export class UICoordinator {
   }
 
   private buildVotePanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
     const titleText = this.scene.add.text(0, 0, 'VOTE', TEXT_STYLE_LABEL);
 
     const chevron = this.votePanelCollapsed ? '▶' : '▼';
@@ -426,7 +437,7 @@ export class UICoordinator {
   }
 
   private buildStatsPanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
     const titleText = this.scene.add.text(0, 0, 'AGENT STATS', TEXT_STYLE_LABEL);
 
     this.statsNameText = this.scene.add.text(0, 0, 'Select an agent', TEXT_STYLE_BODY);
@@ -469,7 +480,7 @@ export class UICoordinator {
   }
 
   private buildEventPanel(): RexUI.Sizer {
-    const bg = this.rexUI.add.roundRectangle(0, 0, RIGHT_W - PAD, 0, 0, 0x000000, 0);
+    const bg = this.invisibleBg(RIGHT_W - PAD, 0);
     const titleText = this.scene.add.text(0, 0, 'EVENTS', TEXT_STYLE_LABEL);
 
     const chevron = this.eventPanelCollapsed ? '▶' : '▼';
