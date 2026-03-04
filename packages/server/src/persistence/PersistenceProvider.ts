@@ -1,18 +1,5 @@
 /**
- * Persistence layer (STUB - implement for production).
- *
- * This shows the interface for saving/restoring world state.
- *
- * MVP: No persistence (world resets on restart).
- * Production: Implement with Redis + PostgreSQL.
- *
- * Usage:
- *   const persistence = new RedisPersistence(redisUrl);
- *   // In game loop:
- *   if (tick % 60 === 0) await persistence.saveSnapshot(world.serialize());
- *   // On startup:
- *   const saved = await persistence.loadLatestSnapshot();
- *   if (saved) world = World.restore(saved);
+ * Persistence layer for saving/restoring world state.
  */
 
 export interface PersistenceProvider {
@@ -43,35 +30,5 @@ export class MemoryPersistence implements PersistenceProvider {
     return this.snapshots.at(-1) ?? null;
   }
 
-  async saveEvent(_event: unknown): Promise<void> {
-    // No-op in MVP
-  }
+  async saveEvent(_event: unknown): Promise<void> {}
 }
-
-// --- Production stubs (uncomment and implement) ---
-
-// export class RedisPersistence implements PersistenceProvider {
-//   constructor(private redisUrl: string) {}
-//   async saveSnapshot(data: string) {
-//     // await redis.set("br:snapshot", data);
-//   }
-//   async loadLatestSnapshot() {
-//     // return await redis.get("br:snapshot");
-//   }
-//   async saveEvent(event: unknown) {
-//     // await redis.lpush("br:events", JSON.stringify(event));
-//   }
-// }
-
-// export class PostgresPersistence implements PersistenceProvider {
-//   constructor(private connectionString: string) {}
-//   async saveSnapshot(data: string) {
-//     // INSERT INTO world_snapshots (data) VALUES ($1)
-//   }
-//   async loadLatestSnapshot() {
-//     // SELECT data FROM world_snapshots ORDER BY created_at DESC LIMIT 1
-//   }
-//   async saveEvent(event: unknown) {
-//     // INSERT INTO game_events (data) VALUES ($1)
-//   }
-// }

@@ -18,11 +18,11 @@ export const THEME = {
   },
   /** CSS color strings for Phaser text (e.g. "#00D4FF") */
   css: {
-    primary: "#00D4FF",
-    accent: "#FF8000",
-    mutedForeground: "#6B7A8F",
-    destructive: "#E54F4F",
-    foreground: "#E2E8F0",
+    primary: '#00D4FF',
+    accent: '#FF8000',
+    mutedForeground: '#6B7A8F',
+    destructive: '#E54F4F',
+    foreground: '#E2E8F0',
   },
   spacing: {
     small: 12,
@@ -32,9 +32,9 @@ export const THEME = {
   /** Minimum touch target size (px) */
   minTouchTarget: 44,
   font: {
-    title: "16px",
-    body: "13px",
-    small: "11px",
-    label: "11px",
+    title: '16px',
+    body: '13px',
+    small: '11px',
+    label: '11px',
   },
 } as const;

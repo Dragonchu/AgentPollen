@@ -1,8 +1,8 @@
-"use client"
+'use client';
 
-import dynamic from "next/dynamic"
+import dynamic from 'next/dynamic';
 
-const LandingContent = dynamic(() => import("@/components/landing/landing-content"), {
+const LandingContent = dynamic(() => import('@/components/landing/landing-content'), {
   ssr: false,
   loading: () => (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -14,8 +14,8 @@ const LandingContent = dynamic(() => import("@/components/landing/landing-conten
       </div>
     </div>
   ),
-})
+});
 
 export function LandingLoader() {
-  return <LandingContent />
+  return <LandingContent />;
 }

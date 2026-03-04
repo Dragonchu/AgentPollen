@@ -1,4 +1,4 @@
-import { MemoryEntry, MemoryType } from "@battle-royale/shared";
+import { MemoryEntry, MemoryType } from '@battle-royale/shared';
 
 /**
  * Memory stream for an agent.

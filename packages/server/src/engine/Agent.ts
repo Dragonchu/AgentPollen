@@ -9,9 +9,9 @@ import {
   Waypoint,
   ThinkingProcess,
   TileMap,
-} from "@battle-royale/shared";
-import { MemoryStream } from "./MemoryStream.js";
-import { MapGenerator } from "../pathfinding/MapGenerator.js";
+} from '@battle-royale/shared';
+import { MemoryStream } from './MemoryStream.js';
+import { MapGenerator } from '../pathfinding/MapGenerator.js';
 
 export interface AgentPerception {
   nearbyAgents: Array<{ agent: Agent; distance: number }>;
@@ -32,6 +32,8 @@ export class Agent {
   readonly personality: string;
   readonly description: string;
   readonly color: string;
+  /** Sprite atlas key used by the client to render this character (e.g. "乔治") */
+  readonly spriteKey: string;
 
   x: number;
   y: number;
@@ -40,11 +42,17 @@ export class Agent {
   attack: number;
   defense: number;
   alive: boolean = true;
-  weapon: string = "bare fists";
+  weapon: string = 'bare fists';
   killCount: number = 0;
 
   actionState: AgentActionState = AgentActionState.Idle;
-  currentAction: string = "Surveying surroundings";
+  currentAction: string = 'Surveying surroundings';
+  /**
+   * Active plan — the agent's current high-level goal.
+   * Agents set a plan and pursue
+   * it across ticks until they decide to change it.
+   */
+  currentPlan: string = 'Assess the situation and decide on a strategy.';
   currentDecision: Decision | null = null;
   thinkingProcess: ThinkingProcess | null = null;
 
@@ -61,6 +69,7 @@ export class Agent {
     this.name = template.name;
     this.personality = template.personality;
     this.description = template.description;
+    this.spriteKey = template.spriteKey;
     this.color = `hsl(${(id * 137) % 360}, 70%, 60%)`;
 
     this.x = x;
@@ -83,9 +92,20 @@ export class Agent {
     this.memory.add(`[Inner Voice] ${message}`, 9, MemoryType.InnerVoice);
   }
 
+  /**
+   * Set a new plan and record it in memory.
+   * Plans are high-level goals
+   * that persist across ticks until the agent decides to revise them.
+   */
+  setNewPlan(plan: string): void {
+    this.currentPlan = plan;
+
+    this.memory.add(`[计划] ${plan}`, 6, MemoryType.Plan);
+  }
+
   /** Perceive nearby agents and items within vision range */
   perceive(allAgents: Agent[], allItems: ItemState[], visionRange = 4): AgentPerception {
-    const nearbyAgents: AgentPerception["nearbyAgents"] = [];
+    const nearbyAgents: AgentPerception['nearbyAgents'] = [];
     for (const other of allAgents) {
       if (other.id === this.id || !other.alive) continue;
       const dist = Math.abs(other.x - this.x) + Math.abs(other.y - this.y);
@@ -105,7 +125,7 @@ export class Agent {
     const dy = Math.sign(ty - this.y);
     const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
     const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-    
+
     // Only move if the destination is passable
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
@@ -120,7 +140,7 @@ export class Agent {
     const dy = Math.sign(this.y - fy) || 1;
     const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
     const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-    
+
     // Only move if the destination is passable
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
@@ -137,7 +157,7 @@ export class Agent {
       const dy = Math.floor(Math.random() * 3) - 1;
       const newX = Math.max(0, Math.min(gridSize - 1, this.x + dx));
       const newY = Math.max(0, Math.min(gridSize - 1, this.y + dy));
-      
+
       // If the destination is passable, move there
       if (MapGenerator.isPassable(tileMap, newX, newY)) {
         this.x = newX;
@@ -167,7 +187,7 @@ export class Agent {
     }
 
     const target = this.waypoints[this.currentWaypointIndex];
-    
+
     // Check if we've reached the current waypoint
     if (this.x === target.x && this.y === target.y) {
       this.currentWaypointIndex++;
@@ -178,23 +198,23 @@ export class Agent {
     // Prioritize horizontal movement if both differ
     const dx = Math.sign(target.x - this.x);
     const dy = Math.sign(target.y - this.y);
-    
+
     let newX = this.x;
     let newY = this.y;
-    
+
     if (dx !== 0) {
       newX += dx;
     } else if (dy !== 0) {
       newY += dy;
     }
-    
+
     // Validate the move is passable before applying
     if (MapGenerator.isPassable(tileMap, newX, newY)) {
       this.x = newX;
       this.y = newY;
       return true;
     }
-    
+
     // If the path is blocked, clear it and stay in place
     this.clearPath();
     return false;
@@ -254,6 +274,8 @@ export class Agent {
       alliances: [...this.alliances],
       enemies: [...this.enemies],
       currentAction: this.currentAction,
+      currentPlan: this.currentPlan,
+      spriteKey: this.spriteKey,
       memories: this.memory.getRecent(15),
       thinkingProcess: this.thinkingProcess ?? undefined,
     };

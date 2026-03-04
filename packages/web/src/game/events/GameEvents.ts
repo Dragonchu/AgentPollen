@@ -15,7 +15,7 @@ export enum SocketEvents {
   SYNC_EVENTS = 'sync:events',
   VOTE_STATE = 'vote:state',
   AGENT_DETAIL = 'agent:detail',
-  THINKING_HISTORY = 'thinking:history', 
+  THINKING_HISTORY = 'thinking:history',
   SYNC_PATHS = 'sync:paths',
   VOTE_SUBMIT = 'vote:submit',
   AGENT_INSPECT = 'agent:inspect',
@@ -25,7 +25,7 @@ export enum SocketEvents {
 
 export enum NetworkEvents {
   CONNECTED = 'network:connected',
-  DISCONNECTED = 'network:disconnected', 
+  DISCONNECTED = 'network:disconnected',
   SYNC_FULL = 'network:sync:full',
   SYNC_WORLD = 'network:sync:world',
   SYNC_AGENTS = 'network:sync:agents',

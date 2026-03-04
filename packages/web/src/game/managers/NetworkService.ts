@@ -1,5 +1,5 @@
-import * as Phaser from "phaser";
-import { io, Socket } from "socket.io-client";
+import * as Phaser from 'phaser';
+import { io, Socket } from 'socket.io-client';
 import type {
   ServerToClientEvents,
   ClientToServerEvents,
@@ -10,13 +10,13 @@ import type {
   VoteState,
   PathSyncPayload,
   ThinkingHistoryPayload,
-} from "@battle-royale/shared";
-import { SocketEvents } from "@battle-royale/shared";
-import { NetworkEvents } from "../events/GameEvents";
+} from '@battle-royale/shared';
+import { SocketEvents } from '@battle-royale/shared';
+import { NetworkEvents } from '../events/GameEvents';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
 /**
  * NetworkService handles Socket.IO communication with the server.
@@ -49,7 +49,7 @@ export class NetworkService extends Phaser.Events.EventEmitter {
    */
   connect(): void {
     if (this.socket) {
-      console.warn("Already connected to server");
+      console.warn('Already connected to server');
       return;
     }
 
@@ -123,7 +123,7 @@ export class NetworkService extends Phaser.Events.EventEmitter {
     this.socket?.emit(SocketEvents.VOTE_SUBMIT, {
       agentId,
       action,
-      playerId: this.socket.id ?? "anon",
+      playerId: this.socket.id ?? 'anon',
     });
   }
 
